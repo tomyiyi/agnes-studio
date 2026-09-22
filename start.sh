@@ -30,15 +30,17 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git pull --rebase origin main 2>/dev/null || echo "ℹ️  跳过远程拉取（离线或已是最新）"
 fi
 
-# 检查端口是否被占用，若被占用则提示或复用
+# 检查端口是否被占用，若被占用则杀掉旧服务或提示
 if lsof -i :$PORT >/dev/null 2>&1; then
-    echo "ℹ️  端口 $PORT 已在运行中，直接打开浏览器即可。"
-else
-    echo "✨ 启动轻量静态 Web 容器在端口 $PORT..."
-    $PYTHON_CMD -m http.server $PORT --directory "$DIR/public" &
-    SERVER_PID=$!
-    echo "PID: $SERVER_PID"
+    echo "ℹ️  端口 $PORT 已在运行中，正在重启为最新统一服务..."
+    lsof -ti :$PORT | xargs kill -9 2>/dev/null || true
+    sleep 1
 fi
+
+echo "✨ 启动 Agnes Studio 统一智能工作台与模型网关 (端口 $PORT)..."
+$PYTHON_CMD "$DIR/scripts/studio_server.py" $PORT &
+SERVER_PID=$!
+echo "PID: $SERVER_PID"
 
 # 自动在系统默认浏览器中打开
 if command -v open >/dev/null 2>&1; then

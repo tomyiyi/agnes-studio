@@ -19,6 +19,10 @@ dist/
 # External open-source references (can be cloned via scripts)
 open_source_posters/
 
+# Temporary outputs
+public/assets/poster_custom_*.png
+public/assets/generated/
+
 # Misc
 .DS_Store
 *.pem
