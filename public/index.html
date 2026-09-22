@@ -527,7 +527,7 @@
                   <span class="text-base">✨</span>
                   <span class="font-bold text-xs text-gray-900 dark:text-white">实时自定义文案海报工坊</span>
                 </div>
-                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-100 dark:bg-cyan-500/10 text-cyan-800 dark:text-cyan-400">Live Generator</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-100 dark:bg-cyan-500/10 text-cyan-800 dark:text-cyan-400">实时光栅化生成</span>
               </div>
               <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">
                 任意输入您的主题文案，选用当前排版流派与底图，一键光栅化输出 1200×1200 商业级海报。
@@ -535,23 +535,23 @@
 
               <div class="space-y-2.5 text-xs">
                 <div>
-                  <label class="block text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">主标题 (H1 Title)</label>
+                  <label class="block text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">海报主标题 (H1)</label>
                   <input type="text" id="custom-title" value="苏黎世秩序" class="w-full bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500">
                 </div>
 
                 <div>
-                  <label class="block text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">副标 / 英文 (Subtitle / En)</label>
+                  <label class="block text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">副标题 / 衬线副标 (Subtitle)</label>
                   <input type="text" id="custom-subtitle" value="STRUCTURE & ESSENCE" class="w-full bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500">
                 </div>
 
                 <div>
-                  <label class="block text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">正文金句 / 诗词七绝 (Body)</label>
+                  <label class="block text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">正文金句 / 诗词名言 (Body)</label>
                   <textarea id="custom-body" rows="2" class="w-full bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500 custom-scrollbar leading-relaxed">设计不是情绪的宣泄，而是对客观秩序的精确度量。让字符锚定在理性的基准线上。</textarea>
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
                   <div>
-                    <label class="block text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">署名 (Author)</label>
+                    <label class="block text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">创作者署名 (Author)</label>
                     <input type="text" id="custom-author" value="TOM // AGNES STUDIO" class="w-full bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500">
                   </div>
                   <div>
@@ -692,7 +692,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="space-y-2">
             <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 font-mono">
-              <span>SOURCE: DALL-E 3 JSON SCHEMA</span>
+              <span>源数据：DALL-E 3 JSON 模式</span>
               <span>JSON 输入</span>
             </div>
             <textarea id="json-input" rows="13" class="w-full rounded-2xl bg-gray-50 dark:bg-black/50 border border-paper-border dark:border-white/10 p-4 font-mono text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:border-cyan-500 custom-scrollbar leading-relaxed" placeholder="在此粘贴任意 Garden-Skills 或 DALL-E 3 范式 JSON..."></textarea>
@@ -700,7 +700,7 @@
 
           <div class="space-y-2">
             <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 font-mono">
-              <span>COMPILED: AGNES DIFFUSION PROMPT</span>
+              <span>编译输出：AGNES 扩散提示词</span>
               <button onclick="copyAgnesPrompt()" class="text-cyan-600 dark:text-cyan-400 hover:underline">一键复制 📋</button>
             </div>
             <div id="transpiled-output" class="w-full h-[288px] rounded-2xl bg-gray-50 dark:bg-black/50 border border-paper-border dark:border-white/10 p-4 font-mono text-xs text-cyan-700 dark:text-cyan-300 overflow-y-auto custom-scrollbar leading-relaxed">
@@ -732,7 +732,7 @@
             <h2 class="text-xl font-bold text-gray-900 dark:text-white">📚 17 大经验分类与技能标准库</h2>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">系统已全量收敛 ConardLi/garden-skills 沉淀的 17 个大类与高频实操模板</p>
           </div>
-          <span class="text-xs font-mono px-3 py-1 bg-gray-100 dark:bg-white/5 rounded-lg text-cyan-700 dark:text-cyan-400">26 Skills Ready</span>
+          <span class="text-xs font-mono px-3 py-1 bg-gray-100 dark:bg-white/5 rounded-lg text-cyan-700 dark:text-cyan-400">26 套技能已就绪</span>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="skills-categories-grid"></div>
       </div>
@@ -758,9 +758,9 @@
         <div class="rounded-3xl bg-white dark:bg-obsidian-surface border border-paper-border dark:border-obsidian-border p-6 space-y-4 editorial-shadow">
           <div class="flex items-center justify-between">
             <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">本地 New API 状态</span>
-            <span class="px-2 py-0.5 rounded text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono border border-emerald-500/20">Optimal</span>
+            <span class="px-2 py-0.5 rounded text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono border border-emerald-500/20">运行极佳</span>
           </div>
-          <div class="text-3xl font-extrabold text-gray-900 dark:text-white font-mono">32<span class="text-sm font-normal text-gray-500 ml-1">ms latency</span></div>
+          <div class="text-3xl font-extrabold text-gray-900 dark:text-white font-mono">32<span class="text-sm font-normal text-gray-500 ml-1">ms 延迟</span></div>
           <div class="space-y-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-white/5 pt-4">
             <div class="flex justify-between"><span>活跃 Agnes 渠道:</span><span class="text-gray-900 dark:text-white font-mono">6 / 6 满载在线</span></div>
             <div class="flex justify-between"><span>极速响应节点:</span><span class="text-cyan-600 dark:text-cyan-400 font-mono">Agnes-4 (1697ms)</span></div>
@@ -771,7 +771,7 @@
         <div class="rounded-3xl bg-white dark:bg-obsidian-surface border border-paper-border dark:border-obsidian-border p-6 space-y-4 editorial-shadow">
           <div class="flex items-center justify-between">
             <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Garden-Skills 上游仓库</span>
-            <span class="px-2 py-0.5 rounded text-xs bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-mono border border-cyan-500/20">Synchronized</span>
+            <span class="px-2 py-0.5 rounded text-xs bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-mono border border-cyan-500/20">已同步</span>
           </div>
           <div class="text-xl font-bold text-gray-900 dark:text-white font-mono truncate">ConardLi/garden-skills</div>
           <div class="space-y-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-white/5 pt-4">
@@ -784,9 +784,9 @@
         <div class="rounded-3xl bg-white dark:bg-obsidian-surface border border-paper-border dark:border-obsidian-border p-6 space-y-4 editorial-shadow">
           <div class="flex items-center justify-between">
             <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">容灾快照 (Backup Cron)</span>
-            <span class="px-2 py-0.5 rounded text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono border border-amber-500/20">Active</span>
+            <span class="px-2 py-0.5 rounded text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono border border-amber-500/20">生效中</span>
           </div>
-          <div class="text-2xl font-bold text-gray-900 dark:text-white font-mono">03:00 <span class="text-xs font-normal text-gray-500">Daily Snapshots</span></div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white font-mono">03:00 <span class="text-xs font-normal text-gray-500">每日自动快照</span></div>
           <div class="space-y-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-white/5 pt-4">
             <div class="flex justify-between"><span>快照机制:</span><span class="text-gray-900 dark:text-white">SQLite .backup 在线热备</span></div>
             <div class="flex justify-between"><span>生命周期归档:</span><span class="text-gray-900 dark:text-white">7 天自动轮转过期清理</span></div>
