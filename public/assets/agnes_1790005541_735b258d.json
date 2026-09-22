@@ -1,0 +1,15 @@
+{
+  "timestamp": 1790005541,
+  "filename": "agnes_1790005541_735b258d.png",
+  "local_path": "/Users/tom/.new-api/generated_images/agnes_1790005541_735b258d.png",
+  "remote_url": "https://platform-outputs.agnes-ai.space/images/t2i/task_X1w8yaA2tkVCuiXShc2z0wzObszEziqj/output_f075e7dfa8b94577ab4989325f1a99a1.png",
+  "prompt": "Breathtaking anime background art of a quiet rural train station in Japan on a sun-drenched summer afternoon. Inspired by the lush, luminous aesthetic of Makoto Shinkai and Studio Ghibli. A glowing red and white vending machine resting beside a rustic wooden bench, green leafy trees swaying gently under telephone wires. In the brilliant azure sky, colossal majestic towering cumulonimbus clouds (Nyudogumo) catching iridescent golden sunlight with radiant god rays. Pristine watercolor and digital gouache textures, crystal-clear atmosphere, hyper-detailed environmental lighting with chromatic aberration, evoking deep nostalgia, serenity, and youthful summer warmth, wallpaper quality 8k.",
+  "model": "agnes-image-2.5-flash",
+  "file_size_kb": "1576.7 KB",
+  "download_duration_s": "13.94s",
+  "extra": {
+    "skill_id": "healing_scene",
+    "name": "日系治愈风光影插画 (Makoto Shinkai Style)",
+    "category": "插画与场景 (Scenes & Illustrations)"
+  }
+}

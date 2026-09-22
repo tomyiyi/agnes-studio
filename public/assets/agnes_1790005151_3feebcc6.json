@@ -1,0 +1,15 @@
+{
+  "timestamp": 1790005151,
+  "filename": "agnes_1790005151_3feebcc6.png",
+  "local_path": "/Users/tom/.new-api/generated_images/agnes_1790005151_3feebcc6.png",
+  "remote_url": "https://platform-outputs.agnes-ai.space/images/t2i/task_laTqjcBdp0opuNGQ1BrmfqgcRZgKOMus/output_1fc56d321e2245228a58d4fc4c74b09b.png",
+  "prompt": "The exact same recurring Asian beauty: a captivating 21-year-old East Asian woman with a soft refined oval face, slender delicate jawline, and high cranial vault. Clear luminous almond-shaped dark hazel-brown eyes with delicate double eyelids and a tiny faint natural beauty mark just beneath her left eye. A slender straight nose bridge with softly defined tip, and dewy natural peach-pink lips with an elegant cupid's bow. Hair is styled in effortless dark espresso brown locks with delicate airy wispy bangs and natural flyaway baby hairs softly framing her temples. Subsurface scattering (SSS) on translucent porcelain skin, natural skin texture with visible fine pores, subtle natural peach blush, no heavy makeup, no plastic airbrushing, genuine authentic human warmth.  Sitting by the sunlit window of a Parisian cafe on a bright morning. Wearing an oversized relaxed crisp ivory linen shirt slightly unbuttoned at the collar, showing elegant collarbones. Gentle warm morning golden hour rays casting soft shadows across her cheeks, holding a ceramic coffee cup with a gentle warm serene smile, looking directly into the lens.  cinematic masterpiece portrait, shot on Hasselblad H6D-100c, 85mm f/1.4 portrait lens, creamy smooth bokeh, soft volumetric lighting, authentic film grain, pristine 8k editorial fashion magazine quality, natural relaxed pose, candid emotional resonance. ",
+  "model": "agnes-image-2.5-flash",
+  "file_size_kb": "1127.5 KB",
+  "download_duration_s": "7.18s",
+  "extra": {
+    "scene_id": "scene_01_cafe_morning",
+    "scene_title": "晨光咖啡馆 · 极简松弛感",
+    "api_duration_s": "12.43s"
+  }
+}

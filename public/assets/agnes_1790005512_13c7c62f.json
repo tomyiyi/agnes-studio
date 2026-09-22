@@ -1,0 +1,15 @@
+{
+  "timestamp": 1790005512,
+  "filename": "agnes_1790005512_13c7c62f.png",
+  "local_path": "/Users/tom/.new-api/generated_images/agnes_1790005512_13c7c62f.png",
+  "remote_url": "https://platform-outputs.agnes-ai.space/images/t2i/task_CY0zQvjyqXm4SwgNUyfefZIo5BApMf6P/output_5007c2a9298a4c1c858a54f8a540ffc4.png",
+  "prompt": "Delightful 3D claymorphism icon of a cute chibi astronaut floating happily alongside a chubby retro toy rocket. Rendered in Blender Cycles and Cinema 4D style, tactile soft matte polymer clay material with slight finger-pressed organic texture. Charming pastel color palette: baby blue, pale butter yellow, soft lavender, and blush pink. Centered isometric composition floating on a clean, solid light cream background with gentle diffused ambient occlusion (AO) contact shadows. Warm directional studio light casting pillowy soft shadows, glossy candy-like plastic visor with subtle reflections, Dribbble trending 3D illustration, ultra-clean UI asset, adorable toy aesthetic.",
+  "model": "agnes-image-2.5-flash",
+  "file_size_kb": "817.4 KB",
+  "download_duration_s": "3.40s",
+  "extra": {
+    "skill_id": "themed_3d_icon",
+    "name": "3D 黏土盲盒风立体图标 (Claymorphism)",
+    "category": "3D资产 (Assets & Props)"
+  }
+}

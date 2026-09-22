@@ -1,0 +1,34 @@
+{
+  "last_checked_at": "2026-09-22 00:21:52",
+  "gateway": {
+    "status": "healthy",
+    "latency_ms": 32,
+    "available_models_count": 13,
+    "image_models": [
+      "agnes-image-2.0-flash",
+      "agnes-image-2.1-flash",
+      "agnes-image-2.5-flash",
+      "dall-e-3"
+    ]
+  },
+  "upstream_repositories": [
+    {
+      "repo": "ConardLi/garden-skills",
+      "latest_commit": "aaf9a82",
+      "date": "2026-07-12T14:36:27Z",
+      "message": "fix(marketplace): update skill source paths for presentation, web design, knowledge base, image generation, and beautiful article skills #20",
+      "status": "synchronized"
+    },
+    {
+      "repo": "QuantumNous/new-api",
+      "status": "stable_v1.0.0-rc.24"
+    }
+  ],
+  "cron_jobs": [
+    {
+      "job": "db_backup",
+      "schedule": "0 3 * * *",
+      "target": "/Users/tom/.new-api/backups"
+    }
+  ]
+}

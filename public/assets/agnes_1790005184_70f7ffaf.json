@@ -1,0 +1,15 @@
+{
+  "timestamp": 1790005184,
+  "filename": "agnes_1790005184_70f7ffaf.png",
+  "local_path": "/Users/tom/.new-api/generated_images/agnes_1790005184_70f7ffaf.png",
+  "remote_url": "https://platform-outputs.agnes-ai.space/images/t2i/task_VuTtUB1B7qilEK0GShP98JS1w4OeGp7V/output_dd3f06a146124e54be3864980879cef6.png",
+  "prompt": "The exact same recurring Asian beauty: a captivating 21-year-old East Asian woman with a soft refined oval face, slender delicate jawline, and high cranial vault. Clear luminous almond-shaped dark hazel-brown eyes with delicate double eyelids and a tiny faint natural beauty mark just beneath her left eye. A slender straight nose bridge with softly defined tip, and dewy natural peach-pink lips with an elegant cupid's bow. Hair is styled in effortless dark espresso brown locks with delicate airy wispy bangs and natural flyaway baby hairs softly framing her temples. Subsurface scattering (SSS) on translucent porcelain skin, natural skin texture with visible fine pores, subtle natural peach blush, no heavy makeup, no plastic airbrushing, genuine authentic human warmth.  Standing in a quiet courtyard beside serene bamboo foliage in soft overcast daylight. Wearing a modern Neo-Chinese minimalist silk qipao-inspired blouse in moon-white with subtle celadon jade embroidery, hair loosely pinned up. Ethereal and poetic atmosphere, gentle cool breeze lifting a wisp of hair, graceful and serene feminine charm.  cinematic masterpiece portrait, shot on Hasselblad H6D-100c, 85mm f/1.4 portrait lens, creamy smooth bokeh, soft volumetric lighting, authentic film grain, pristine 8k editorial fashion magazine quality, natural relaxed pose, candid emotional resonance. ",
+  "model": "agnes-image-2.5-flash",
+  "file_size_kb": "1084.7 KB",
+  "download_duration_s": "6.20s",
+  "extra": {
+    "scene_id": "scene_03_neo_chinese",
+    "scene_title": "竹影庭院 · 清冷新中式",
+    "api_duration_s": "12.40s"
+  }
+}

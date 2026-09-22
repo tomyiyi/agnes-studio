@@ -1,0 +1,15 @@
+{
+  "timestamp": 1790005526,
+  "filename": "agnes_1790005526_188c9462.png",
+  "local_path": "/Users/tom/.new-api/generated_images/agnes_1790005526_188c9462.png",
+  "remote_url": "https://platform-outputs.agnes-ai.space/images/t2i/task_ytX7s7jG3jMxrPqX6M3h5xvKWBy2p999/output_1aca3e41a0264c4fa6a0d948db43284a.png",
+  "prompt": "Avant-garde architectural exhibition poster in the style of Swiss International Typographic Style. Dominant clean negative white space. A monolithic curved brutalist concrete arch bathed in warm golden late-afternoon sunlight, casting a bold, razor-sharp diagonal shadow across a pristine smooth stone floor. A tiny solitary silhouette of a person standing at the edge of the shadow, providing scale and poetic tension. Typography is tastefully integrated into the empty space: the word 'ARCHITECTURA' set in elegant crisp black sans-serif font. Shot on medium format film, fine tactile grain, exquisite balance of light and shadow, museum-grade graphic design, minimalist masterpiece.",
+  "model": "agnes-image-2.5-flash",
+  "file_size_kb": "1128.9 KB",
+  "download_duration_s": "4.56s",
+  "extra": {
+    "skill_id": "editorial_cover_poster",
+    "name": "先锋极简视觉艺术海报 (Editorial Cover)",
+    "category": "海报与活动 (Posters & Campaigns)"
+  }
+}

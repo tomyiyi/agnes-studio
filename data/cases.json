@@ -1,0 +1,114 @@
+{
+  "updated_at": "2026-09-22T00:10:00Z",
+  "categories": [
+    "动漫海报",
+    "人物一致性",
+    "便当格信息图",
+    "商业产品摄影",
+    "3D资产",
+    "艺术概念"
+  ],
+  "cases": [
+    {
+      "id": "case_steampunk_poster_commercial",
+      "category": "动漫海报",
+      "title": "《铜钟与蒸汽城》终极商业概念海报",
+      "subtitle": "STEAM & CHIME · 她修理时间，也修理人心",
+      "highlight": "彻底攻克生图模型中文乱码！纯正二次元美学视觉底图 + 4K 矢量中文排版合成",
+      "local_img": "generated_images/agnes_1790006749_b2b755da_poster.png",
+      "raw_img": "generated_images/agnes_1790006749_b2b755da.png",
+      "model": "agnes-image-2.5-flash",
+      "duration": "13.45s",
+      "aspect_ratio": "1:1 / 3:2",
+      "tags": [
+        "新海诚风",
+        "纯正赛璐珞",
+        "矢量中文排版",
+        "零错别字",
+        "冷暖互补光"
+      ]
+    },
+    {
+      "id": "case_steampunk_comparison",
+      "category": "动漫海报",
+      "title": "《铜钟与蒸汽城》编译版 vs 中文原生版深度对比",
+      "subtitle": "双图并排实测评测",
+      "highlight": "实测揭示生图模型中文字符拓扑缺陷与过度工程化反噬现象",
+      "local_img": "generated_images/agnes_1790006491_b50dfc0e.png",
+      "compare_img": "generated_images/agnes_1790006532_372a0b74.png",
+      "model": "agnes-image-2.5-flash",
+      "duration": "14.2s vs 18.9s",
+      "tags": [
+        "提示词对比",
+        "跨语言评测",
+        "画风纯度对比"
+      ]
+    },
+    {
+      "id": "case_consistent_beauty_series",
+      "category": "人物一致性",
+      "title": "东方神颜同一人物写真集 (4大场景全景)",
+      "subtitle": "晨光咖啡馆 / 秋日大衣 / 竹影新中式 / 落日海滩",
+      "highlight": "微观三锚点脸部 DNA (鹅蛋骨相+杏眼扇形微双+泪痣) 锁死面孔，次表面散射告别塑料感",
+      "local_img": "generated_images/agnes_1790005151_3feebcc6.png",
+      "gallery_url": "consistent_beauty_gallery.html",
+      "model": "agnes-image-2.5-flash",
+      "duration": "11.2s",
+      "tags": [
+        "同一张脸",
+        "东方白月光",
+        "次表面散射(SSS)",
+        "中画幅85mm",
+        "反假白磨皮"
+      ]
+    },
+    {
+      "id": "case_bento_infographic",
+      "category": "便当格信息图",
+      "title": "Apple / Notion 风 Bento Grid 模块化信息图",
+      "subtitle": "高密度信息结构与视觉层次",
+      "highlight": "8 模块不对称圆角卡片、微阴影、数据图表与极简瑞士国际版式",
+      "local_img": "generated_images/agnes_1790005466_792ae38c.png",
+      "model": "agnes-image-2.5-flash",
+      "duration": "10.02s",
+      "tags": [
+        "Bento Grid",
+        "数据可视化",
+        "Apple审美",
+        "瑞士排版"
+      ]
+    },
+    {
+      "id": "case_premium_skincare",
+      "category": "商业产品摄影",
+      "title": "高定磨砂精华液瓶静物商业摄影",
+      "subtitle": "Phase One 150MP 微距 100mm 级材质渲染",
+      "highlight": "磨砂半透玻璃、拉丝香槟金金属盖、纯白反射台面与极柔倒影",
+      "local_img": "generated_images/agnes_1790005484_13c29b26.png",
+      "model": "agnes-image-2.5-flash",
+      "duration": "16.38s",
+      "tags": [
+        "商业静物",
+        "物理材质",
+        "柔光箱倒影",
+        "高端护肤品"
+      ]
+    },
+    {
+      "id": "case_3d_clay_icon",
+      "category": "3D资产",
+      "title": "3D 黏土盲盒 App 极客宇航员图标",
+      "subtitle": "Claymorphism 与柔和环境光遮蔽 (AO)",
+      "highlight": "膨胀软胶与聚合物黏土质感、马卡龙粉彩调色与微距软投影",
+      "local_img": "generated_images/agnes_1790005512_13c7c62f.png",
+      "model": "agnes-image-2.5-flash",
+      "duration": "12.39s",
+      "tags": [
+        "C4D黏土",
+        "Isometric等轴测",
+        "环境光遮蔽",
+        "UI资产"
+      ]
+    }
+  ]
+}

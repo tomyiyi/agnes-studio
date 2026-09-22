@@ -1,0 +1,62 @@
+[
+  {
+    "id": "consistency_1",
+    "source": "character_consistency.html",
+    "category": "角色一致性基准 (同一人跨场景)",
+    "category_slug": "character-consistency",
+    "title": "日系榻榻米 · 晨间抓拍",
+    "img_src": "./generated_images/agnes_1789995999_1670.png",
+    "description": "原图人物：20岁东亚女生、微肉感鹅蛋脸、自然微双杏仁眼、蓬松高马尾与空气碎刘海、水光素颜肌。",
+    "tags": [
+      "同一张脸",
+      "★ 基准母本 (Reference Source)",
+      "角色锚点",
+      "跨场景"
+    ]
+  },
+  {
+    "id": "consistency_2",
+    "source": "character_consistency.html",
+    "category": "角色一致性基准 (同一人跨场景)",
+    "category_slug": "character-consistency",
+    "title": "飘雪公园 · 红色羊绒围巾",
+    "img_src": "./generated_images/agnes_1789997730_4752.png",
+    "description": "同一位女孩在冬日雪景中哈气，保留了标志性的鹅蛋脸、相同眼型神态、高马尾发型与温和微笑。",
+    "tags": [
+      "同一张脸",
+      "变体 1 · 冬季雪景",
+      "角色锚点",
+      "跨场景"
+    ]
+  },
+  {
+    "id": "consistency_3",
+    "source": "character_consistency.html",
+    "category": "角色一致性基准 (同一人跨场景)",
+    "category_slug": "character-consistency",
+    "title": "傍晚海滩 · 白色亚麻衬衫",
+    "img_src": "./generated_images/agnes_1789997760_2114.png",
+    "description": "同一位女孩在落日海滩赤足漫步，海风吹拂发丝，同样的五官比例与清甜初恋感面容。",
+    "tags": [
+      "同一张脸",
+      "变体 2 · 夏季度假",
+      "角色锚点",
+      "跨场景"
+    ]
+  },
+  {
+    "id": "consistency_4",
+    "source": "character_consistency.html",
+    "category": "角色一致性基准 (同一人跨场景)",
+    "category_slug": "character-consistency",
+    "title": "大学图书馆 · 原木书架抱书",
+    "img_src": "./generated_images/agnes_1789997811_3773.png",
+    "description": "同一位女孩身着藏青针织衫在书架前，眼神温柔专注，面容五官保持高度辨识度与连贯性。",
+    "tags": [
+      "同一张脸",
+      "变体 3 · 学院日常",
+      "角色锚点",
+      "跨场景"
+    ]
+  }
+]
