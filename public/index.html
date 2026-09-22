@@ -207,13 +207,14 @@
 
       <!-- 状态与快捷开关 -->
       <div class="flex items-center space-x-3">
-        <div class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-mono">
+        <button onclick="openSettingsModal()" id="btn-model-gateway" class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-mono hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-all cursor-pointer shadow-sm" title="点击打开 Agnes / New API 模型网关设置中心">
           <span class="relative flex h-2 w-2">
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          <span>网关就绪 (6 Keys · 32ms)</span>
-        </div>
+          <span id="header-gateway-status">网关就绪 (6 Keys · 32ms)</span>
+          <span class="text-[10px] bg-emerald-200/60 dark:bg-emerald-400/20 px-1.5 py-0.5 rounded font-sans font-bold">⚙️ 设置</span>
+        </button>
 
         <button onclick="toggleTheme()" class="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-all border border-gray-200 dark:border-white/5" title="切换极简白/深邃黑">
           <svg id="theme-icon-sun" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
@@ -518,6 +519,75 @@
                 <span>↗</span>
               </a>
             </div>
+
+            <!-- 实时自定义创作与海报渲染器 -->
+            <div class="p-5 rounded-2xl bg-white dark:bg-obsidian-card border border-cyan-500/30 dark:border-cyan-500/20 space-y-4 shadow-sm">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                  <span class="text-base">✨</span>
+                  <span class="font-bold text-xs text-gray-900 dark:text-white">实时自定义文案海报工坊</span>
+                </div>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-100 dark:bg-cyan-500/10 text-cyan-800 dark:text-cyan-400">Live Generator</span>
+              </div>
+              <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">
+                任意输入您的主题文案，选用当前排版流派与底图，一键光栅化输出 1200×1200 商业级海报。
+              </p>
+
+              <div class="space-y-2.5 text-xs">
+                <div>
+                  <label class="block text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">主标题 (H1 Title)</label>
+                  <input type="text" id="custom-title" value="苏黎世秩序" class="w-full bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500">
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">副标 / 英文 (Subtitle / En)</label>
+                  <input type="text" id="custom-subtitle" value="STRUCTURE & ESSENCE" class="w-full bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500">
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">正文金句 / 诗词七绝 (Body)</label>
+                  <textarea id="custom-body" rows="2" class="w-full bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500 custom-scrollbar leading-relaxed">设计不是情绪的宣泄，而是对客观秩序的精确度量。让字符锚定在理性的基准线上。</textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="block text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">署名 (Author)</label>
+                    <input type="text" id="custom-author" value="TOM // AGNES STUDIO" class="w-full bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500">
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">排版流派风格</label>
+                    <select id="custom-style-select" class="w-full bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500">
+                      <option value="swiss_01">📐 瑞士国际网格 (米勒-布罗克曼)</option>
+                      <option value="cyber_01">⚡ 赛博机能 HUD (战术准心)</option>
+                      <option value="chinese_01">🪨 新中式当代金石 (苏园避障)</option>
+                      <option value="cinema_01">🎬 院线宽银幕 (2.35:1 大片)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">留白背景底图</label>
+                  <select id="custom-bg-select" class="w-full bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500">
+                    <option value="assets/poster_pro_swiss_01.png">画廊预设：苏黎世理性几何底图</option>
+                    <option value="assets/agnes_1790006749_b2b755da.png">画廊精选：二次元纯净去污染底图</option>
+                    <option value="assets/poster_pro_chinese_01.png">画廊精选：苏园新中式留白底图</option>
+                    <option value="assets/poster_pro_cyber_01.png">画廊精选：赛博朋克先锋留白底图</option>
+                    <option value="assets/poster_pro_cinema_01.png">画廊精选：院线深邃冷调光影底图</option>
+                  </select>
+                </div>
+
+                <!-- 实时渲染控制 -->
+                <div class="pt-2">
+                  <button type="button" onclick="renderCustomPoster()" id="btn-render-custom" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 via-sky-600 to-indigo-600 text-white font-bold text-xs flex items-center justify-center space-x-2 shadow-md hover:brightness-110 active:scale-95 transition">
+                    <span id="render-spinner" class="hidden animate-spin">⏳</span>
+                    <span>🚀 一键光栅化渲染商业海报 (1200×1200)</span>
+                  </button>
+                  <div id="render-status-msg" class="text-[10px] text-center text-gray-400 mt-1.5 font-mono">
+                    就绪 · 基于无头 Chrome 与矢量排版引擎
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- 右侧：海报实时渲染视口与五大设计法则 -->
@@ -777,6 +847,123 @@
           <a id="modal-raw-link" href="" target="_blank" class="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white font-semibold text-xs flex items-center justify-center hover:bg-gray-200 transition">
             4K 原图 ↗
           </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== AGNES 模型后台设置中心 MODAL ==================== -->
+  <div id="settings-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4 md:p-6" onclick="closeSettingsModal(event)">
+    <div class="bg-white dark:bg-obsidian-surface border border-gray-200 dark:border-white/10 rounded-3xl max-w-2xl w-full p-6 md:p-8 space-y-6 shadow-2xl relative max-h-[92vh] overflow-y-auto custom-scrollbar" onclick="event.stopPropagation()">
+      <button onclick="closeSettingsModal()" class="absolute top-5 right-5 z-20 w-8 h-8 rounded-full bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-white flex items-center justify-center hover:bg-gray-200 dark:hover:bg-white/20 transition">
+        ✕
+      </button>
+
+      <div>
+        <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-cyan-100 dark:bg-cyan-500/10 text-cyan-800 dark:text-cyan-400 text-xs font-bold border border-cyan-300 dark:border-cyan-500/30 mb-2">
+          <span>⚡ 核心引擎调度</span>
+          <span>•</span>
+          <span id="settings-badge-status">本地 New API 就绪</span>
+        </div>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center space-x-2">
+          <span>⚙️ Agnes 模型网关与后台设置</span>
+        </h2>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+          工作台的生图与海报光栅化均经由此网关驱动。系统会自动感应本地 New API 负载均衡服务；在其他电脑或分发给他人使用时，只需在此输入个人的 Agnes API 密钥即可直接运行。
+        </p>
+      </div>
+
+      <!-- 快速端点预设按钮组 -->
+      <div class="space-y-2">
+        <label class="text-xs font-semibold text-gray-600 dark:text-gray-300">快速应用端点预设：</label>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+          <button type="button" onclick="applyEndpointPreset('http://127.0.0.1:3000/v1')" class="p-2.5 rounded-xl border border-cyan-500 bg-cyan-50/50 dark:bg-cyan-950/20 text-left hover:border-cyan-400 transition flex flex-col justify-between">
+            <span class="font-bold text-gray-900 dark:text-white text-[11px]">本地 New API 负载均衡</span>
+            <span class="text-[10px] text-cyan-600 dark:text-cyan-400 font-mono mt-1 truncate">http://127.0.0.1:3000/v1</span>
+          </button>
+          <button type="button" onclick="applyEndpointPreset('https://apihub.agnes-ai.com/v1')" class="p-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-obsidian-card text-left hover:border-cyan-400 transition flex flex-col justify-between">
+            <span class="font-bold text-gray-900 dark:text-white text-[11px]">Agnes AI 官方云端直连</span>
+            <span class="text-[10px] text-gray-400 font-mono mt-1 truncate">https://apihub.agnes-ai.com/v1</span>
+          </button>
+          <button type="button" onclick="applyEndpointPreset('')" class="p-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-obsidian-card text-left hover:border-cyan-400 transition flex flex-col justify-between">
+            <span class="font-bold text-gray-900 dark:text-white text-[11px]">自定义中继 / OneAPI</span>
+            <span class="text-[10px] text-gray-400 font-mono mt-1 truncate">自建网关或代理地址</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 设置表单 -->
+      <div class="space-y-4 pt-2">
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between">
+            <span>API 端点 Base URL</span>
+            <span class="text-[11px] font-mono text-gray-400">需包含 /v1 后缀</span>
+          </label>
+          <input type="text" id="setting-base-url" placeholder="http://127.0.0.1:3000/v1" class="w-full bg-gray-50 dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-xl px-3.5 py-2 text-xs font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:border-cyan-500 transition">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between">
+            <span>Agnes API 密钥 (API Key)</span>
+            <span id="setting-key-source-tag" class="text-[10px] px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-mono">自动探测本地配置中...</span>
+          </label>
+          <div class="relative">
+            <input type="password" id="setting-api-key" placeholder="sk-..." class="w-full bg-gray-50 dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-xl pl-3.5 pr-20 py-2 text-xs font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:border-cyan-500 transition">
+            <button type="button" onclick="toggleKeyVisibility()" id="btn-toggle-key-visibility" class="absolute right-2.5 top-2 text-[11px] font-mono text-cyan-600 dark:text-cyan-400 hover:underline">
+              显示明文
+            </button>
+          </div>
+          <p class="text-[10px] text-gray-400 mt-1">本地部署直接读取 ~/.new-api/local_key.json；其他人使用时填入其个人的 Agnes 密钥即自动保存于浏览器本地存储。</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              默认主力生图模型
+            </label>
+            <select id="setting-default-model" class="w-full bg-gray-50 dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:border-cyan-500 transition">
+              <option value="agnes-image-2.5-flash">agnes-image-2.5-flash (推荐 · 2.5极速版)</option>
+              <option value="agnes-image-2.1-flash">agnes-image-2.1-flash (2.1稳定版)</option>
+              <option value="dall-e-3">dall-e-3 (通用兼容路由)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              默认海报底图画幅
+            </label>
+            <select id="setting-image-size" class="w-full bg-gray-50 dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:border-cyan-500 transition">
+              <option value="1024x1024">1024 × 1024 (1:1 正方画幅 · 默认)</option>
+              <option value="1024x1792">1024 × 1792 (9:16 移动端竖屏海报)</option>
+              <option value="1792x1024">1792 × 1024 (16:9 桌面宽屏)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 连通性测试结果面板 -->
+        <div id="connection-result-box" class="hidden p-3.5 rounded-xl border text-xs space-y-1 font-mono transition-all">
+          <div class="flex items-center justify-between">
+            <span id="conn-result-title" class="font-bold"></span>
+            <span id="conn-result-latency" class="text-[11px]"></span>
+          </div>
+          <p id="conn-result-detail" class="text-[11px] opacity-80"></p>
+        </div>
+      </div>
+
+      <!-- 底部控制按钮 -->
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-100 dark:border-white/5">
+        <button type="button" onclick="testConnection()" id="btn-test-conn" class="px-4 py-2.5 rounded-xl border border-cyan-500/40 bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-300 font-semibold text-xs flex items-center space-x-2 hover:bg-cyan-100 dark:hover:bg-cyan-900/40 transition">
+          <span id="test-conn-spinner" class="hidden animate-spin">⏳</span>
+          <span>⚡ 测试网关连通性</span>
+        </button>
+
+        <div class="flex items-center space-x-2">
+          <button type="button" onclick="resetToLocalConfig()" class="px-3.5 py-2.5 rounded-xl bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-300 font-semibold text-xs hover:bg-gray-200 transition">
+            重置默认
+          </button>
+          <button type="button" onclick="saveSettings()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 font-bold text-white text-xs shadow-md hover:brightness-110 active:scale-95 transition">
+            💾 保存配置
+          </button>
         </div>
       </div>
     </div>
@@ -1351,6 +1538,241 @@
       `).join('');
     }
 
+    // ==================== 模型网关与后台设置控制器 ====================
+    let studioConfig = {
+      base_url: 'http://127.0.0.1:3000/v1',
+      api_key: '',
+      model: 'agnes-image-2.5-flash',
+      image_size: '1024x1024'
+    };
+
+    function openSettingsModal() {
+      const saved = localStorage.getItem('agnes_studio_config');
+      if (saved) {
+        try {
+          studioConfig = Object.assign({}, studioConfig, JSON.parse(saved));
+        } catch(e) {}
+      }
+      applyConfigToModalInputs();
+      document.getElementById('settings-modal').classList.remove('hidden');
+    }
+
+    function closeSettingsModal(e) {
+      if (e.target.id === 'settings-modal') {
+        forceCloseSettingsModal();
+      }
+    }
+
+    function forceCloseSettingsModal() {
+      document.getElementById('settings-modal').classList.add('hidden');
+    }
+
+    function toggleKeyVisibility() {
+      const input = document.getElementById('setting-api-key');
+      const btn = document.getElementById('btn-toggle-key-visibility');
+      if (input.type === 'password') {
+        input.type = 'text';
+        if (btn) btn.innerText = '隐藏密文';
+      } else {
+        input.type = 'password';
+        if (btn) btn.innerText = '显示明文';
+      }
+    }
+
+    function applyEndpointPreset(url) {
+      const input = document.getElementById('setting-base-url');
+      if (input) input.value = url;
+    }
+
+    function applyConfigToModalInputs() {
+      const elBase = document.getElementById('setting-base-url');
+      const elKey = document.getElementById('setting-api-key');
+      const elModel = document.getElementById('setting-default-model');
+      const elSize = document.getElementById('setting-image-size');
+      const elTag = document.getElementById('setting-key-source-tag');
+
+      if (elBase) elBase.value = studioConfig.base_url || '';
+      if (elKey) elKey.value = studioConfig.api_key || '';
+      if (elModel && studioConfig.model) elModel.value = studioConfig.model;
+      if (elSize && studioConfig.image_size) elSize.value = studioConfig.image_size;
+
+      if (elTag) {
+        if (studioConfig.api_key && studioConfig.base_url && studioConfig.base_url.includes('127.0.0.1')) {
+          elTag.innerText = '已自动识别本地 ~/.new-api 密钥';
+          elTag.className = 'text-[10px] px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-mono';
+        } else if (studioConfig.api_key) {
+          elTag.innerText = '已配置用户自定义密钥';
+          elTag.className = 'text-[10px] px-2 py-0.5 rounded bg-cyan-100 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 font-mono';
+        } else {
+          elTag.innerText = '未配置密钥';
+          elTag.className = 'text-[10px] px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono';
+        }
+      }
+    }
+
+    async function loadStudioConfig() {
+      try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+          const data = await res.json();
+          const localSaved = localStorage.getItem('agnes_studio_config');
+          if (localSaved) {
+            studioConfig = Object.assign({}, data, JSON.parse(localSaved));
+          } else {
+            studioConfig.base_url = data.base_url || 'http://127.0.0.1:3000/v1';
+            studioConfig.api_key = data.api_key || '';
+            studioConfig.model = data.default_model || 'agnes-image-2.5-flash';
+          }
+          applyConfigToModalInputs();
+          updateHeaderStatus(true, "网关就绪 · " + (studioConfig.base_url.includes('127.0.0.1') ? '本地 New API' : '自定义端点'));
+        }
+      } catch (err) {
+        console.warn("Studio Server API 不可用（静态 Pages 模式）:", err);
+        const localSaved = localStorage.getItem('agnes_studio_config');
+        if (localSaved) {
+          try { studioConfig = Object.assign({}, studioConfig, JSON.parse(localSaved)); } catch(e){}
+        }
+        applyConfigToModalInputs();
+        updateHeaderStatus(false, "网关离线 / 展示模式");
+      }
+    }
+
+    function updateHeaderStatus(isReady, labelText) {
+      const label = document.getElementById('header-gateway-status');
+      if (label) label.innerText = labelText;
+    }
+
+    async function testConnection() {
+      const elBase = document.getElementById('setting-base-url');
+      const elKey = document.getElementById('setting-api-key');
+      const baseUrl = elBase ? elBase.value.trim() : 'http://127.0.0.1:3000/v1';
+      const apiKey = elKey ? elKey.value.trim() : '';
+
+      const spinner = document.getElementById('test-conn-spinner');
+      const box = document.getElementById('connection-result-box');
+      const title = document.getElementById('conn-result-title');
+      const latency = document.getElementById('conn-result-latency');
+      const detail = document.getElementById('conn-result-detail');
+
+      if (spinner) spinner.classList.remove('hidden');
+      if (box) {
+        box.classList.remove('hidden');
+        box.className = 'p-3.5 rounded-xl border text-xs space-y-1 font-mono bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300';
+      }
+      if (title) title.innerText = '正在握手探活...';
+      if (latency) latency.innerText = '';
+      if (detail) detail.innerText = '正在向端点 ' + baseUrl + ' 发起 /v1/models 探测';
+
+      try {
+        const res = await fetch('/api/test-connection', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base_url: baseUrl, api_key: apiKey })
+        });
+        const data = await res.json();
+        if (spinner) spinner.classList.add('hidden');
+
+        if (data.success) {
+          if (box) box.className = 'p-3.5 rounded-xl border text-xs space-y-1 font-mono bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300';
+          if (title) title.innerText = '✓ 端点连通测试成功！';
+          if (latency) latency.innerText = '响应延迟: ' + data.latency_ms + ' ms';
+          const sample = (data.image_models && data.image_models.length > 0) ? data.image_models.join(', ') : (data.sample_models || []).slice(0, 4).join(', ');
+          if (detail) detail.innerText = `探测到 ${data.model_count || data.models_count || 0} 个模型。图像模型可用: [${sample}]`;
+        } else {
+          if (box) box.className = 'p-3.5 rounded-xl border text-xs space-y-1 font-mono bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300';
+          if (title) title.innerText = '✗ 网关握手未通过';
+          if (latency) latency.innerText = '';
+          if (detail) detail.innerText = data.error || '无法建立与指定 API 端点的连接，请检查服务是否运行及密钥是否授权。';
+        }
+      } catch (err) {
+        if (spinner) spinner.classList.add('hidden');
+        if (box) box.className = 'p-3.5 rounded-xl border text-xs space-y-1 font-mono bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300';
+        if (title) title.innerText = '! 本地代理请求异常';
+        if (detail) detail.innerText = err.message;
+      }
+    }
+
+    function saveSettings() {
+      const elBase = document.getElementById('setting-base-url');
+      const elKey = document.getElementById('setting-api-key');
+      const elModel = document.getElementById('setting-default-model');
+      const elSize = document.getElementById('setting-image-size');
+
+      studioConfig.base_url = elBase ? elBase.value.trim() : 'http://127.0.0.1:3000/v1';
+      studioConfig.api_key = elKey ? elKey.value.trim() : '';
+      studioConfig.model = elModel ? elModel.value : 'agnes-image-2.5-flash';
+      studioConfig.image_size = elSize ? elSize.value : '1024x1024';
+
+      localStorage.setItem('agnes_studio_config', JSON.stringify(studioConfig));
+      alert('✓ 配置已成功持久化至浏览器 LocalStorage！在任意设备启动均可自动生效。');
+      updateHeaderStatus(true, "网关已就绪 · " + studioConfig.model);
+      forceCloseSettingsModal();
+    }
+
+    function resetToLocalConfig() {
+      localStorage.removeItem('agnes_studio_config');
+      loadStudioConfig();
+    }
+
+    // ==================== 实时自定义海报光栅化渲染器 ====================
+    async function renderCustomPoster() {
+      const title = document.getElementById('custom-title').value.trim() || '苏黎世秩序';
+      const subtitle = document.getElementById('custom-subtitle').value.trim() || 'STRUCTURE & ESSENCE';
+      const body = document.getElementById('custom-body').value.trim() || '';
+      const author = document.getElementById('custom-author').value.trim() || 'TOM // AGNES STUDIO';
+      const style = document.getElementById('custom-style-select').value;
+      const bg = document.getElementById('custom-bg-select').value;
+
+      const btn = document.getElementById('btn-render-custom');
+      const spinner = document.getElementById('render-spinner');
+      const statusMsg = document.getElementById('render-status-msg');
+
+      btn.disabled = true;
+      spinner.classList.remove('hidden');
+      statusMsg.innerText = '正在调起无头 Chrome 注入排版与光栅化渲染 (1200×1200)...';
+      statusMsg.className = 'text-[10px] text-center text-cyan-600 dark:text-cyan-400 mt-1.5 font-mono animate-pulse';
+
+      try {
+        const res = await fetch('/api/render-poster', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: title,
+            subtitle: subtitle,
+            body: body,
+            author: author,
+            style: style,
+            background_img: bg
+          })
+        });
+        const data = await res.json();
+        btn.disabled = false;
+        spinner.classList.add('hidden');
+
+        if (data.success && data.poster_url) {
+          statusMsg.innerText = `✓ 渲染就绪！耗时: ${data.duration_ms}ms · 尺寸: 1200×1200`;
+          statusMsg.className = 'text-[10px] text-center text-emerald-600 dark:text-emerald-400 mt-1.5 font-mono';
+          
+          const mainImg = document.getElementById('poster-preview-img');
+          const dlBtn = document.getElementById('btn-download-poster');
+          const timestampedUrl = data.poster_url + '?t=' + Date.now();
+          if (mainImg) mainImg.src = timestampedUrl;
+          if (dlBtn) dlBtn.href = timestampedUrl;
+          
+          const badgeEl = document.getElementById('badge-font-name');
+          if (badgeEl) badgeEl.innerText = '✨ 实时自定义渲染: ' + title;
+        } else {
+          statusMsg.innerText = '✗ 渲染失败: ' + (data.error || '未知异常');
+          statusMsg.className = 'text-[10px] text-center text-rose-600 dark:text-rose-400 mt-1.5 font-mono';
+        }
+      } catch (err) {
+        btn.disabled = false;
+        spinner.classList.add('hidden');
+        statusMsg.innerText = '✗ 请求失败: ' + err.message + ' (请确认使用 ./start.sh 启动后台)';
+        statusMsg.className = 'text-[10px] text-center text-amber-600 dark:text-amber-400 mt-1.5 font-mono';
+      }
+    }
+
     window.onload = function() {
       renderCategoryTabs();
       renderGallery();
@@ -1358,6 +1780,7 @@
       renderEcosystem();
       setupSlider();
       loadSamplePreset('steampunk');
+      loadStudioConfig();
       if (window.location.hash) {
         const tab = window.location.hash.replace('#', '');
         if (['gallery', 'poster-studio', 'skills', 'ecosystem', 'sentinel'].includes(tab)) {
