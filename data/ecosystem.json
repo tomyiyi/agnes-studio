@@ -1,0 +1,81 @@
+{
+  "system_name": "Agnes Studio Open Ecosystem",
+  "updated_at": "2026-09-22T00:05:00Z",
+  "tools": [
+    {
+      "id": "new_api_gateway",
+      "name": "New API 聚合网关",
+      "category": "模型路由与负载均衡",
+      "version": "v1.0.0-rc.24",
+      "status": "healthy",
+      "endpoint": "http://127.0.0.1:3000",
+      "upstream_count": 6,
+      "upstream_type": "Agnes 官方多 Key 聚合池",
+      "features": [
+        "6 渠道阶梯权重动态分发 (Weight 5~1)",
+        "连续 3 次失败自动熔断 (Auto-Disable)",
+        "自动探活自愈 (Auto-Enable)",
+        "全局重试优化 (RetryTimes: 3)",
+        "端到端生图耗时 10~15s"
+      ],
+      "docs": "local-newapi-agnes-setup.md"
+    },
+    {
+      "id": "agent_reach",
+      "name": "Agent Reach 联网采集",
+      "category": "数据与信息检索",
+      "version": "v0.3.0",
+      "status": "installed",
+      "repo": "Panniantong/Agent-Reach",
+      "local_path": "/Users/tom/.zcode/skills/agent-reach",
+      "features": [
+        "Jina Reader 免 Key 网页深度解析",
+        "YouTube / Bilibili 跨平台视频字幕抓取",
+        "全网热点与知识信息流自动汇聚"
+      ],
+      "docs": "installed-tools-graphify-and-agentreach.md"
+    },
+    {
+      "id": "graphify",
+      "name": "Graphify 代码知识图谱",
+      "category": "AST 分析与知识图谱",
+      "version": "v0.4.5",
+      "status": "installed",
+      "repo": "Graphify-Labs/graphify",
+      "local_path": "/Users/tom/.zcode/skills/graphify",
+      "features": [
+        "Tree-sitter 确定性语法树解析",
+        "Leiden 算法无向量社区聚类",
+        "架构上帝节点与潜在坏味道探测"
+      ],
+      "docs": "installed-tools-graphify-and-agentreach.md"
+    },
+    {
+      "id": "browser_use",
+      "name": "Browser-Use 自动化代理",
+      "category": "浏览器自主运行智能体",
+      "version": "v0.1.37",
+      "status": "installed",
+      "venv_path": "/Users/tom/.browser-use/venv",
+      "features": [
+        "Playwright 浏览器异步底层接管",
+        "DOM 树视觉多模态定位与交互",
+        "端到端自动化表单填写与截图验证"
+      ]
+    },
+    {
+      "id": "tabbit_devtools",
+      "name": "Tabbit Native 控制桥",
+      "category": "宿主浏览器零侵入控制",
+      "version": "v1.0.0",
+      "status": "active",
+      "app_path": "/Applications/Tabbit.app",
+      "features": [
+        "AppleScript IPC 零侵入读取活跃标签页",
+        "macOS Accessibility 辅助功能精准交互",
+        "本地 HTML 画廊实时一键加载展示"
+      ],
+      "docs": "tabbit-browser-and-zcode-integration.md"
+    }
+  ]
+}

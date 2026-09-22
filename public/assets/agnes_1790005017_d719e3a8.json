@@ -1,0 +1,14 @@
+{
+  "timestamp": 1790005017,
+  "filename": "agnes_1790005017_d719e3a8.png",
+  "local_path": "/Users/tom/.new-api/generated_images/agnes_1790005017_d719e3a8.png",
+  "remote_url": "https://platform-outputs.agnes-ai.space/images/t2i/task_RarKYgeQiBDhcMeWl7oz9yTU5DCu4a1L/output_186eba1b48564cb5ba43f315ee38d978.png",
+  "prompt": "A high-fashion minimalist portrait of a confident Asian female model in ivory silk blouse, modern aesthetic, soft studio lighting.",
+  "model": "agnes-image-2.5-flash",
+  "file_size_kb": "990.1 KB",
+  "download_duration_s": "1.48s",
+  "extra": {
+    "api_duration_s": "11.31s",
+    "size": "1024x1024"
+  }
+}

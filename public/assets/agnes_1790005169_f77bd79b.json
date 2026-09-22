@@ -1,0 +1,15 @@
+{
+  "timestamp": 1790005169,
+  "filename": "agnes_1790005169_f77bd79b.png",
+  "local_path": "/Users/tom/.new-api/generated_images/agnes_1790005169_f77bd79b.png",
+  "remote_url": "https://platform-outputs.agnes-ai.space/images/t2i/task_uVeApaDK4Ns07iiZh4AQRl0ITKFTQw1e/output_8049a7568c644004a1de5d69e4c8aa37.png",
+  "prompt": "The exact same recurring Asian beauty: a captivating 21-year-old East Asian woman with a soft refined oval face, slender delicate jawline, and high cranial vault. Clear luminous almond-shaped dark hazel-brown eyes with delicate double eyelids and a tiny faint natural beauty mark just beneath her left eye. A slender straight nose bridge with softly defined tip, and dewy natural peach-pink lips with an elegant cupid's bow. Hair is styled in effortless dark espresso brown locks with delicate airy wispy bangs and natural flyaway baby hairs softly framing her temples. Subsurface scattering (SSS) on translucent porcelain skin, natural skin texture with visible fine pores, subtle natural peach blush, no heavy makeup, no plastic airbrushing, genuine authentic human warmth.  Walking along an upscale tree-lined city avenue during late golden autumn. Wearing an elegant structured camel cashmere trench coat over a cream turtleneck sweater, with a soft charcoal wool scarf draped around her neck. Golden gingko leaves gently falling in the blurred background. She glances over her shoulder towards the camera with a calm, poised, mesmerizing gaze.  cinematic masterpiece portrait, shot on Hasselblad H6D-100c, 85mm f/1.4 portrait lens, creamy smooth bokeh, soft volumetric lighting, authentic film grain, pristine 8k editorial fashion magazine quality, natural relaxed pose, candid emotional resonance. ",
+  "model": "agnes-image-2.5-flash",
+  "file_size_kb": "1163.6 KB",
+  "download_duration_s": "2.59s",
+  "extra": {
+    "scene_id": "scene_02_autumn_trench",
+    "scene_title": "秋日都市街头 · 电影感回眸",
+    "api_duration_s": "10.62s"
+  }
+}

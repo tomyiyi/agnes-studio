@@ -1,0 +1,15 @@
+{
+  "timestamp": 1790005466,
+  "filename": "agnes_1790005466_792ae38c.png",
+  "local_path": "/Users/tom/.new-api/generated_images/agnes_1790005466_792ae38c.png",
+  "remote_url": "https://platform-outputs.agnes-ai.space/images/t2i/task_KX5Eisx5jwN2Tlj5wVLpyM57ES5sIaFD/output_77152b1fb17e4dbab9542a818ab80742.png",
+  "prompt": "A masterfully designed Bento Grid infographic poster, Apple Newsroom and Notion dashboard aesthetic. Clean warm off-white background (#F7F6F3). The canvas is organized into 8 asymmetrical rounded rectangular modular cards with 24px uniform corners, crisp 1px borders, and elegant subtle soft drop shadows. The top-left hero card showcases a bold central heading '2026 AI AGENT TOOLS' in clean Swiss typography (Inter/Helvetica Neue). Surrounding cards display micro-visuals: a minimalist bar chart with soft sage green tint, a clean statistic card featuring a giant bold '99.4%', and an elegant wireframe workflow diagram. Sophisticated palette of deep charcoal, soft cream, and a single vibrant vermilion red accent dot. Modern graphic design masterpiece, impeccable visual hierarchy, pristine vector clarity, 8k resolution, flat clean studio lighting.",
+  "model": "agnes-image-2.5-flash",
+  "file_size_kb": "617.7 KB",
+  "download_duration_s": "1.34s",
+  "extra": {
+    "skill_id": "bento_grid_infographic",
+    "name": "Bento Grid 便当格多模块信息图",
+    "category": "信息图表 (Infographics)"
+  }
+}

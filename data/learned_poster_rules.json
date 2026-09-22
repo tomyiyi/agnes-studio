@@ -1,0 +1,179 @@
+[
+  {
+    "filename": "cover_cinematic_split_green.png",
+    "dimensions": "1024x1024",
+    "aspect_ratio": 1.0,
+    "dominant_palette": [
+      {
+        "hex": "#fbf1e4",
+        "rgb": [
+          251,
+          241,
+          228
+        ],
+        "pixels": 65
+      },
+      {
+        "hex": "#fbf1e3",
+        "rgb": [
+          251,
+          241,
+          227
+        ],
+        "pixels": 10
+      },
+      {
+        "hex": "#fcf2e5",
+        "rgb": [
+          252,
+          242,
+          229
+        ],
+        "pixels": 6
+      },
+      {
+        "hex": "#fbf2e5",
+        "rgb": [
+          251,
+          242,
+          229
+        ],
+        "pixels": 6
+      },
+      {
+        "hex": "#fbf1e5",
+        "rgb": [
+          251,
+          241,
+          229
+        ],
+        "pixels": 6
+      }
+    ],
+    "layout_category": "加块绿 · 左右对角拆字法",
+    "rules": [
+      "形：莫兰迪色块打底隔离复杂背景",
+      "斜：8° 窄斜体得意黑建立动势",
+      "比：主标题与微标 10:1 极端字阶对比",
+      "空：对角避让保留人物视觉焦点"
+    ]
+  },
+  {
+    "filename": "cover_cinematic_letterbox.png",
+    "dimensions": "1024x1024",
+    "aspect_ratio": 1.0,
+    "dominant_palette": [
+      {
+        "hex": "#050609",
+        "rgb": [
+          5,
+          6,
+          9
+        ],
+        "pixels": 94
+      },
+      {
+        "hex": "#040508",
+        "rgb": [
+          4,
+          5,
+          8
+        ],
+        "pixels": 19
+      },
+      {
+        "hex": "#020408",
+        "rgb": [
+          2,
+          4,
+          8
+        ],
+        "pixels": 8
+      },
+      {
+        "hex": "#010307",
+        "rgb": [
+          1,
+          3,
+          7
+        ],
+        "pixels": 7
+      },
+      {
+        "hex": "#030509",
+        "rgb": [
+          3,
+          5,
+          9
+        ],
+        "pixels": 7
+      }
+    ],
+    "layout_category": "加块绿 · 左右对角拆字法",
+    "rules": [
+      "形：莫兰迪色块打底隔离复杂背景",
+      "斜：8° 窄斜体得意黑建立动势",
+      "比：主标题与微标 10:1 极端字阶对比",
+      "空：对角避让保留人物视觉焦点"
+    ]
+  },
+  {
+    "filename": "poster_style_smiley.png",
+    "dimensions": "1024x1024",
+    "aspect_ratio": 1.0,
+    "dominant_palette": [
+      {
+        "hex": "#fbf1e4",
+        "rgb": [
+          251,
+          241,
+          228
+        ],
+        "pixels": 66
+      },
+      {
+        "hex": "#fbf2e5",
+        "rgb": [
+          251,
+          242,
+          229
+        ],
+        "pixels": 8
+      },
+      {
+        "hex": "#fbf1e3",
+        "rgb": [
+          251,
+          241,
+          227
+        ],
+        "pixels": 8
+      },
+      {
+        "hex": "#fbf1e5",
+        "rgb": [
+          251,
+          241,
+          229
+        ],
+        "pixels": 7
+      },
+      {
+        "hex": "#faf0e3",
+        "rgb": [
+          250,
+          240,
+          227
+        ],
+        "pixels": 7
+      }
+    ],
+    "layout_category": "加块绿 · 左右对角拆字法",
+    "rules": [
+      "形：莫兰迪色块打底隔离复杂背景",
+      "斜：8° 窄斜体得意黑建立动势",
+      "比：主标题与微标 10:1 极端字阶对比",
+      "空：对角避让保留人物视觉焦点"
+    ]
+  }
+]

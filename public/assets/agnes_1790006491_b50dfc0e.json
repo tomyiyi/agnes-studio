@@ -1,0 +1,15 @@
+{
+  "timestamp": 1790006491,
+  "filename": "agnes_1790006491_b50dfc0e.png",
+  "local_path": "/Users/tom/.new-api/generated_images/agnes_1790006491_b50dfc0e.png",
+  "remote_url": "https://platform-outputs.agnes-ai.space/images/t2i/task_yI9lgTaLTAXrsLHr3d44On6OYdK3mybV/output_3162e268e44f49d080ab714d9409508b.png",
+  "prompt": "A stunning steampunk anime key visual movie poster in a wide 3:2 landscape composition. A low-angle medium close-up shot, looking slightly upward. The protagonist, a graceful young female mechanic, is positioned slightly to the right of the frame with her body turned away from the camera, turning her head around to look directly back at the viewer with an intense, captivating, and resolute gaze (over-the-shoulder glance). She has two neat dark braided pigtails framing her shoulders and wears retro vintage brass aviator goggles resting atop her head. Dressed in a crisp white rolled-sleeve shirt under a fitted dark brown leather vest, and a sturdy work apron skirt bristling with brass keys, miniature gears, and utility tools. Her right hand firmly holds a heavy-duty mechanical wrench resting downward at her side, while her other hand raises an ornate glowing brass oil lantern, radiating intense warm golden-amber light that illuminates her face, hands, and leather vest. The background is a sprawling industrial steampunk metropolis at night: on the left side, colossal interlocking brass gears churn amidst venting billows of white pressure steam; on the right side in the deep background, a magnificent glowing gothic clock tower rises into a moody night sky filled with drifting clouds. High-contrast complementary lighting: rich warm golden light from the lantern beautifully balanced against the cool cobalt blue moonlight and deep shadows of the industrial night. In the upper-left space, an elegant cinematic gold typography layout reads '铜钟与蒸汽城 STEAM & CHIME: 她修理时间，也修理人心'. Exquisite Japanese commercial anime CG illustration aesthetic, rich painted textures on worn leather, polished brass, and ethereal steam mist, breathtaking concept art poster, masterpiece, 8k wallpaper.",
+  "model": "agnes-image-2.5-flash",
+  "file_size_kb": "1473.9 KB",
+  "download_duration_s": "11.04s",
+  "extra": {
+    "original_user_chinese_prompt": "一部蒸汽朋克风格动画主视觉海报，主角是一位年轻的女性机械师。她背向镜头微侧身躯，转头回眸直视观者，一手握持重型扳手垂于身侧，另一手提着发光的黄铜油灯。她梳着两条深色麻花辫，头戴复古风镜，身穿白色衬衫、深色皮革背心与挂满钥匙工具的工作裙。背景为充满工业质感的机械夜城，左侧矗立着巨大齿轮与喷涌的蒸汽，右侧背景耸立着一座发光的哥特式钟楼，夜空浮云流动。画面光影对比强烈，前景提灯的暖黄色光芒与背景建筑及夜空的冷蓝色形成互补。低角度仰视半身构图，主角居中偏右，左上方排版有金色标题文本“铜钟与蒸汽城 STEAM & CHIME 她修理时间，也修理人心”。精致的日系二次元商业CG插画风格，主色调为深蓝、暗黑与黄铜金色，融合了金属、皮革与烟雾质感，3:2横向画幅，呈现出极具氛围感的游戏或动画宣传概念图。",
+    "aspect_ratio": "3:2 landscape intent",
+    "api_duration_s": "14.24s"
+  }
+}

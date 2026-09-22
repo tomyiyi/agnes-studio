@@ -1,0 +1,330 @@
+{
+  "total_categories": 17,
+  "total_skills": 26,
+  "version": "2.5.0",
+  "updated_at": "2026-09-22T00:20:00Z",
+  "transpilation_philosophy": {
+    "core_rule": "消除 DALL-E 3 机械化嵌套，转译为 Agnes (Flux/SDXL) 的光学质感与物理空间叙事",
+    "pillars": [
+      {
+        "name": "消除风格污染 (Decontamination)",
+        "rule": "日漫/二次元严格隔离微距毛孔、哈苏单反镜头词；摄影严格剔除插画词"
+      },
+      {
+        "name": "微观三锚点面容锁定 (Character DNA)",
+        "rule": "固定骨相、眼型微距与微小特征标记，实现同一人物跨场景复用"
+      },
+      {
+        "name": "中文图文分层渲染 (Hybrid Generation)",
+        "rule": "负空间留白生成底图 + 本地矢量字体排版，根治 AI 中文乱码"
+      }
+    ]
+  },
+  "categories": [
+    {
+      "id": "portraits-and-characters",
+      "name": "人像与角色 (Portraits & Characters)",
+      "desc": "专业肖像、创始人视觉、二次元角色、胶片写真与东方美学",
+      "skill_count": 5,
+      "templates": [
+        {
+          "id": "character-sheet",
+          "title": "角色设定 / 三视图模板",
+          "file": "references/portraits-and-characters/character-sheet.md",
+          "dalle_sample": "{\n  \"type\": \"角色综合设定 sheet\",\n  \"goal\": \"生成一张可直接用于动画 / 游戏 / IP 立项的角色综合设定稿\",\n  \"character\": {\n    \"name\": \"{argument name=\\\"character name\\\" default=\\\"霜白·诺娜\\\"}\",\n    \"concept\": \"{argument name=\\\"character concept\\\" default=\\\"冬日守望者，孤独但坚定\\\"}\",\n    \"art_style\": \"{argument name=\\\"art style\\\" default=\\\"anim...",
+          "agnes_conversion": "转换策略：提取 character-sheet 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "professional-portrait",
+          "title": "职业肖像模板",
+          "file": "references/portraits-and-characters/professional-portrait.md",
+          "dalle_sample": "{\n  \"type\": \"现代商务职业肖像\",\n  \"goal\": \"生成一张可直接作为 LinkedIn 主图 / 公司官网团队页 / 媒体专访配图的职业肖像\",\n  \"subject\": {\n    \"gender\": \"{argument name=\\\"gender\\\" default=\\\"东亚男性\\\"}\",\n    \"age_range\": \"{argument name=\\\"age range\\\" default=\\\"30-40 岁\\\"}\",\n    \"appearance\": \"{argument name=\\\"appearance\\\" default=\\\"短发干净，戴细框眼镜\\\"...",
+          "agnes_conversion": "转换策略：提取 professional-portrait 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "virtual-host",
+          "title": "虚拟主播 / VTuber 形象模板",
+          "file": "references/portraits-and-characters/virtual-host.md",
+          "dalle_sample": "{\n  \"type\": \"VTuber Debut 个人资料卡\",\n  \"goal\": \"生成一张可作为 VTuber 出道日的官方个人资料卡视觉\",\n  \"character\": {\n    \"name\": \"{argument name=\\\"vtuber name\\\" default=\\\"霜白·诺娜\\\"}\",\n    \"style\": \"{argument name=\\\"art style\\\" default=\\\"日系 anime + 半写实\\\"}\",\n    \"gender\": \"{argument name=\\\"gender\\\" default=\\\"少女\\\"}\",\n    \"age_s...",
+          "agnes_conversion": "转换策略：提取 virtual-host 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "pose-reference-sheet",
+          "title": "姿势 / 动作参考表 N×N 模板",
+          "file": "references/portraits-and-characters/pose-reference-sheet.md",
+          "dalle_sample": "{\n  \"type\": \"pose reference sheet\",\n  \"goal\": \"生成一张同一角色 N 个不同姿势的纯动作参考表，可用于编舞 / 动画 / 健身 / AI pose 控制参考\",\n  \"subject\": {\n    \"theme\": \"{argument name=\\\"pose theme\\\" default=\\\"hip-hop dance and combat-ready movement chart\\\"}\",\n    \"character\": {\n      \"count\": 1,\n      \"gender_presentation\": \"{argument...",
+          "agnes_conversion": "转换策略：提取 pose-reference-sheet 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "founder-portrait",
+          "title": "创始人 / 媒体大片肖像模板",
+          "file": "references/portraits-and-characters/founder-portrait.md",
+          "dalle_sample": "{\n  \"type\": \"媒体大片级创始人肖像\",\n  \"goal\": \"生成一张能直接作为财经杂志 / 创业媒体专访配图 / 公司官网创始人主图的媒体大片肖像\",\n  \"subject\": {\n    \"identity\": \"{argument name=\\\"identity\\\" default=\\\"AI 公司创始人 CEO\\\"}\",\n    \"gender\": \"{argument name=\\\"gender\\\" default=\\\"东亚男性\\\"}\",\n    \"age_range\": \"{argument name=\\\"age range\\\" default=\\\"35-45 岁\\\"}\"...",
+          "agnes_conversion": "转换策略：提取 founder-portrait 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        }
+      ]
+    },
+    {
+      "id": "infographics",
+      "name": "信息图表 (Infographics)",
+      "desc": "Bento Grid 便当格、高密度数据图、流程拆解与科技图解",
+      "skill_count": 6,
+      "templates": [
+        {
+          "id": "comparison-infographic",
+          "title": "对比信息图模板",
+          "file": "references/infographics/comparison-infographic.md",
+          "dalle_sample": "{\n  \"type\": \"双列对比信息图\",\n  \"goal\": \"生成一张让读者一眼分清「谁更适合自己」的对比图\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"3:4 portrait\\\"}\",\n    \"background\": \"{argument name=\\\"background\\\" default=\\\"warm off-white #F8F6F2\\\"}\",\n    \"split_line\": \"{argument name=\\\"split_line\\\" default=\\...",
+          "agnes_conversion": "转换策略：提取 comparison-infographic 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "step-by-step-infographic",
+          "title": "步骤 / 流程信息图模板",
+          "file": "references/infographics/step-by-step-infographic.md",
+          "dalle_sample": "{\n  \"type\": \"步骤教程信息图\",\n  \"goal\": \"生成一张让读者能照着一步步做的、插画感强、温暖易懂的教程图\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"3:4 portrait\\\"}\",\n    \"background\": \"{argument name=\\\"background\\\" default=\\\"warm cream #FAF6EE 带轻微纸质感\\\"}\"\n  },\n  \"header\": {\n    \"main_title\": \"{argument na...",
+          "agnes_conversion": "转换策略：提取 step-by-step-infographic 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "legend-heavy-infographic",
+          "title": "高图例密度信息图模板",
+          "file": "references/infographics/legend-heavy-infographic.md",
+          "dalle_sample": "{\n  \"type\": \"高密度因果链信息图海报\",\n  \"goal\": \"生成一张高完成度的科普 / 教育 / 解释型信息图，可作为单页 PDF 主图、自媒体长图首图、医院 / 学校宣传图\",\n  \"style\": {\n    \"aesthetic\": \"{argument name=\\\"aesthetic\\\" default=\\\"高度精细的解剖 / 工程图风格 + 干净结构化排版 + 科学示意感\\\"}\",\n    \"color_palette\": \"{argument name=\\\"color palette\\\" default=\\\"医疗红、医疗蓝、米色、解剖肉色\\\"}\",\n    \"la...",
+          "agnes_conversion": "转换策略：提取 legend-heavy-infographic 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "hand-drawn-infographic",
+          "title": "手绘风信息图模板",
+          "file": "references/infographics/hand-drawn-infographic.md",
+          "dalle_sample": "{}",
+          "agnes_conversion": "转换策略：提取 hand-drawn-infographic 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "bento-grid-infographic",
+          "title": "便当格 / 模块化信息图模板",
+          "file": "references/infographics/bento-grid-infographic.md",
+          "dalle_sample": "{\n  \"type\": \"便当格 / Bento grid 高密度模块化信息图\",\n  \"goal\": \"生成一张'像 Apple newsroom / iOS widget / Notion dashboard'的多模块信息图，一图说清多个维度\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"3:4 portrait\\\"}\",\n    \"background\": \"{argument name=\\\"background\\\" default=\\\"warm off-white #F5F2...",
+          "agnes_conversion": "转换策略：提取 bento-grid-infographic 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "kpi-dashboard-infographic",
+          "title": "KPI 仪表盘式信息图模板",
+          "file": "references/infographics/kpi-dashboard-infographic.md",
+          "dalle_sample": "{\n  \"type\": \"KPI 仪表盘信息图\",\n  \"goal\": \"把一组数字以'数据可视化仪表盘'的形式呈现，让读者一眼感知数据规模和分布\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"3:4 portrait\\\"}\",\n    \"background\": \"{argument name=\\\"background\\\" default=\\\"deep ink #0F172A 渐变到 #1E293B（暗色模式）\\\"}\",\n    \"alt_background_light\": \"w...",
+          "agnes_conversion": "转换策略：提取 kpi-dashboard-infographic 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        }
+      ]
+    },
+    {
+      "id": "storyboards-and-sequences",
+      "name": "分镜与视觉序列 (Storyboards & Key Visuals)",
+      "desc": "影视级 9 宫格分镜、动画主视觉、概念海报与动态张力",
+      "skill_count": 8,
+      "templates": [
+        {
+          "id": "character-relationship-diagram",
+          "title": "人物关系图模板",
+          "file": "references/storyboards-and-sequences/character-relationship-diagram.md",
+          "dalle_sample": "{\n  \"type\": \"作品角色关系图海报\",\n  \"goal\": \"生成一张高完成度的角色关系图，可作为科普 / 同人 / 入坑指南海报\",\n  \"ip\": {\n    \"name\": \"{argument name=\\\"ip name\\\" default=\\\"鬼灭之刃\\\"}\",\n    \"tone\": \"{argument name=\\\"ip tone\\\" default=\\\"贴合原作风格 + 海报设计感\\\"}\"\n  },\n  \"characters\": {\n    \"count\": \"{argument name=\\\"character count\\\" default=\\\"9\\\"}\",...",
+          "agnes_conversion": "转换策略：提取 character-relationship-diagram 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "four-panel-comic",
+          "title": "4 格漫画模板",
+          "file": "references/storyboards-and-sequences/four-panel-comic.md",
+          "dalle_sample": "{\n  \"type\": \"2x2 反转 4 格漫画\",\n  \"goal\": \"生成一张 2×2 四格漫画，讲一个有节奏与反转的小故事\",\n  \"story\": {\n    \"theme\": \"{argument name=\\\"theme\\\" default=\\\"减肥的人和半夜的炸鸡\\\"}\",\n    \"structure\": \"起 / 承 / 转 / 合\",\n    \"main_character\": \"{argument name=\\\"main character\\\" default=\\\"短发女孩，穿睡衣\\\"}\"\n  },\n  \"style\": {\n    \"art_style\": \"{ar...",
+          "agnes_conversion": "转换策略：提取 four-panel-comic 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "product-tvc-storyboard",
+          "title": "产品 TVC 商业广告分镜板模板",
+          "file": "references/storyboards-and-sequences/product-tvc-storyboard.md",
+          "dalle_sample": "{\n  \"type\": \"product TVC storyboard board\",\n  \"goal\": \"生成一张 9 格分镜图，每格都是该产品商业广告的一个真实拍摄镜头视觉示意，可作为拍摄前 storyboard / 客户审稿 / 视频生成参考\",\n  \"input_mode\": \"{argument name=\\\"input mode\\\" default=\\\"text-only\\\"}\",\n  \"reference_image_note\": \"如果用户提供产品参考图，必须保持产品外观完全一致（颜色 / 包装 / logo 不可漂移）\",\n  \"header\": {\n    \"title\"...",
+          "agnes_conversion": "转换策略：提取 product-tvc-storyboard 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "manga-spread-page",
+          "title": "漫画跨页 / 多分镜页模板",
+          "file": "references/storyboards-and-sequences/manga-spread-page.md",
+          "dalle_sample": "{\n  \"type\": \"单页多分镜漫画\",\n  \"goal\": \"生成一张完整的单页漫画，含多个分镜，叙事节奏紧凑\",\n  \"story\": {\n    \"summary\": \"{argument name=\\\"story summary\\\" default=\\\"主角接到神秘电话，决定独自前往\\\"}\",\n    \"main_character\": \"{argument name=\\\"main character\\\" default=\\\"年轻女性侦探，短发，黑色风衣\\\"}\",\n    \"supporting\": \"{argument name=\\\"supporting\\\" default=\\\"...",
+          "agnes_conversion": "转换策略：提取 manga-spread-page 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "anime-key-visual",
+          "title": "动漫 Key Visual 单图模板",
+          "file": "references/storyboards-and-sequences/anime-key-visual.md",
+          "dalle_sample": "{\n  \"type\": \"动漫 Key Visual\",\n  \"goal\": \"生成一张可作为动漫 / 轻小说 / IP 主视觉的单图\",\n  \"ip\": {\n    \"title\": \"{argument name=\\\"ip title\\\" default=\\\"霜白幻想曲\\\"}\",\n    \"tagline\": \"{argument name=\\\"tagline\\\" default=\\\"这场雪，下了一千年\\\"}\"\n  },\n  \"characters\": {\n    \"count\": \"{argument name=\\\"character count\\\" default=\\\"3\\\"}\",\n ...",
+          "agnes_conversion": "转换策略：提取 anime-key-visual 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "cinematic-storyboard-grid",
+          "title": "电影感叙事分镜 contact sheet 模板",
+          "file": "references/storyboards-and-sequences/cinematic-storyboard-grid.md",
+          "dalle_sample": "{\n  \"type\": \"cinematic storyboard contact sheet\",\n  \"goal\": \"生成一张 12 镜分镜板，每镜都是一幅完整的电影 cinematic still，整组讲述一个连续叙事\",\n  \"subject\": {\n    \"primary\": \"{argument name=\\\"primary subject\\\" default=\\\"a small futuristic spacecraft descending into a massive gas giant storm system\\\"}\",\n    \"secondary\": \"{argume...",
+          "agnes_conversion": "转换策略：提取 cinematic-storyboard-grid 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "recipe-process-flowchart",
+          "title": "食谱 / 流程步骤图模板",
+          "file": "references/storyboards-and-sequences/recipe-process-flowchart.md",
+          "dalle_sample": "{\n  \"type\": \"食谱步骤图\",\n  \"goal\": \"生成一张可作为公众号 / 小红书 / 食谱书页的食谱步骤图\",\n  \"recipe\": {\n    \"name\": \"{argument name=\\\"recipe name\\\" default=\\\"番茄炒蛋\\\"}\",\n    \"subtitle\": \"{argument name=\\\"subtitle\\\" default=\\\"5 分钟家常版\\\"}\",\n    \"servings\": \"{argument name=\\\"servings\\\" default=\\\"2 人份\\\"}\",\n    \"time\": \"{argument na...",
+          "agnes_conversion": "转换策略：提取 recipe-process-flowchart 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "process-photo-board",
+          "title": "真人摄影流程图 / 装备穿戴 / 操作流程板模板",
+          "file": "references/storyboards-and-sequences/process-photo-board.md",
+          "dalle_sample": "{\n  \"type\": \"{argument name=\\\"theme type\\\" default=\\\"Japanese sci-fi armor dressing-process infographic\\\"}\",\n  \"goal\": \"生成一张以同一角色为主角、按步骤递进展示装备/操作变化的 cinematic 实拍流程板\",\n  \"style\": \"{argument name=\\\"overall style\\\" default=\\\"cinematic live-action tokusatsu-inspired promotional board, realistic industri...",
+          "agnes_conversion": "转换策略：提取 process-photo-board 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        }
+      ]
+    },
+    {
+      "id": "product-and-commercial",
+      "name": "商业静物与产品 (Product & Commercial)",
+      "desc": "电商白底爆款、奢华护肤品、数码电子与宏观景深质感",
+      "skill_count": 0,
+      "templates": []
+    },
+    {
+      "id": "3d-and-cgi",
+      "name": "3D与CGI渲染 (3D & CGI Assets)",
+      "desc": "Claymorphism 软黏土、Blender 渲染、环境光遮蔽与盲盒公仔",
+      "skill_count": 0,
+      "templates": []
+    },
+    {
+      "id": "digital-art",
+      "name": "数字艺术与插画 (Digital Art & Illustration)",
+      "desc": "概念原画、赛博朋克、吉卜力/新海诚唯美风、水彩晕染",
+      "skill_count": 0,
+      "templates": []
+    },
+    {
+      "id": "vector-and-minimalist",
+      "name": "矢量与极简设计 (Vector & Minimalist)",
+      "desc": "Flat 扁平矢量、Icon 体系、几何抽象与极简线条",
+      "skill_count": 0,
+      "templates": []
+    },
+    {
+      "id": "architecture-and-spaces",
+      "name": "建筑与空间透视 (Architecture & Interior)",
+      "desc": "现代极简室内、包豪斯建筑、等轴测切片与光影空间",
+      "skill_count": 0,
+      "templates": []
+    },
+    {
+      "id": "retro-and-vintage",
+      "name": "复古与时代质感 (Retro & Vintage)",
+      "desc": "80s 蒸汽波、复古黑胶海报、宝丽来胶片色散与老式印刷",
+      "skill_count": 0,
+      "templates": []
+    },
+    {
+      "id": "fantasy-and-scifi",
+      "name": "奇幻与科幻视界 (Fantasy & Sci-Fi)",
+      "desc": "太空歌剧、巨构建筑、机甲重装与魔导奇幻场景",
+      "skill_count": 0,
+      "templates": []
+    },
+    {
+      "id": "typography-and-text",
+      "name": "排版与字形视觉 (Typography & Hybrid)",
+      "desc": "负空间预留、纯正矢量排版、字体艺术与双重曝光",
+      "skill_count": 0,
+      "templates": []
+    },
+    {
+      "id": "editorial-and-fashion",
+      "name": "时尚与杂志大片 (Editorial & Fashion)",
+      "desc": "Vogue 封面级、高级时装秀场、戏剧硬光与超模动态",
+      "skill_count": 0,
+      "templates": []
+    },
+    {
+      "id": "food-and-culinary",
+      "name": "美食与静物光影 (Food & Culinary)",
+      "desc": "米其林精致摆盘、微距水滴与热气、诱人食欲色泽与暗调光影",
+      "skill_count": 0,
+      "templates": []
+    },
+    {
+      "id": "nature-and-landscape",
+      "name": "自然风光与大地 (Nature & Landscapes)",
+      "desc": "国家地理级风光、宏大航拍、丁达尔神光与冰川雪山",
+      "skill_count": 0,
+      "templates": []
+    },
+    {
+      "id": "technical-diagrams",
+      "name": "技术图解与蓝图 (Technical Diagrams)",
+      "desc": "工程剖面图、线框蓝图、结构爆炸图与精细标尺",
+      "skill_count": 7,
+      "templates": [
+        {
+          "id": "sequence-diagram",
+          "title": "时序图模板",
+          "file": "references/technical-diagrams/sequence-diagram.md",
+          "dalle_sample": "{\n  \"type\": \"工程感时序图（UML sequence diagram）\",\n  \"goal\": \"生成一张工程感时序图作为 README / blog / 协议文档配图\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"16:9\\\"}\",\n    \"background\": \"deep slate #0F172A with subtle 1px grid #1E293B at 32px spacing\",\n    \"outer_padding\": \"60px\"\n  },\n  ...",
+          "agnes_conversion": "转换策略：提取 sequence-diagram 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "er-diagram",
+          "title": "ER 图 / 数据模型图模板",
+          "file": "references/technical-diagrams/er-diagram.md",
+          "dalle_sample": "{\n  \"type\": \"工程感 ER 图 / 数据模型图\",\n  \"goal\": \"生成一张工程感 ER 图作为数据库设计文档 / API schema / 领域模型 review 配图\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"4:3\\\"}\",\n    \"background\": \"deep slate #0F172A with subtle 1px grid #1E293B at 32px spacing\",\n    \"outer_padding\": \"60px\"\n  },...",
+          "agnes_conversion": "转换策略：提取 er-diagram 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "system-architecture",
+          "title": "系统架构图模板",
+          "file": "references/technical-diagrams/system-architecture.md",
+          "dalle_sample": "{\n  \"type\": \"技术系统架构图（暗色工程感）\",\n  \"goal\": \"生成一张用于 README / blog / 设计文档的工程感系统架构图\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"16:9\\\"}\",\n    \"background\": \"{argument name=\\\"background\\\" default=\\\"deep slate #0F172A with subtle 1px grid lines #1E293B at 32px spacing\\\"}\",...",
+          "agnes_conversion": "转换策略：提取 system-architecture 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "network-topology",
+          "title": "网络拓扑图模板",
+          "file": "references/technical-diagrams/network-topology.md",
+          "dalle_sample": "{\n  \"type\": \"工程感网络拓扑图\",\n  \"goal\": \"生成一张工程感网络拓扑图作为部署文档 / 网络架构 review / 培训材料\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"16:9\\\"}\",\n    \"background\": \"deep slate #0F172A with subtle 1px grid #1E293B at 32px spacing\",\n    \"outer_padding\": \"60px\"\n  },\n  \"title_strip\": {...",
+          "agnes_conversion": "转换策略：提取 network-topology 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "mind-map-tech",
+          "title": "技术主题思维导图模板",
+          "file": "references/technical-diagrams/mind-map-tech.md",
+          "dalle_sample": "{\n  \"type\": \"工程感技术思维导图（放射式 mind map）\",\n  \"goal\": \"生成一张放射式思维导图，作为知识梳理 / 面试准备 / 学习路线 / 技术栈全景的可视化\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"16:9\\\"}\",\n    \"background\": \"deep slate #0F172A with subtle 1px grid #1E293B at 32px spacing\",\n    \"outer_padding\": \"60px\"\n  }...",
+          "agnes_conversion": "转换策略：提取 mind-map-tech 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "flowchart-decision",
+          "title": "流程图 / 决策图模板",
+          "file": "references/technical-diagrams/flowchart-decision.md",
+          "dalle_sample": "{\n  \"type\": \"工程感流程图 / 决策图\",\n  \"goal\": \"生成一张用 BPMN 标准形状语义画的业务流程图，可作 README / blog / 文档配图\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"3:4 portrait\\\"}\",\n    \"background\": \"deep slate #0F172A with subtle 1px grid #1E293B at 32px spacing\",\n    \"outer_padding\": \"60px\"\n  ...",
+          "agnes_conversion": "转换策略：提取 flowchart-decision 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        },
+        {
+          "id": "state-machine",
+          "title": "状态机 / 生命周期图模板",
+          "file": "references/technical-diagrams/state-machine.md",
+          "dalle_sample": "{\n  \"type\": \"工程感状态机 / 生命周期图（UML state diagram）\",\n  \"goal\": \"生成一张状态机图作为业务文档 / 协议规范 / 教学配图\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"16:9\\\"}\",\n    \"background\": \"deep slate #0F172A with subtle 1px grid #1E293B at 32px spacing\",\n    \"outer_padding\": \"60px\"\n  },\n  \"t...",
+          "agnes_conversion": "转换策略：提取 state-machine 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"
+        }
+      ]
+    },
+    {
+      "id": "iconography-and-ui",
+      "name": "图标与UI界面 (Iconography & UI)",
+      "desc": "拟物化图标、Glassmorphism 毛玻璃、Dashboard 界面",
+      "skill_count": 0,
+      "templates": []
+    },
+    {
+      "id": "textures-and-patterns",
+      "name": "材质与抽象纹理 (Textures & Patterns)",
+      "desc": "流动液体流体、金箔大理石、编织物微观纤维与无缝平铺",
+      "skill_count": 0,
+      "templates": []
+    }
+  ]
+}

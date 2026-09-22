@@ -1,0 +1,14 @@
+{
+  "timestamp": 1790006749,
+  "filename": "agnes_1790006749_b2b755da.png",
+  "local_path": "/Users/tom/.new-api/generated_images/agnes_1790006749_b2b755da.png",
+  "remote_url": "https://platform-outputs.agnes-ai.space/images/t2i/task_OMMdrQYaSCoW0zqppl0qeIzGYDvRejxK/output_3aaacc735d3a487faad9362a918dacd4.png",
+  "prompt": "Masterpiece Japanese anime commercial CG illustration, anime key visual. An exceptionally beautiful young anime girl mechanic with an adorable yet resolute expression. She has huge, crystal-clear expressive anime eyes glowing with golden amber light, delicate anime facial features, and soft blushing cheeks. Long dark twin braids gently falling across her shoulders, with retro brass goggles resting on her head. She turns her head back over her shoulder, looking directly at the viewer with an enchanting, captivating gaze. Wearing an off-white anime work shirt under a cute brown leather corset vest, and a neat apron with miniature brass gears. She holds a glowing steampunk brass lantern in one hand casting a radiant warm amber illumination, and a stylized mechanical wrench in the other hand. Background is a romantic, glowing steampunk anime city at night with floating clouds, a glowing distant clock tower, and rotating brass cogwheels with soft white steam. Stunning anime lighting: warm golden lantern glow contrasting against cool nocturnal blue ambiance. Clean crisp lineart, vibrant colors, luminous digital cel-shading, Makoto Shinkai and Ufotable movie aesthetic, Pixiv 100k bookmarks quality, 8k resolution, negative space left on top-left.",
+  "model": "agnes-image-2.5-flash",
+  "file_size_kb": "1261.5 KB",
+  "download_duration_s": "16.18s",
+  "extra": {
+    "style": "pure_anime_cg",
+    "duration_s": "13.45s"
+  }
+}

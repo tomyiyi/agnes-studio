@@ -1,0 +1,46 @@
+{
+  "timestamp": 1790006257,
+  "filename": "agnes_1790006257_2d6beb48.png",
+  "local_path": "/Users/tom/.new-api/generated_images/agnes_1790006257_2d6beb48.png",
+  "remote_url": "https://platform-outputs.agnes-ai.space/images/t2i/task_Cxs2oSfoHIbZSXRzvPp6AZjDftvxAPEE/output_672bd30960f542b7bb51d73e04bcd76b.png",
+  "prompt": "A breathtaking cinematic anime theatrical key visual movie poster, 3:4 vertical composition. A dynamic low-angle hero shot looking slightly upward at a determined young female anime mechanic with neat dark twin-tail braids. Vintage brass steampunk goggles are resting stylishly on her forehead. She has a serene, resolute expression with expressive luminous eyes. She wears a rugged weathered brown leather tool apron loaded with intricate miniature brass clockwork gears and screwdrivers over an ivory roll-sleeved shirt. Her right hand firmly holds a heavy mechanical brass wrench, while her left hand lifts a glowing vintage steam lantern casting an intense radiant warm amber glow. She stands on an elevated wet industrial iron bridge above a nocturnal Victorian steampunk metropolis. Behind her, colossal tilting brass clockwork gears, copper steam pipes venting plumes of soft white vapor, and intricate Victorian scaffolds form dramatic radial convergence lines. In the foggy deep background, a massive illuminated gothic clock tower face glows faintly through the blue night haze. Stunning chiaroscuro color contrast: radiant warm amber and golden light wrapping around her face and leather apron, juxtaposed with cool moonlight and deep cobalt blue rim lighting carving her silhouette from the right. At the upper section of the poster, the elegant cinematic title 'STEAM & CHIME: 铜钟与蒸汽城' is seamlessly integrated. Masterpiece anime production art, Ufotable and Kyoto Animation visual fidelity, crisp clean linework, semi-realistic tactile leather and polished metal reflections, 8k wallpaper.",
+  "model": "agnes-image-2.5-flash",
+  "file_size_kb": "1475.9 KB",
+  "download_duration_s": "44.67s",
+  "extra": {
+    "source_case": "https://gpt-image2.mmh1.top/case/storyboards-and-sequences/anime-key-visual/2.json",
+    "title": "铜钟与蒸汽城 - STEAM & CHIME",
+    "original_json": {
+      "type": "单角色 + 强氛围 KV",
+      "goal": "生成一张单主角电影海报感动漫主视觉，3:4 竖版，强烈叙事与材质对比",
+      "ip": {
+        "title": "铜钟与蒸汽城",
+        "tagline": "她修理时间，也修理人心"
+      },
+      "characters": {
+        "count": 1,
+        "items": [
+          "双麻花辫少女机械师，护目镜推在额头，皮围裙挂满黄铜小工具，右手持扳手、左手提一盏发出暖橙光的蒸汽提灯，站在倾斜巨大齿轮前侧逆光剪影"
+        ],
+        "composition_relationship": "低机位略仰视，主角占画面高度约 65%，背景齿轮与管道形成放射线汇聚于其后脑方向"
+      },
+      "world": {
+        "scene": "夜幕下的架空伦敦风天桥，铁架、铜管、泄压白雾、远处钟楼发光盘面半隐雾中",
+        "lighting": "背主光为提灯暖橙，辅光为冷蓝月光从右侧勾轮廓，金属表面高光滑点克制分布",
+        "atmosphere": "神秘、略危险、但主角目光安定"
+      },
+      "style": {
+        "art_style": "现代 anime + 赛博与蒸汽朋克细节 + 半写实皮料与金属",
+        "color_palette": "深钴蓝、黄铜金、煤黑、提灯暖橙，少量蒸汽白"
+      },
+      "title_block": {
+        "enabled": "true",
+        "main_title": "铜钟与蒸汽城",
+        "sub_title": "STEAM & CHIME",
+        "position": "画面上方 12% 区域，小字副标题不抢主标题"
+      },
+      "aspect_ratio": "3:4"
+    },
+    "gen_duration_s": "15.51s"
+  }
+}

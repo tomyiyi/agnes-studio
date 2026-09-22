@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agnes Studio · 下一代智能多模态生成工作台</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    @font-face {
+      font-family: 'SmileySans';
+      src: url('fonts/SmileySans-Oblique.ttf') format('truetype');
+    }
+    @font-face {
+      font-family: 'LXGWWenKai';
+      src: url('fonts/LXGWWenKai-Regular.ttf') format('truetype');
+    }
+  </style>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+            smiley: ['"SmileySans"', 'sans-serif'],
+            wenkai: ['"LXGWWenKai"', 'serif']
+          },
+          colors: {
+            brand: {
+              50: '#F0FDFA',
+              500: '#00F0FF',
+              600: '#0284C7',
+              700: '#0369A1'
+            },
+            obsidian: {
+              void: '#07080D',
+              surface: '#0E1118',
+              card: '#141824',
+              border: 'rgba(255, 255, 255, 0.08)',
+              hover: 'rgba(255, 255, 255, 0.12)'
+            },
+            paper: {
+              void: '#F8F9FA',
+              surface: '#FFFFFF',
+              card: '#FFFFFF',
+              border: '#E5E7EB',
+              hover: '#F3F4F6',
+              textPrimary: '#111827',
+              textSecondary: '#4B5563',
+              textTertiary: '#9CA3AF'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(160, 160, 160, 0.25);
+      border-radius: 9999px;
+    }
+    .masonry-grid {
+      column-count: 1;
+      column-gap: 1.5rem;
+    }
+    @media (min-width: 640px) {
+      .masonry-grid { column-count: 2; }
+    }
+    @media (min-width: 1024px) {
+      .masonry-grid { column-count: 3; }
+    }
+    @media (min-width: 1440px) {
+      .masonry-grid { column-count: 4; }
+    }
+    .masonry-item {
+      break-inside: avoid;
+      margin-bottom: 1.5rem;
+    }
+    .slider-handle {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: #00F0FF;
+      cursor: ew-resize;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.8);
+      z-index: 20;
+    }
+    .slider-button {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 38px;
+      height: 38px;
+      background: #00F0FF;
+      color: #07080D;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.6);
+    }
+    .editorial-shadow {
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+    }
+    .editorial-hover-shadow:hover {
+      box-shadow: 0 20px 30px -4px rgba(0, 0, 0, 0.08), 0 8px 12px -2px rgba(0, 0, 0, 0.04);
+    }
+    /* 专业海报视口装裱器 (防 CLS 与自适应弹性居中) */
+    .poster-viewport {
+      min-height: 580px;
+      max-height: 640px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: background-color 0.3s ease;
+    }
+    /* 瑞士 12 栏与 8pt 基线可视化覆盖层 (Swiss Grid Overlay) */
+    .swiss-grid-overlay {
+      position: absolute;
+      inset: 6%; /* 6% 安全边距 */
+      pointer-events: none;
+      z-index: 25;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      column-gap: 1.8%;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      background-image: linear-gradient(to bottom, rgba(56, 189, 248, 0.15) 1px, transparent 1px);
+      background-size: 100% 8px; /* 8-pt 基线微网格 */
+    }
+    .swiss-grid-overlay.active {
+      opacity: 1;
+    }
+    .swiss-grid-col {
+      height: 100%;
+      background: rgba(239, 68, 68, 0.12); /* 浅红半透栏线 */
+      border-left: 1px dashed rgba(239, 68, 68, 0.35);
+      border-right: 1px dashed rgba(239, 68, 68, 0.35);
+    }
+    /* 弱网平滑骨架占位 (Image Placeholder Shimmer) */
+    .image-placeholder {
+      background: linear-gradient(90deg, rgba(200,200,200,0.1) 0%, rgba(200,200,200,0.2) 50%, rgba(200,200,200,0.1) 100%);
+      background-size: 200% 100%;
+      animation: shimmer 1.8s infinite;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+  </style>
+</head>
+<body class="bg-paper-void text-paper-textPrimary dark:bg-obsidian-void dark:text-gray-100 font-sans min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-black">
+
+  <!-- 顶部全局导航 Shell -->
+  <header class="sticky top-0 z-50 backdrop-blur-xl bg-white/80 dark:bg-obsidian-surface/80 border-b border-paper-border dark:border-obsidian-border transition-colors">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 to-indigo-600 flex items-center justify-center font-extrabold text-white text-base shadow-md shadow-cyan-500/20">
+          A
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">Agnes Studio</span>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-mono font-semibold border border-cyan-500/20">v2.5 Pro</span>
+          </div>
+          <p class="text-[10px] text-gray-500 dark:text-gray-400 hidden sm:block">多模态生成 · 统一资产中心 · 开源生态中枢</p>
+        </div>
+      </div>
+
+      <!-- 核心工作区导航 -->
+      <nav class="hidden md:flex items-center space-x-1 bg-gray-100 dark:bg-black/40 p-1 rounded-xl border border-gray-200 dark:border-white/5">
+        <button onclick="switchTab('gallery')" id="nav-gallery" class="tab-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm">
+          资产画廊 (44)
+        </button>
+        <button onclick="switchTab('poster-studio')" id="nav-poster-studio" class="tab-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+          🎬 电影感海报与字体
+        </button>
+        <button onclick="switchTab('skills')" id="nav-skills" class="tab-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+          技能矩阵 & 转译
+        </button>
+        <button onclick="switchTab('ecosystem')" id="nav-ecosystem" class="tab-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+          开源生态面板
+        </button>
+        <button onclick="switchTab('sentinel')" id="nav-sentinel" class="tab-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+          系统哨兵
+        </button>
+      </nav>
+
+      <!-- 状态与快捷开关 -->
+      <div class="flex items-center space-x-3">
+        <div class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-mono">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span>网关就绪 (6 Keys · 32ms)</span>
+        </div>
+
+        <button onclick="toggleTheme()" class="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-all border border-gray-200 dark:border-white/5" title="切换极简白/深邃黑">
+          <svg id="theme-icon-sun" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+          <svg id="theme-icon-moon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主体内容容器 -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-8">
+
+    <!-- ==================== TAB 1: 资产画廊 ==================== -->
+    <div id="tab-gallery" class="space-y-8 animate-fade">
+      
+      <!-- 英雄横幅：大一统资产矩阵总览 -->
+      <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-slate-50 to-cyan-50/40 dark:from-obsidian-card dark:via-slate-900 dark:to-indigo-950 border border-paper-border dark:border-obsidian-border p-8 md:p-10 editorial-shadow">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <div class="lg:col-span-7 space-y-4">
+            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-cyan-100 dark:bg-cyan-500/10 text-cyan-800 dark:text-cyan-400 text-xs font-bold border border-cyan-300 dark:border-cyan-500/30">
+              <span>🌟 全量资产集大成中心</span>
+              <span>•</span>
+              <span>42 幅全景收录</span>
+            </div>
+            <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white leading-tight">
+              Agnes 多模态高阶数字资产画廊
+            </h1>
+            <p class="text-gray-600 dark:text-gray-300 text-sm md:text-base leading-relaxed">
+              全量整合<b>25 幅亚洲美人摄影</b>、<b>4 组同一人跨场景角色一致性实测</b>、<b>4 幅全身高级时装立像</b>，以及<b>多流派开源字体海报系列</b>。支持多维交叉筛选、全屏无损微距检视与提示词结构化抽屉。
+            </p>
+            <div class="flex flex-wrap gap-2 pt-2">
+              <span class="px-3 py-1 bg-white dark:bg-white/5 rounded-lg text-xs font-mono text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/5">📸 亚洲美人 25 幅</span>
+              <span class="px-3 py-1 bg-white dark:bg-white/5 rounded-lg text-xs font-mono text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/5">🧬 角色一致性 Face DNA</span>
+              <span class="px-3 py-1 bg-white dark:bg-white/5 rounded-lg text-xs font-mono text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/5">👗 全身 Editorial 立像</span>
+              <span class="px-3 py-1 bg-white dark:bg-white/5 rounded-lg text-xs font-mono text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-white/5">🎨 霞鹜文楷/得意黑海报</span>
+            </div>
+          </div>
+          <div class="lg:col-span-5">
+            <div class="relative rounded-2xl overflow-hidden editorial-shadow border border-gray-200 dark:border-white/10 group cursor-pointer" onclick="openDetailModalById('poster_wenkai_edition')">
+              <img src="assets/poster_style_wenkai.png" alt="霞鹜文楷版海报" class="w-full h-72 object-cover group-hover:scale-105 transition-transform duration-500">
+              <div class="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex justify-between items-center text-xs text-white">
+                <span class="font-bold">《铜钟与蒸汽城》霞鹜文楷版</span>
+                <span class="text-cyan-300 underline font-mono">点击查看元数据 →</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 实测显微镜滑块：原生乱码 vs 纯净底图 -->
+      <div class="rounded-3xl bg-white dark:bg-obsidian-surface border border-paper-border dark:border-obsidian-border p-6 md:p-8 space-y-4 editorial-shadow">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center space-x-2">
+              <span>🔬 实测显微镜：原生乱码 vs 纯净底图对比</span>
+            </h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">左右拖动中央滑块，直观对比生图模型直接写字的拓扑崩溃与提示词纯化去污染后的赛璐珞质感</p>
+          </div>
+          <span class="text-xs font-mono bg-gray-100 dark:bg-white/5 px-3 py-1.5 rounded-lg text-gray-600 dark:text-gray-400 self-start sm:self-auto">Interactive Split-Slider</span>
+        </div>
+
+        <div id="comparison-container" class="relative w-full h-[400px] md:h-[480px] rounded-2xl overflow-hidden select-none cursor-ew-resize border border-gray-200 dark:border-white/10">
+          <img src="assets/agnes_1790006749_b2b755da.png" class="absolute inset-0 w-full h-full object-cover">
+          <div class="absolute top-4 right-4 bg-emerald-600 text-white font-bold text-xs px-3 py-1 rounded-full shadow-lg">
+            纯净二次元底图 (去污染 · 无文字侵蚀)
+          </div>
+
+          <div id="slider-overlay" class="absolute inset-0 w-1/2 h-full overflow-hidden border-r-2 border-cyan-400 shadow-2xl">
+            <img src="assets/agnes_1790006532_372a0b74.png" class="absolute top-0 left-0 h-full max-w-none object-cover" id="slider-img-before">
+            <div class="absolute top-4 left-4 bg-rose-600 text-white font-bold text-xs px-3 py-1 rounded-full shadow-lg">
+              原生生成乱码 (错字/伪假名/风格污染)
+            </div>
+          </div>
+
+          <div id="slider-handle" class="slider-handle" style="left: 50%;">
+            <div class="slider-button">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 9l-4 3 4 3m8-6l4 3-4 3"></path></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 多维筛选与控制中心 -->
+      <div class="sticky top-16 z-30 bg-paper-void/90 dark:bg-obsidian-void/90 backdrop-blur-md py-4 space-y-3 border-b border-paper-border dark:border-obsidian-border">
+        
+        <div class="flex items-center space-x-2 overflow-x-auto pb-1 custom-scrollbar" id="category-tabs"></div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div class="flex items-center space-x-1.5 bg-white dark:bg-obsidian-card p-1 rounded-xl border border-paper-border dark:border-obsidian-border">
+            <span class="text-gray-400 px-2 font-mono">画幅:</span>
+            <button onclick="filterAspectRatio('all')" class="aspect-btn px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-white/10 font-medium">全部</button>
+            <button onclick="filterAspectRatio('1:1')" class="aspect-btn px-2.5 py-1 rounded-lg text-gray-500 hover:text-gray-900 dark:hover:text-white">1:1 方形</button>
+            <button onclick="filterAspectRatio('3:4')" class="aspect-btn px-2.5 py-1 rounded-lg text-gray-500 hover:text-gray-900 dark:hover:text-white">3:4 竖图</button>
+            <button onclick="filterAspectRatio('3:2')" class="aspect-btn px-2.5 py-1 rounded-lg text-gray-500 hover:text-gray-900 dark:hover:text-white">3:2 横图</button>
+          </div>
+
+          <div class="flex-1 min-w-[200px] max-w-md relative">
+            <input type="text" id="gallery-search" oninput="handleSearch()" placeholder="搜索标题、风格（如：霞鹜文楷、得意黑、马面裙、微距）..." class="w-full bg-white dark:bg-obsidian-card border border-paper-border dark:border-obsidian-border rounded-xl pl-8 pr-4 py-1.5 text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:border-cyan-500 transition">
+            <span class="absolute left-2.5 top-2 text-gray-400">🔍</span>
+          </div>
+
+          <div class="flex items-center space-x-1 bg-white dark:bg-obsidian-card p-1 rounded-xl border border-paper-border dark:border-obsidian-border">
+            <button onclick="setLayoutMode('masonry')" id="btn-layout-masonry" class="p-1.5 rounded-lg bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white" title="瀑布流布局 (Masonry - 完整展示全身与高图)">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 17a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1v-2zM14 13a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1h-4a1 1 0 01-1-1v-6z"></path></svg>
+            </button>
+            <button onclick="setLayoutMode('grid')" id="btn-layout-grid" class="p-1.5 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-white" title="标准网格布局 (Uniform Grid)">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="gallery-container" class="masonry-grid min-h-[400px]"></div>
+    </div>
+
+    <!-- ==================== TAB 2: 电影感海报与中文字体工坊 (对标【书生今天也在学】) ==================== -->
+    <div id="tab-poster-studio" class="hidden space-y-8 animate-fade">
+      <div class="rounded-3xl bg-white dark:bg-obsidian-surface border border-paper-border dark:border-obsidian-border p-8 space-y-6 editorial-shadow">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-cyan-100 dark:bg-cyan-500/10 text-cyan-800 dark:text-cyan-400 text-xs font-bold border border-cyan-300 dark:border-cyan-500/30 mb-2">
+              <span>深度汲取抖音【书生今天也在学】电影感封面法则</span>
+              <span>•</span>
+              <span>形 · 斜 · 比 · 色 · 空</span>
+            </div>
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">电影感封面与中文字体工程工作坊</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">融合“加块绿、拆开字、借光影、宽银幕遮幅”六大爆款排版范式，结合 GitHub 顶尖免费商用开源字体。</p>
+          </div>
+          <span class="text-xs font-mono bg-gray-100 dark:bg-white/5 px-3 py-1.5 rounded-lg text-cyan-700 dark:text-cyan-400 self-start sm:self-auto">Cinematic Poster Engine</span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          <!-- 左侧：版式模板切换与控制器 -->
+          <div class="lg:col-span-5 space-y-5 bg-gray-50 dark:bg-black/30 p-6 rounded-2xl border border-gray-200 dark:border-white/5">
+            <h3 class="font-bold text-sm text-gray-900 dark:text-white flex items-center space-x-2">
+              <span>🎬 电影感版式预设选择器</span>
+            </h3>
+
+            <!-- 商业级与经典版式选择器 (5大顶尖开源架构 · 10大商业大作) -->
+            <div class="grid grid-cols-1 gap-2.5 max-h-[480px] overflow-y-auto custom-scrollbar pr-1">
+              
+              <!-- 架构 1: 瑞士国际主义网格 (Responsive Müller-Brockmann) -->
+              <div class="text-[11px] font-bold text-gray-400 dark:text-gray-500 pt-1 px-1 uppercase tracking-wider flex items-center gap-2">
+                <span>📐 架构 01: 瑞士国际网格流派 (Responsive Müller-Brockmann)</span>
+              </div>
+              <button onclick="switchPosterPreset('swiss_01')" id="btn-preset-swiss_01" class="preset-btn p-3 rounded-xl border text-left flex justify-between items-center bg-white dark:bg-obsidian-card border-cyan-500 shadow-sm">
+                <div>
+                  <div class="font-bold text-xs text-gray-900 dark:text-white">👑 瑞士网格 A · 苏黎世秩序 (Josef Müller-Brockmann)</div>
+                  <div class="text-[10px] text-gray-500">致敬米勒-布罗克曼 · 12栏绝对红黑栅格 · 124px大字标穿透 · 瑞士红强调</div>
+                </div>
+                <span class="text-cyan-600 dark:text-cyan-400 font-bold text-xs">当前展示 ✓</span>
+              </button>
+              <button onclick="switchPosterPreset('swiss_02')" id="btn-preset-swiss_02" class="preset-btn p-3 rounded-xl border text-left flex justify-between items-center bg-white dark:bg-obsidian-card border-gray-200 dark:border-white/10 hover:border-cyan-400">
+                <div>
+                  <div class="font-bold text-xs text-gray-900 dark:text-white">👑 瑞士网格 B · Musica Viva 对角律动 (1959 Classic)</div>
+                  <div class="text-[10px] text-gray-500">45°同心圆空间动势 · 包豪斯象牙白底 · 小写无衬线排印 · 三栏演出排期</div>
+                </div>
+                <span class="text-gray-400 text-xs">切换 →</span>
+              </button>
+
+              <!-- 架构 2: 长文杂志与现代信息图 (Article Poster Generator) -->
+              <div class="text-[11px] font-bold text-gray-400 dark:text-gray-500 pt-2 px-1 uppercase tracking-wider flex items-center gap-2">
+                <span>📰 架构 02: 长文杂志信息图流派 (Article Poster Generator)</span>
+              </div>
+              <button onclick="switchPosterPreset('article_01')" id="btn-preset-article_01" class="preset-btn p-3 rounded-xl border text-left flex justify-between items-center bg-white dark:bg-obsidian-card border-gray-200 dark:border-white/10 hover:border-cyan-400">
+                <div>
+                  <div class="font-bold text-xs text-gray-900 dark:text-white">👑 现代长文 A · 暗夜科技 CNC 特刊 (Dark Tech)</div>
+                  <div class="text-[10px] text-gray-500">CNC金属质感 · 猩红高光 · 杂志特刊刊头 · 半透毛玻璃核心观点卡片 · 矢量条码</div>
+                </div>
+                <span class="text-gray-400 text-xs">切换 →</span>
+              </button>
+              <button onclick="switchPosterPreset('article_02')" id="btn-preset-article_02" class="preset-btn p-3 rounded-xl border text-left flex justify-between items-center bg-white dark:bg-obsidian-card border-gray-200 dark:border-white/10 hover:border-cyan-400">
+                <div>
+                  <div class="font-bold text-xs text-gray-900 dark:text-white">👑 现代长文 B · 数字游民极简生活志 (Minimal Biz)</div>
+                  <div class="text-[10px] text-gray-500">浅青灰高奢底衬 · 浮雕双层白卡片 · 弥散柔和阴影 · 双列网格数据对比</div>
+                </div>
+                <span class="text-gray-400 text-xs">切换 →</span>
+              </button>
+
+              <!-- 架构 3: 先锋酸性与赛博机能 (Cyber Acid & Brutalist Tech) -->
+              <div class="text-[11px] font-bold text-gray-400 dark:text-gray-500 pt-2 px-1 uppercase tracking-wider flex items-center gap-2">
+                <span>⚡ 架构 03: 先锋酸性赛博机能流派 (Cyber Acid Tech)</span>
+              </div>
+              <button onclick="switchPosterPreset('cyber_01')" id="btn-preset-cyber_01" class="preset-btn p-3 rounded-xl border text-left flex justify-between items-center bg-white dark:bg-obsidian-card border-gray-200 dark:border-white/10 hover:border-cyan-400">
+                <div>
+                  <div class="font-bold text-xs text-gray-900 dark:text-white">👑 赛博机能 A · HUD 战术瞄准对焦 (Tactical Acid)</div>
+                  <div class="text-[10px] text-gray-500">四角L定位框 · 中央十字准心 · 8°得意黑电光青蓝渐变 · 矢量条码与批次序列号</div>
+                </div>
+                <span class="text-gray-400 text-xs">切换 →</span>
+              </button>
+              <button onclick="switchPosterPreset('cyber_02')" id="btn-preset-cyber_02" class="preset-btn p-3 rounded-xl border text-left flex justify-between items-center bg-white dark:bg-obsidian-card border-gray-200 dark:border-white/10 hover:border-cyan-400">
+                <div>
+                  <div class="font-bold text-xs text-gray-900 dark:text-white">👑 赛博机能 B · Y2K 酸性霓虹先锋 (Reconstruct)</div>
+                  <div class="text-[10px] text-gray-500">Y2K荧光绿撞霓虹品红 · 穿透大字标重构视界 · 终端等宽命令行日志卡片</div>
+                </div>
+                <span class="text-gray-400 text-xs">切换 →</span>
+              </button>
+
+              <!-- 架构 4: 新中式当代金石意境 (Neo-Chinese Poetics) -->
+              <div class="text-[11px] font-bold text-gray-400 dark:text-gray-500 pt-2 px-1 uppercase tracking-wider flex items-center gap-2">
+                <span>🪨 架构 04: 新中式当代金石意境流派 (Neo-Chinese Poetics)</span>
+              </div>
+              <button onclick="switchPosterPreset('chinese_01')" id="btn-preset-chinese_01" class="preset-btn p-3 rounded-xl border text-left flex justify-between items-center bg-white dark:bg-obsidian-card border-gray-200 dark:border-white/10 hover:border-cyan-400">
+                <div>
+                  <div class="font-bold text-xs text-gray-900 dark:text-white">👑 新中式 A · 苏园惊鸿对角避障拆字 (Poetics)</div>
+                  <div class="text-[10px] text-gray-500">Vision人脸避障 · 中轴40%留白 · 双列对角宋体错位 · 霞鹜小楷七绝 · 朱砂方印</div>
+                </div>
+                <span class="text-gray-400 text-xs">切换 →</span>
+              </button>
+              <button onclick="switchPosterPreset('chinese_02')" id="btn-preset-chinese_02" class="preset-btn p-3 rounded-xl border text-left flex justify-between items-center bg-white dark:bg-obsidian-card border-gray-200 dark:border-white/10 hover:border-cyan-400">
+                <div>
+                  <div class="font-bold text-xs text-gray-900 dark:text-white">👑 新中式 B · 墨韵山海极简空灵金石 (Ink Landscape)</div>
+                  <div class="text-[10px] text-gray-500">南宋马远夏圭边角留白 · 竖排大字距山海微澜 · 诗经题跋 · 竖向长条引首章</div>
+                </div>
+                <span class="text-gray-400 text-xs">切换 →</span>
+              </button>
+
+              <!-- 架构 5: 院线 2.35:1 宽银幕大片 (Cinematic Billing Block) -->
+              <div class="text-[11px] font-bold text-gray-400 dark:text-gray-500 pt-2 px-1 uppercase tracking-wider flex items-center gap-2">
+                <span>🎬 架构 05: 院线 2.35:1 宽银幕大片流派 (Cinematic Billing Block)</span>
+              </div>
+              <button onclick="switchPosterPreset('cinema_01')" id="btn-preset-cinema_01" class="preset-btn p-3 rounded-xl border text-left flex justify-between items-center bg-white dark:bg-obsidian-card border-gray-200 dark:border-white/10 hover:border-cyan-400">
+                <div>
+                  <div class="font-bold text-xs text-gray-900 dark:text-white">👑 院线大片 A · 最后的地平线 (2.35:1 Billing Block)</div>
+                  <div class="text-[10px] text-gray-500">上下14%电影纯黑遮幅 · 刀刻大宋体超宽字距 · 好莱坞演职员微排版 · IMAX标</div>
+                </div>
+                <span class="text-gray-400 text-xs">切换 →</span>
+              </button>
+              <button onclick="switchPosterPreset('cinema_02')" id="btn-preset-cinema_02" class="preset-btn p-3 rounded-xl border text-left flex justify-between items-center bg-white dark:bg-obsidian-card border-gray-200 dark:border-white/10 hover:border-cyan-400">
+                <div>
+                  <div class="font-bold text-xs text-gray-900 dark:text-white">👑 院线大片 B · 深渊回响黑色悬疑 (Festival Laurels)</div>
+                  <div class="text-[10px] text-gray-500">电影节双金冠桂冠徽记 · 悬疑冷调大宋体 · 评审团引言 · 摄影镜头参数微排版</div>
+                </div>
+                <span class="text-gray-400 text-xs">切换 →</span>
+              </button>
+
+              <!-- 经典实战与书生系列兼容区 -->
+              <div class="text-[11px] font-bold text-gray-400 dark:text-gray-500 pt-2 px-1 uppercase tracking-wider flex items-center gap-2">
+                <span>🌟 更多经典与实战排式</span>
+              </div>
+              <button onclick="switchPosterPreset('shusheng_capsule')" id="btn-preset-shusheng_capsule" class="preset-btn p-2.5 rounded-xl border text-left flex justify-between items-center bg-white dark:bg-obsidian-card border-gray-200 dark:border-white/10 hover:border-cyan-400">
+                <div>
+                  <div class="font-semibold text-xs text-gray-900 dark:text-white">书生六式 01 · 绿色刊头圆角横胶囊</div>
+                  <div class="text-[10px] text-gray-500">顶部荧光绿横胶囊 · 双端排字避让头部 · 底部双色超粗黑体</div>
+                </div>
+                <span class="text-gray-400 text-xs">切换 →</span>
+              </button>
+
+              <button onclick="switchPosterPreset('shusheng_split_red')" id="btn-preset-shusheng_split_red" class="preset-btn p-2.5 rounded-xl border text-left flex justify-between items-center bg-white dark:bg-obsidian-card border-gray-200 dark:border-white/10 hover:border-cyan-400">
+                <div>
+                  <div class="font-semibold text-xs text-gray-900 dark:text-white">书生六式 02 · 红色错位夹击竖排</div>
+                  <div class="text-[10px] text-gray-500">左右竖排错位夹击 · 纯红锐角大字 · 白描边副标避让人体</div>
+                </div>
+                <span class="text-gray-400 text-xs">切换 →</span>
+              </button>
+
+              <button onclick="switchPosterPreset('shusheng_side_yellow')" id="btn-preset-shusheng_side_yellow" class="preset-btn p-2.5 rounded-xl border text-left flex justify-between items-center bg-white dark:bg-obsidian-card border-gray-200 dark:border-white/10 hover:border-cyan-400">
+                <div>
+                  <div class="font-semibold text-xs text-gray-900 dark:text-white">书生八式 01 · 侧边明黄贯穿带</div>
+                  <div class="text-[10px] text-gray-500">11%贯穿明黄带 · 纵向大英文 · 左下2:1超窄特粗黑体“封面”</div>
+                </div>
+                <span class="text-gray-400 text-xs">切换 →</span>
+              </button>
+
+              <button onclick="switchPosterPreset('shusheng_top_green')" id="btn-preset-shusheng_top_green" class="preset-btn p-2.5 rounded-xl border text-left flex justify-between items-center bg-white dark:bg-obsidian-card border-gray-200 dark:border-white/10 hover:border-cyan-400">
+                <div>
+                  <div class="font-semibold text-xs text-gray-900 dark:text-white">书生八式 02 · 绿底上下 1/3 色块</div>
+                  <div class="text-[10px] text-gray-500">上30%苹果绿大块 · 居中深钴蓝剪纸字 · 4%跨层微柔和阴影</div>
+                </div>
+                <span class="text-gray-400 text-xs">切换 →</span>
+              </button>
+            </div>
+
+            <!-- 当前排法核心公式解构 -->
+            <div id="preset-formula-box" class="p-4 rounded-xl bg-cyan-50/60 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-500/20 text-xs space-y-2">
+              <div class="font-bold text-cyan-900 dark:text-cyan-300">💡 当前排法设计公式：</div>
+              <p id="preset-formula-desc" class="text-gray-700 dark:text-gray-300 leading-relaxed">
+                <b>致敬约瑟夫·米勒-布罗克曼：</b>严格 12 栏绝对对齐红黑栅格、124px 巨型无衬线字标穿透版芯、瑞士红 (#E11D48) 强调色块与 1px 极细贯穿基线。右下画芯硬裁切 20px 实色投影，展现瑞士国际平面设计风格极致的理性与秩序美感。
+              </p>
+            </div>
+
+            <!-- 排印与网格参数量化视窗 (消除左右高度差) -->
+            <div class="p-4 rounded-xl bg-white dark:bg-obsidian-card border border-paper-border dark:border-obsidian-border text-xs space-y-2.5 font-mono">
+              <div class="flex items-center justify-between text-gray-500 text-[11px] pb-1 border-b border-gray-100 dark:border-white/5 font-sans font-semibold">
+                <span>📐 排印参数量化看板 (Metrics)</span>
+                <span class="text-cyan-600 dark:text-cyan-400">Swiss 12-Col</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-[11px]">
+                <div class="flex justify-between text-gray-500"><span>字阶级数:</span><span class="text-gray-900 dark:text-white font-bold">1.618 黄金</span></div>
+                <div class="flex justify-between text-gray-500"><span>主标题 H1:</span><span class="text-gray-900 dark:text-white font-bold">124 pt 纯黑</span></div>
+                <div class="flex justify-between text-gray-500"><span>网格基线:</span><span class="text-gray-900 dark:text-white font-bold">16 px Gutter</span></div>
+                <div class="flex justify-between text-gray-500"><span>安全边距:</span><span class="text-gray-900 dark:text-white font-bold">50 px (4.1%)</span></div>
+                <div class="flex justify-between text-gray-500"><span>强调主色:</span><span class="text-rose-600 dark:text-rose-400 font-bold">#E11D48 瑞士红</span></div>
+                <div class="flex justify-between text-gray-500"><span>主体避障:</span><span class="text-emerald-600 dark:text-emerald-400 font-bold">零遮挡 ✓</span></div>
+              </div>
+            </div>
+
+            <div class="pt-1">
+              <a id="btn-download-poster" href="assets/poster_pro_swiss_01.png" target="_blank" class="w-full py-2.5 rounded-xl bg-gray-900 dark:bg-cyan-500 text-white dark:text-black font-bold text-xs flex items-center justify-center space-x-2 hover:opacity-90 shadow-md transition">
+                <span>下载当前 4K 商业海报原图</span>
+                <span>↗</span>
+              </a>
+            </div>
+          </div>
+
+          <!-- 右侧：海报实时渲染视口与五大设计法则 -->
+          <div class="lg:col-span-7 space-y-4">
+            
+            <!-- 专业检视工具条 (Inspector Controls) -->
+            <div class="flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
+              <div class="flex items-center space-x-2">
+                <span class="text-gray-400 font-mono text-[11px]">检视模式:</span>
+                <button onclick="toggleGridOverlay()" id="btn-toggle-grid" class="px-2.5 py-1 rounded-lg border border-paper-border dark:border-white/10 bg-white dark:bg-obsidian-card text-gray-700 dark:text-gray-300 hover:border-cyan-500 flex items-center space-x-1.5 transition">
+                  <span class="w-2 h-2 rounded-full bg-gray-400 transition-colors" id="dot-grid-status"></span>
+                  <span id="text-grid-status" class="font-sans text-[11px]">瑞士 12 栏参考线: 关</span>
+                </button>
+                <button onclick="toggleBackdropTheme()" id="btn-toggle-backdrop" class="px-2.5 py-1 rounded-lg border border-paper-border dark:border-white/10 bg-white dark:bg-obsidian-card text-gray-700 dark:text-gray-300 hover:border-cyan-500 flex items-center space-x-1 transition" title="切换底衬模式 (暗房黑 / 展厅白)">
+                  <span class="text-gray-400 text-[11px]">底衬:</span>
+                  <span id="text-backdrop-mode" class="font-mono text-[11px]">暗房 🖤</span>
+                </button>
+              </div>
+              <div class="flex items-center space-x-2 text-[11px] font-mono text-gray-400">
+                <span>1200 × 1200 px (1:1)</span>
+                <span>•</span>
+                <button onclick="openPosterModal()" class="text-cyan-600 dark:text-cyan-400 font-semibold hover:underline flex items-center space-x-1">
+                  <span>全屏检视</span>
+                  <span>⛶</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 主装裱视口容器 (防 CLS 与自适应弹性居中) -->
+            <div id="poster-viewport-container" class="poster-viewport rounded-2xl overflow-hidden editorial-shadow border border-gray-200 dark:border-white/10 bg-[#07080D]">
+              <!-- 瑞士 12 栏参考线覆盖层 -->
+              <div id="swiss-grid-overlay" class="swiss-grid-overlay">
+                <div class="swiss-grid-col"></div>
+                <div class="swiss-grid-col"></div>
+                <div class="swiss-grid-col"></div>
+                <div class="swiss-grid-col"></div>
+                <div class="swiss-grid-col"></div>
+                <div class="swiss-grid-col"></div>
+                <div class="swiss-grid-col"></div>
+                <div class="swiss-grid-col"></div>
+                <div class="swiss-grid-col"></div>
+                <div class="swiss-grid-col"></div>
+                <div class="swiss-grid-col"></div>
+                <div class="swiss-grid-col"></div>
+              </div>
+
+              <!-- 海报图片展示 -->
+              <img id="poster-preview-img" src="assets/poster_pro_swiss_01.png" alt="海报预览" class="max-w-full max-h-[580px] object-contain transition-all duration-300 select-none cursor-pointer" onclick="openPosterModal()" title="点击放大全屏检视排印微细节">
+              
+              <div class="absolute top-4 right-4 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-mono text-cyan-300 border border-white/10 pointer-events-none">
+                <span id="badge-font-name">👑 瑞士网格 A · 苏黎世秩序 (Josef Müller-Brockmann)</span>
+              </div>
+            </div>
+
+            <!-- 【书生今天也在学】五大视觉法则解密卡 -->
+            <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 text-center text-xs">
+              <div class="p-2.5 rounded-xl bg-white dark:bg-obsidian-card border border-paper-border dark:border-obsidian-border">
+                <div class="font-extrabold text-cyan-600 dark:text-cyan-400 text-sm">形</div>
+                <div class="text-[10px] text-gray-500 mt-0.5">方正/圆角矩形色块打底</div>
+              </div>
+              <div class="p-2.5 rounded-xl bg-white dark:bg-obsidian-card border border-paper-border dark:border-obsidian-border">
+                <div class="font-extrabold text-cyan-600 dark:text-cyan-400 text-sm">斜</div>
+                <div class="text-[10px] text-gray-500 mt-0.5">得意黑 8° 窄斜体倾斜动势</div>
+              </div>
+              <div class="p-2.5 rounded-xl bg-white dark:bg-obsidian-card border border-paper-border dark:border-obsidian-border">
+                <div class="font-extrabold text-cyan-600 dark:text-cyan-400 text-sm">比</div>
+                <div class="text-[10px] text-gray-500 mt-0.5">大标题 68pt vs 小标 10pt</div>
+              </div>
+              <div class="p-2.5 rounded-xl bg-white dark:bg-obsidian-card border border-paper-border dark:border-obsidian-border">
+                <div class="font-extrabold text-cyan-600 dark:text-cyan-400 text-sm">色</div>
+                <div class="text-[10px] text-gray-500 mt-0.5">莫兰迪暗绿/琥珀暖金调色</div>
+              </div>
+              <div class="p-2.5 rounded-xl bg-white dark:bg-obsidian-card border border-paper-border dark:border-obsidian-border">
+                <div class="font-extrabold text-cyan-600 dark:text-cyan-400 text-sm">空</div>
+                <div class="text-[10px] text-gray-500 mt-0.5">两边拆字预留中心人物负空间</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 3: 技能矩阵与转译器 ==================== -->
+    <div id="tab-skills" class="hidden space-y-8 animate-fade">
+      <div class="rounded-3xl bg-white dark:bg-obsidian-surface border border-paper-border dark:border-obsidian-border p-8 space-y-6 editorial-shadow">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">⚡ DALL-E 3 JSON → Agnes 智能转译编译器</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">自动拆解 JSON 参数层级，剔除机械标记，注入物理光学、材质细节与反塑料感约束</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="loadSamplePreset('steampunk')" class="text-xs px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-cyan-400 hover:bg-gray-200 transition">
+              海报留白范式
+            </button>
+            <button onclick="loadSamplePreset('bento')" class="text-xs px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-cyan-400 hover:bg-gray-200 transition">
+              Bento 便当格范式
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="space-y-2">
+            <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 font-mono">
+              <span>SOURCE: DALL-E 3 JSON SCHEMA</span>
+              <span>JSON 输入</span>
+            </div>
+            <textarea id="json-input" rows="13" class="w-full rounded-2xl bg-gray-50 dark:bg-black/50 border border-paper-border dark:border-white/10 p-4 font-mono text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:border-cyan-500 custom-scrollbar leading-relaxed" placeholder="在此粘贴任意 Garden-Skills 或 DALL-E 3 范式 JSON..."></textarea>
+          </div>
+
+          <div class="space-y-2">
+            <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 font-mono">
+              <span>COMPILED: AGNES DIFFUSION PROMPT</span>
+              <button onclick="copyAgnesPrompt()" class="text-cyan-600 dark:text-cyan-400 hover:underline">一键复制 📋</button>
+            </div>
+            <div id="transpiled-output" class="w-full h-[288px] rounded-2xl bg-gray-50 dark:bg-black/50 border border-paper-border dark:border-white/10 p-4 font-mono text-xs text-cyan-700 dark:text-cyan-300 overflow-y-auto custom-scrollbar leading-relaxed">
+              // 点击下方“立即转译”或选择上方模板进行编译...
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-paper-border dark:border-white/5">
+          <div class="flex items-center space-x-6 text-xs text-gray-600 dark:text-gray-400">
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="opt-decontaminate" checked class="rounded text-cyan-500 focus:ring-0">
+              <span>画风防污染（摄影/二次元物理隔离）</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="opt-negative-space" checked class="rounded text-cyan-500 focus:ring-0">
+              <span>注入负空间留白（为矢量排版预留）</span>
+            </label>
+          </div>
+          <button onclick="doTranspile()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 font-bold text-white text-sm shadow-md hover:brightness-110 active:scale-95 transition-all">
+            🚀 立即执行智能转译
+          </button>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">📚 17 大经验分类与技能标准库</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">系统已全量收敛 ConardLi/garden-skills 沉淀的 17 个大类与高频实操模板</p>
+          </div>
+          <span class="text-xs font-mono px-3 py-1 bg-gray-100 dark:bg-white/5 rounded-lg text-cyan-700 dark:text-cyan-400">26 Skills Ready</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="skills-categories-grid"></div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 4: 开源生态面板 ==================== -->
+    <div id="tab-ecosystem" class="hidden space-y-8 animate-fade">
+      <div>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">🛠️ 开源生态集成与本地能力面板</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">工作台深度整合的 5 大本地基础设施，无缝贯通模型路由、代码分析、网络抓取与浏览器接管</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="ecosystem-grid"></div>
+    </div>
+
+    <!-- ==================== TAB 5: 系统哨兵 ==================== -->
+    <div id="tab-sentinel" class="hidden space-y-8 animate-fade">
+      <div>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">🛰️ 系统生命周期哨兵 (Sentinel Hub)</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">实时追踪本地聚合网关健康、上游 GitHub 模板同步状态与容灾自动化流水线</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="rounded-3xl bg-white dark:bg-obsidian-surface border border-paper-border dark:border-obsidian-border p-6 space-y-4 editorial-shadow">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">本地 New API 状态</span>
+            <span class="px-2 py-0.5 rounded text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono border border-emerald-500/20">Optimal</span>
+          </div>
+          <div class="text-3xl font-extrabold text-gray-900 dark:text-white font-mono">32<span class="text-sm font-normal text-gray-500 ml-1">ms latency</span></div>
+          <div class="space-y-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-white/5 pt-4">
+            <div class="flex justify-between"><span>活跃 Agnes 渠道:</span><span class="text-gray-900 dark:text-white font-mono">6 / 6 满载在线</span></div>
+            <div class="flex justify-between"><span>极速响应节点:</span><span class="text-cyan-600 dark:text-cyan-400 font-mono">Agnes-4 (1697ms)</span></div>
+            <div class="flex justify-between"><span>熔断保护:</span><span class="text-gray-900 dark:text-white">连续 3 次失败自动熔断</span></div>
+          </div>
+        </div>
+
+        <div class="rounded-3xl bg-white dark:bg-obsidian-surface border border-paper-border dark:border-obsidian-border p-6 space-y-4 editorial-shadow">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Garden-Skills 上游仓库</span>
+            <span class="px-2 py-0.5 rounded text-xs bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-mono border border-cyan-500/20">Synchronized</span>
+          </div>
+          <div class="text-xl font-bold text-gray-900 dark:text-white font-mono truncate">ConardLi/garden-skills</div>
+          <div class="space-y-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-white/5 pt-4">
+            <div class="flex justify-between"><span>监控分支:</span><span class="text-gray-900 dark:text-white font-mono">main (e8d91f2)</span></div>
+            <div class="flex justify-between"><span>落地技能分类:</span><span class="text-gray-900 dark:text-white font-mono">17 大类完整落地</span></div>
+            <div class="flex justify-between"><span>自动巡检频次:</span><span class="text-gray-900 dark:text-white">每小时第 15 分钟</span></div>
+          </div>
+        </div>
+
+        <div class="rounded-3xl bg-white dark:bg-obsidian-surface border border-paper-border dark:border-obsidian-border p-6 space-y-4 editorial-shadow">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">容灾快照 (Backup Cron)</span>
+            <span class="px-2 py-0.5 rounded text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono border border-amber-500/20">Active</span>
+          </div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white font-mono">03:00 <span class="text-xs font-normal text-gray-500">Daily Snapshots</span></div>
+          <div class="space-y-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-white/5 pt-4">
+            <div class="flex justify-between"><span>快照机制:</span><span class="text-gray-900 dark:text-white">SQLite .backup 在线热备</span></div>
+            <div class="flex justify-between"><span>生命周期归档:</span><span class="text-gray-900 dark:text-white">7 天自动轮转过期清理</span></div>
+            <div class="flex justify-between"><span>存储位置:</span><span class="text-gray-900 dark:text-white font-mono">~/.new-api/backups</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ==================== 全屏无损检视 & PROMPT 抽屉 ==================== -->
+  <div id="detail-modal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4 md:p-8" onclick="closeDetailModal(event)">
+    <div class="bg-white dark:bg-obsidian-surface border border-gray-200 dark:border-white/10 rounded-3xl max-w-6xl w-full max-h-[92vh] overflow-hidden flex flex-col lg:flex-row shadow-2xl relative" onclick="event.stopPropagation()">
+      <button onclick="forceCloseModal()" class="absolute top-4 right-4 z-20 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition">
+        ✕
+      </button>
+
+      <div class="flex-1 bg-black/95 relative flex items-center justify-center overflow-hidden min-h-[380px] lg:min-h-[600px] group">
+        <img id="modal-img" src="" alt="" class="max-w-full max-h-[82vh] object-contain transition-transform duration-300 select-none cursor-zoom-in" onclick="toggleZoom(this)">
+        <div class="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md text-white text-[11px] font-mono px-3 py-1 rounded-full pointer-events-none">
+          🔍 点击图片可放大检视微距毛孔与光影
+        </div>
+      </div>
+
+      <div class="w-full lg:w-[420px] p-6 lg:p-8 flex flex-col justify-between overflow-y-auto custom-scrollbar space-y-6 bg-white dark:bg-obsidian-card">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <span id="modal-tag" class="px-2.5 py-1 rounded-md text-xs font-mono font-semibold bg-cyan-100 dark:bg-cyan-500/10 text-cyan-800 dark:text-cyan-400"></span>
+            <span id="modal-aspect" class="text-xs font-mono text-gray-500"></span>
+          </div>
+
+          <h2 id="modal-title" class="text-xl font-bold text-gray-900 dark:text-white leading-snug"></h2>
+          <p id="modal-desc" class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed"></p>
+
+          <div class="space-y-2 pt-2 border-t border-gray-100 dark:border-white/5">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Prompt Engineering</span>
+              <button onclick="copyModalPrompt()" class="text-xs text-cyan-600 dark:text-cyan-400 hover:underline flex items-center space-x-1">
+                <span>一键复制 Prompt</span>
+                <span>📋</span>
+              </button>
+            </div>
+            <div id="modal-prompt" class="p-3.5 rounded-xl bg-gray-50 dark:bg-black/50 border border-gray-200 dark:border-white/10 font-mono text-[11px] text-gray-800 dark:text-cyan-300 leading-relaxed max-h-48 overflow-y-auto custom-scrollbar select-all"></div>
+          </div>
+
+          <div class="space-y-1.5 text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-100 dark:border-white/5">
+            <div class="flex justify-between"><span>驱动模型:</span><span id="modal-model" class="text-gray-900 dark:text-white font-mono"></span></div>
+            <div class="flex justify-between"><span>渲染耗时:</span><span id="modal-duration" class="text-gray-900 dark:text-white font-mono"></span></div>
+            <div class="flex justify-between"><span>归属系列:</span><span id="modal-series" class="text-gray-900 dark:text-white font-mono"></span></div>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-gray-100 dark:border-white/5 flex space-x-2">
+          <button onclick="sendToTranspiler()" class="flex-1 py-2.5 rounded-xl bg-gray-900 dark:bg-cyan-500 text-white dark:text-black font-semibold text-xs text-center hover:opacity-90 transition">
+            ⚡ 发送到转译器微调
+          </button>
+          <a id="modal-raw-link" href="" target="_blank" class="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white font-semibold text-xs flex items-center justify-center hover:bg-gray-200 transition">
+            4K 原图 ↗
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const MASTER_GALLERY = [{"id": "poster_expert_steampunk", "title": "《铜钟与蒸汽城》专家级动态排版 (非对称左上悬挂)", "category_id": "commercial-posters", "category_name": "动漫与商业海报", "style_tag": "专家排版 · 黄金分割字阶", "style_slug": "expert-steampunk", "desc": "智能海报专家实操：经 3x3 网格方差检测锁定左上角平整负空间（方差仅 0.4），采用 1.618 黄金分割字阶体系（68pt/42pt/16pt），得意黑 8° 动势与黄铜油灯暖金、蒸汽冷蓝提取色互补。", "prompt": "masterpiece anime commercial key visual, Makoto Shinkai style, young female mechanic with glowing lantern, reserved clean negative space in upper-left, 8k.", "duration": 13.45, "img": "poster_expert_dynamic_steampunk.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "智能海报视觉专家设计系列"}, {"id": "poster_expert_neochinese", "title": "《苏园惊鸿》新中式马面裙 (中轴对称古典大宋体)", "category_id": "commercial-posters", "category_name": "动漫与商业海报", "style_tag": "专家排版 · 东方诗意典雅", "style_slug": "expert-neochinese", "desc": "智能海报专家实操：针对全身立像居中构图，采用顶部中轴对称泥金大宋体，左侧避障竖排书法诗词与朱砂印章，底部胶片归档注记，呈现高级东方时装画册封面质感。", "prompt": "A magnificent full-body fashion lookbook photograph of East Asian beauty in Mamianqun standing in Suzhou garden, head-to-toe shot, reserved top and side margins for typography, 8k.", "duration": 104.5, "img": "poster_expert_dynamic_neochinese.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "智能海报视觉专家设计系列"}, {"id": "cover_shusheng_capsule_green", "title": "《铜钟与蒸汽城》书生六式 01 · 绿色刊头胶囊海报", "category_id": "commercial-posters", "category_name": "动漫与商业海报", "style_tag": "书生六式 · 绿色胶囊刊头", "style_slug": "shusheng-capsule-green", "desc": "实战落地书生六式第01式：顶部荧光绿横向圆角胶囊横幅两端排字为头部让位，底部 y68% 超粗黑体左对齐大标题与双色副标（白字+荧光绿字）。", "prompt": "masterpiece anime commercial key visual, Makoto Shinkai style, young female mechanic with glowing lantern, reserved top and bottom negative space for capsule banner and heavy typography, 8k.", "duration": 13.45, "img": "cover_shusheng_capsule_green.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "书生·电影感封面六式工坊"}, {"id": "cover_shusheng_split_red", "title": "《铜钟与蒸汽城》书生六式 02 · 红色错位竖排海报", "category_id": "commercial-posters", "category_name": "动漫与商业海报", "style_tag": "书生六式 · 红色错位竖排", "style_slug": "shusheng-split-red", "desc": "实战落地书生六式第02式：左字列(y29%起)与右字列(y45%起)错落夹击，纯红超粗锐角美术字，中轴预留2%呼吸空隙完全避让人体，左上带白描边副标与红色角标。", "prompt": "masterpiece anime commercial key visual, Makoto Shinkai style, young female mechanic centered, reserved left and right vertical columns for typography, 8k.", "duration": 13.45, "img": "cover_shusheng_split_red.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "书生·电影感封面六式工坊"}, {"id": "cover_shusheng_side_yellow", "title": "《电影感封面》书生八式 01 · 侧边明黄贯穿带写真", "category_id": "commercial-posters", "category_name": "动漫与商业海报", "style_tag": "书生八式 · 侧边明黄贯穿带", "style_slug": "shusheng-side-yellow", "desc": "实战落地书生八式第01式：左侧 11% 宽明黄贯穿色带，纵向黑色大写英文，左下黄色粗宋体 + 超窄特粗黑体“封面”（2:1 高宽比）+ 纯白副标。", "prompt": "A candid authentic photograph of a lovely 20-year-old East Asian beauty sitting on tatami in sunlit room, reserved left margin 11% for yellow vertical ribbon, 8k.", "duration": 12.5, "img": "cover_shusheng_side_yellow.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "书生·色块封面八式工坊"}, {"id": "cover_shusheng_top_green", "title": "《电影感人像写真》书生八式 02 · 绿底上下 1/3 色块", "category_id": "commercial-posters", "category_name": "动漫与商业海报", "style_tag": "书生八式 · 绿底上下1/3分割", "style_slug": "shusheng-top-green", "desc": "实战落地书生八式第02式：上方 30% 苹果绿大色块 + 深钴蓝剪纸美术字居中 + 细无衬线英文，微弱跨层柔和阴影，下方 2/3 保留高审美微距人像。", "prompt": "A stunning macro beauty portrait of young East Asian woman, clear dark eyes, natural skin texture, reserved upper 30% space for geometric color block, 8k.", "duration": 16.66, "img": "cover_shusheng_top_green.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "书生·色块封面八式工坊"}, {"id": "cover_letterbox_edition", "title": "《这回轮到我当主角了》电影宽银幕遮幅海报", "category_id": "commercial-posters", "category_name": "动漫与商业海报", "style_tag": "电影宽银幕 (2.35:1 遮幅)", "style_slug": "cinema-letterbox", "desc": "汲取电影宽银幕美学：上下 12% 纯黑遮幅，结合思源大宋体极致居中排版与底部导演微排版，将普通写真瞬间蜕变为电影大片。", "prompt": "cinematic movie poster with black letterbox bars, elegant serif title, 8k.", "duration": 12.5, "img": "cover_cinematic_letterbox.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "电影感封面排版实验室"}, {"id": "cover_split_green_edition", "title": "《铜钟与蒸汽城》加块绿 · 左右拆字电影封面", "category_id": "commercial-posters", "category_name": "动漫与商业海报", "style_tag": "抖音书生 6 法 · 加块绿拆字", "style_slug": "cinema-split-green", "desc": "汲取抖音【书生今天也在学】爆款排版法：加块绿（莫兰迪半透明色块衬底）+ 左右对角拆字，完美避开中央人物视线焦点，形斜比色空兼备。", "prompt": "cinematic cover with split alignment and translucent green color block, 8k.", "duration": 13.45, "img": "cover_cinematic_split_green.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "电影感封面排版实验室"}, {"id": "poster_smiley_edition", "title": "《铜钟与蒸汽城》得意黑 · 潮流先锋版", "category_id": "commercial-posters", "category_name": "动漫与商业海报", "style_tag": "得意黑 (现代先锋)", "style_slug": "typography-smiley", "desc": "采用锚工房开源【得意黑 Smiley Sans】（12k+ Stars）。窄斜体极简构图，搭配赛博荧光青冷光，具备极强的工业冲击力。", "prompt": "masterpiece anime commercial key visual, modern typography in Smiley Sans Condensed Oblique, 8k.", "duration": 13.45, "img": "poster_style_smiley.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "开源字体排版工坊"}, {"id": "poster_wenkai_edition", "title": "《铜钟与蒸汽城》霞鹜文楷 · 日漫温润版", "category_id": "commercial-posters", "category_name": "动漫与商业海报", "style_tag": "霞鹜文楷 (日漫诗意)", "style_slug": "typography-wenkai", "desc": "采用落霞孤鹜高星开源【霞鹜文楷】（17k+ Stars）。笔画舒展温润，日漫治愈感与蒸汽朋克形成温柔与坚硬的诗意对冲。", "prompt": "masterpiece anime commercial key visual, Makoto Shinkai style, 2D cel-shaded, typography in LXGW WenKai, 8k.", "duration": 13.45, "img": "poster_style_wenkai.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "开源字体排版工坊"}, {"id": "sweet_01", "title": "晨光初醒的奶油卧室", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "甜系纯欲 · 晨光初醒", "style_slug": "sweet", "desc": "阳光斜照进奶油色棉质卧室，少女穿着宽松米白睡衣抱膝坐在床边，微乱发丝透亮，自然水光肌。", "prompt": "A candid authentic photograph of a lovely 20-year-old East Asian college girl waking up, sitting on the edge of a soft cream-white bed in a sunlit Scandinavian bedroom. Wearing an oversized cozy ribbed cotton knit sweater, bare legs tucked naturally. Fluffy high-cranial hairline with airy wispy bangs and delicate flyaway hairs catching golden morning sunlight. Natural luminous dewy porcelain skin with visible fine pores, soft blush undertones on cheeks, sweet relaxed sleepy smile. Shot on Sony A7R V with 35mm f/1.4 GM lens, natural direct window sunbeams, dust motes glowing, Kodak Gold film warmth, raw intimate girlfriend perspective, 8k.", "duration": 19.59, "img": "agnes_1789997326_5515.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "sweet_02", "title": "雨天咖啡馆的凝视", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "甜系纯欲 · 雨天咖啡", "style_slug": "sweet", "desc": "坐在窗边木桌前手捧热燕麦拿铁，雨珠滑过玻璃窗，温暖毛线开衫，抬头看向镜头的眼神温柔清澈。", "prompt": "An intimate lifestyle snapshot of a stunning 21-year-old Asian woman sitting by the rain-streaked window of an aesthetic wooden cafe. Holding a warm ceramic coffee mug with both hands, steam gently rising. Wearing a soft dusty-pink mohair cardigan over a white silk camisole, subtle collarbones visible. Soft wavy dark hair casually draped over one shoulder. Natural nude makeup, glossy coral lip glaze, captivating clear dark eyes looking directly into the camera with gentle affection. Raindrops on glass in foreground, creamy blurred bokeh, soft overcast diffused light wrapping her face, 50mm f/1.2 lens, realistic documentary photography, 8k.", "duration": 20.39, "img": "agnes_1789997328_4156.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "sweet_03", "title": "老书店的原木回眸", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "甜系纯欲 · 胶片书店", "style_slug": "sweet", "desc": "在复古原木书店的书架间，从高处抽出一本诗集，转身回眸微带浅笑，空气刘海，理光 GR 街拍抓拍感。", "prompt": "A candid street-style film photo of a pretty 20-year-old Japanese-aesthetic girl browsing in a cozy vintage wooden bookstore. She is caught mid-motion turning her head toward the viewer with a surprised, sweet smile, holding an open poetry book. Wearing a tailored navy pleated skirt, crisp white blouse, and a vintage leather satchel bag. Airy see-through bangs, healthy translucent skin texture with natural micro pores, bright round expressive eyes. Warm ambient tungsten interior lighting filtering through bookshelves, Ricoh GR III 28mm positive film look, authentic analog grain, nostalgic youthful charm, 8k.", "duration": 19.59, "img": "agnes_1789997326_9948.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "sweet_04", "title": "深夜罗森便利店的清冷微甜", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "甜系纯欲 · 深夜便利店", "style_slug": "sweet", "desc": "深夜便利店冷饮冰柜前，手指轻触透明玻璃门挑选饮料，oversized 卫衣与帆布鞋，冷暖交织的日杂随拍。", "prompt": "A cinematic late-night snapshot of a beautiful 19-year-old Asian girl standing in front of a glowing drink refrigerator inside a Lawson convenience store. Wearing an oversized grey fleece zip-up hoodie, dark messy bun with loose tendrils framing her jawline. Her hand gently rests on the cold glass door. Pale glass-skin texture, naturally flushed cheeks, dewy strawberry lip tint. Vivid cool fluorescent light from the fridge contrasting with the warm store interior, clean realistic shadows, shot on 35mm f/1.8 lens, Tokyo late-night city lifestyle, casual aesthetic, 8k.", "duration": 18.25, "img": "agnes_1789997327_7424.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "sweet_05", "title": "初夏梧桐下的单车少女", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "甜系纯欲 · 校园林荫道", "style_slug": "sweet", "desc": "初夏梧桐树下推着复古单车漫步，斑驳树影洒在白色棉布裙与发梢，清新初恋感，富士经典底片质感。", "prompt": "A breathtaking golden-hour portrait of a 20-year-old Chinese college beauty walking a vintage cream-colored bicycle under lush plane trees. Wearing a simple breezy white linen sundress, sun-dappled shadows dancing across her shoulders and face. High ponytail swaying in the breeze, laughing naturally as wind brushes her bangs. Glowing peach-toned skin, sparkling lively eyes, natural youthful vitality. Fujifilm Classic Chrome simulation, warm emerald green leaves, soft lens flare, 85mm f/1.4 portrait lens, dreamy summer nostalgia, 8k.", "duration": 14.67, "img": "agnes_1789997325_8210.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "neochinese_01", "title": "宋代茶室的温婉点茶", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "新中式 · 宋韵点茶", "style_slug": "neochinese", "desc": "江南素雅茶室，身着月白交领真丝宋制长衫，手执茶筅专注点茶，白瓷茶盏与轻烟袅袅，温润玉簪，柔和漫射光。", "prompt": "A serene cinematic portrait of an ethereal 23-year-old Chinese lady practicing traditional Song dynasty tea whisking in a minimalist wooden tea room. Wearing a modern tailored silk Hanfu in moon-white and celadon green, fine embroidered bamboo borders, slender neck and graceful posture. Hair elegantly pinned in a loose low bun with an antique white jade hairpin. Porcelaneous smooth skin with delicate dewy radiance, focused introspective gaze looking at the white ceramic tea bowl. Delicate vapor rising, soft natural window light filtering through rice paper screens, Hasselblad medium format, 85mm f/1.2, quiet oriental poetic beauty, 8k.", "duration": 15.81, "img": "agnes_1789997341_2873.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "neochinese_02", "title": "雨后翠竹石阶回眸", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "新中式 · 烟雨竹林", "style_slug": "neochinese", "desc": "江南园林雨后湿润青石板路，撑着一把油纸伞回眸，青绿色改良刺绣马面裙与修身西装混搭，修长颈线与水光肌。", "prompt": "A high-fashion editorial portrait of a graceful 22-year-old Chinese woman holding an oiled-paper umbrella on wet stone stairs surrounded by misty bamboo. Wearing a modern Neo-Chinese ensemble: an ink-green pleated Mamianqun (horse-face skirt) paired with a tailored black minimalist blazer with frog buttons. Turning her head over her shoulder, cool regal gaze, refined jawline and swan-like neck. Translucent pale skin glistening in soft mist, silver hair ornaments catching raindrops. Atmospheric damp green forest background, cinematic diffused lighting, Vogue China cover style, 8k.", "duration": 15.45, "img": "agnes_1789997343_6261.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "neochinese_03", "title": "徽派月亮门的淡墨旗袍", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "新中式 · 庭院月亮门", "style_slug": "neochinese", "desc": "古典徽派建筑白墙黛瓦下的月亮门旁，身穿淡墨晕染现代旗袍，单手轻抚木门框，清冷从容的眼神，侧逆光勾勒身姿轮廓。", "prompt": "A stunning architectural portrait of an aristocratic 24-year-old Eastern beauty leaning gently against a circular moon gate in an ancient Huizhou courtyard. Wearing a modern sleeveless silk Qipao with subtle water-ink gradient dyes and side slit, high structured collar accentuating her elegant throat. Sleek parted black hair gathered smoothly behind, crimson cinnabar lipstick, composed aristocratic facial expression with subtle melancholy. Late afternoon rim light tracing her slender silhouette, white plastered wall with grey tiled roof in soft background, 85mm f/1.4, cinematic masterpiece, 8k.", "duration": 12.88, "img": "agnes_1789997343_5762.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "neochinese_04", "title": "当代美术馆里的宋瓷对话", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "新中式 · 青瓷展厅", "style_slug": "neochinese", "desc": "在当代极简艺术展厅中，驻足凝视一件宋代汝窑青瓷，身着极简立领新中式羊绒大衣，盘发素雅，现代东方的知性高级感。", "prompt": "A sophisticated modern intellectual portrait of a 25-year-old Asian woman standing in a minimalist concrete museum gallery beside a floating glass display of antique Song celadon ceramics. Wearing a tailored oatmeal-colored cashmere stand-collar coat with subtle Chinese frog closures. Polished bone structure, clean minimal makeup, refined wire-frame glasses resting on her slender nose, intelligent contemplative eyes. Subtle spot gallery lighting focused on the subject and artifact, smooth gradients, Hasselblad H6D-100c, intellectual luxury and timeless oriental poise, 8k.", "duration": 14.64, "img": "agnes_1789997345_6183.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "neochinese_05", "title": "黄昏水榭的织金风华", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "新中式 · 暮色荷塘", "style_slug": "neochinese", "desc": "黄昏荷花池水榭台边，风吹动暗红织金马面裙摆，晚霞金光洒在精致脸庞上，微乱发丝与古典银耳坠，电影画幅质感。", "prompt": "A breathtaking twilight portrait of an Eastern maiden standing on a wooden pavilion over a lotus pond during sunset. Wearing a deep crimson and gold woven brocade Mamianqun, the wind gently billowing the heavy silk fabric. Warm amber dusk light illuminating her side profile, flawless porcelain skin reflecting the golden sunset glow. Long dark hair dancing in the breeze, dangling silver filigree earrings catching fiery specular highlights. Pink lotus blossoms and rippling water in foreground, 70mm cinematic wide crop, 8k.", "duration": 13.81, "img": "agnes_1789997345_9115.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "retro_hk_01", "title": "旺角冰室的复古凝眸", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "复古港风 · 冰室卡座", "style_slug": "retro_hk", "desc": "旺角复古冰室红色皮革卡座，手托下巴望向窗外，蓬松复古黑卷发，哑光浓郁复古红唇，旧式吊扇与马赛克地砖，Kodak 500T 胶片感。", "prompt": "A nostalgic 1990s Hong Kong movie still of an iconic 23-year-old Asian beauty sitting in a red leather booth inside a classic Cha Chaan Teng cafe. Her chin resting gracefully on her manicured hand, gazing out the window. Thick voluminous cascading curly black hair, iconic velvet matte red lips, delicate winged eyeliner, defined cheekbones with soft vintage contouring. Wearing a black tailored sleeveless vest over a cream blouse, gold hoop earrings. Vintage rotary ceiling fan, green mosaic tiles, ambient tungsten warmth, authentic 35mm film grain, Wong Kar-wai romantic aesthetic, 8k.", "duration": 13.45, "img": "agnes_1789997354_3345.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "retro_hk_02", "title": "雨夜弥敦道的霓虹微醺", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "复古港风 · 弥敦霓虹", "style_slug": "retro_hk", "desc": "深夜雨水反光的街道，身着墨绿丝绒吊带裙与黑色大衣，站在闪烁的红色与绿色霓虹招牌下，微醺迷离的眼神，王家卫色调。", "prompt": "A cinematic rain-slicked street portrait in Kowloon at 1 AM featuring a captivating 24-year-old Asian woman standing beneath glowing neon signs. Wearing an emerald-green silk velvet slip dress draped under a loose oversized black leather trench coat. Wet asphalt reflecting vibrant red and emerald neon reflections. A slightly tipsy, longing, and enigmatic gaze toward the camera, rain droplets glistening on her bare clavicles and glossy hair. CineStill 800T halation glowing around neon tubes, moody atmospheric contrast, 50mm f/1.4, quintessential 90s Hong Kong noir romance, 8k.", "duration": 14.84, "img": "agnes_1789997357_2194.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "retro_hk_03", "title": "爵士唱片行的指尖摩挲", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "复古港风 · 旧唱片行", "style_slug": "retro_hk", "desc": "昏黄台灯下的黑胶唱片店，指尖滑过一排排老唱片封套，复古宽肩西装外套与金属大耳圈，侧光照亮高挺鼻梁与立体骨相。", "prompt": "An intimate vintage snapshot of a 22-year-old retro-styled Asian girl flipping through vinyl records in a dimly lit basement record store in Tsim Sha Tsui. Wearing an oversized houndstooth wool blazer with padded shoulders and chunky gold statement earrings. Her delicate fingers sliding over vintage album sleeves. Side lighting from a desk banker lamp creating warm chiaroscuro on her nose bridge and refined facial contours. Deep sultry eyes, retro brick-red lip color, Kodak Portra 400 natural film grain, authentic analog texture, 85mm lens, 8k.", "duration": 15.38, "img": "agnes_1789997358_1780.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "retro_hk_04", "title": "九龙唐楼天台的夜风", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "复古港风 · 天台夜风", "style_slug": "retro_hk", "desc": "九龙老唐楼天台，背景是层叠错落的城市夜景灯火，手扶铁栏杆吹着夜风，发丝在风中飞扬，烟火气与都市疏离感。", "prompt": "A moody art-house portrait of a 23-year-old glamorous Asian woman standing on the rooftop of a weathered Kowloon tenement building at night. Leaning against an iron railing with a glass of champagne, wind wildly whipping her voluminous jet-black curls around her face. Wearing a backless black silk evening dress. In the background, an ocean of crowded illuminated apartment windows and vintage neon billboards softly blurring. Cool midnight breeze atmosphere, melancholic cinema look, 35mm film stock, grain and organic lens flare, evocative emotional depth, 8k.", "duration": 22.96, "img": "agnes_1789997361_5253.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "retro_hk_05", "title": "老影院走廊的余温", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "复古港风 · 影院散场", "style_slug": "retro_hk", "desc": "老影院深红地毯与暖色壁灯长廊，手拿电影票根侧身回头，眼神中带着未散的电影余韵，复古柔焦镜头光晕。", "prompt": "A vintage candid shot of an elegant 21-year-old girl in the deep crimson carpeted hallway of an old 1990s cinema after the credits roll. Holding a paper cinema ticket, half-turned back to look over her shoulder with a dreamy, pensive expression. Wearing an auburn corduroy jacket over an ivory turtleneck sweater, hair tied in a loose silk scrunchie. Soft glowing wall sconces creating a halo of warm light around her silhouette, vintage soft-focus lens aesthetic, tender cinematic memory, 8k.", "duration": 14.0, "img": "agnes_1789997358_1867.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "street_01", "title": "首尔圣水洞的自信跨步", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "都市街拍 · 圣水洞", "style_slug": "street", "desc": "首尔工业风红砖咖啡街，大步走过斑马线，宽松黑色高级羊毛廓形西装内搭纯白T恤，自信灿烂的笑容，Canon 50mm f/1.2。", "prompt": "A high-energy candid street fashion photograph of a chic 23-year-old Korean trendsetter crossing a pedestrian street in Seongsu-dong, Seoul. Wearing an oversized structured black wool blazer, premium white crewneck t-shirt, high-waisted dark grey pleated trousers, and chunky leather loafers. Sleek chin-length blunt bob hair dynamically swaying, wearing chic silver-rimmed sunglasses perched on her head, laughing naturally in mid-stride. Red-brick converted warehouse cafes and stylish pedestrians blurred in background, crisp afternoon sun, Canon EOS R5 with 50mm f/1.2, editorial magazine look, 8k.", "duration": 20.51, "img": "agnes_1789997367_6085.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "street_02", "title": "东京表参道的高街风衣", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "都市街拍 · 表参道", "style_slug": "street", "desc": "黄昏高端精品店橱窗前，卡其色经典双排扣风衣被微风吹起衣角，斜挎皮质手袋，短发利落帅气，高街时尚杂志封面质感。", "prompt": "A luxury street style portrait of a tall stylish 24-year-old Japanese model walking along Omotesando avenue during twilight. Wearing an iconic double-breasted honey-beige trench coat unbuttoned, flowing with the evening breeze, paired with tailored wide-leg denim. Crisp bone structure, sculpted jawline, cool confident gaze looking forward. Warm golden architectural lighting from luxury storefronts casting rich amber glows across the pavement, shallow depth of field, 85mm f/1.4 lens, Elle Japan fashion spread quality, 8k.", "duration": 14.56, "img": "agnes_1789997372_9932.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "street_03", "title": "上海安福路梧桐树下的咖啡外摆", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "都市街拍 · 安福路外摆", "style_slug": "street", "desc": "法租界梧桐树下的街边咖啡座，戴着黑色太阳镜喝冰美式，修身针织吊带与高腰牛仔裤，轻松松弛的都市生活抓拍。", "prompt": "A sunlit lifestyle street photograph of a fashionable 22-year-old Chinese influencer sitting at an outdoor bistro table on Anfu Road in Shanghai. Holding an iced Americano glass with condensation droplets, laughing with an off-camera companion. Wearing a minimal beige ribbed knit tank top, layered fine gold necklaces, and retro tortoiseshell sunglasses. Plentiful summer sunshine filtering through lush green plane tree leaves, dappled light patterns on table, clean realistic skin luminescence, Leica M11 35mm f/1.4, effortless urban cool, 8k.", "duration": 16.63, "img": "agnes_1789997373_1657.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "street_04", "title": "清水混凝土前的极简超模", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "都市街拍 · 极简美术馆", "style_slug": "street", "desc": "极简野兽派混凝土建筑前，灰白色极简主义穿搭，利落高马尾，清冷专注的超模眼神，几何线条构图与强烈明暗对比。", "prompt": "A striking editorial portrait of a 22-year-old East Asian model posing in front of a monumental raw concrete brutalist museum wall. Wearing a monochrome light grey sculpted asymmetric top and matching tailored palazzo pants, extreme clean lines. Tight sleek high ponytail with sharp baby hairs styled along hairline, intense piercing cat-like eyes, bare matte nude lip. Hard architectural shadow lines creating geometric division across the frame, dramatic contrast, Hasselblad medium format, Vogue runway editorial, 8k.", "duration": 15.52, "img": "agnes_1789997374_3406.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "street_05", "title": "秋日金黄银杏下的回眸", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "都市街拍 · 银杏大道", "style_slug": "street", "desc": "金黄色银杏落叶随风飘落，穿燕麦色羊绒大衣与格纹围巾，双手插兜漫步，阳光穿透落叶形成金黄柔光光斑。", "prompt": "A warm romantic autumn street portrait of a sweet 21-year-old Asian girl walking along an avenue carpeted with golden ginkgo leaves. Wearing an oversized warm oatmeal wool overcoat and a cozy cashmere scarf wrapped around her neck, hands tucked into deep pockets. Turning around with a cheerful rosy-cheeked smile, yellow ginkgo leaves falling gently through the golden backlit air. Luminous backlighting making her hair halo glow like spun gold, creamy golden bokeh bubbles, 85mm f/1.4 lens, heart-melting autumn romance, 8k.", "duration": 15.8, "img": "agnes_1789997382_3186.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "macro_beauty_01", "title": "晶莹莓果水光琉璃唇", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "美妆特写 · 琉璃唇峰", "style_slug": "macro_beauty", "desc": "近距离微距对焦饱满多汁的莓果色水光唇釉与光洁下巴，细微水滴微粒在唇峰折射晶莹高光，Hasselblad 100mm Macro。", "prompt": "An ultra-detailed commercial macro beauty photograph of an East Asian model's lower face and lips. Extreme focus on her plump, perfectly hydrated lips coated with a glossy, glass-like dewy berry-red lip tint. Tiny crystalline moisture droplets reflecting clean studio softbox lights on the cupid's bow, visible realistic lip texture and fine micro pores on chin. Clean translucent porcelain skin, pristine luxury cosmetic skincare advertising standard, 100mm f/2.8 Macro lens, tack-sharp details, 8k.", "duration": 14.31, "img": "agnes_1789997386_9260.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "macro_beauty_02", "title": "深邃清澈的东方眼眸", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "美妆特写 · 灵动清眸", "style_slug": "macro_beauty", "desc": "微距展现东方杏核眼的深邃神采与根根分明卷翘羽状睫毛，眼中倒映柔光箱眼神光，细腻自然的微小毛孔，真实无瑕。", "prompt": "A stunning macro beauty portrait focusing on the mesmerizing eyes of a 21-year-old Chinese woman. Deep clear dark brown iris with intricate golden flecks catching brilliant circular ring-light reflections. Perfect individual feathery eyelashes curled gracefully, soft shimmer champagne eyeshadow with ultra-fine glitter. Visible delicate skin pores, micro peach fuzz, and natural eyelid crease, no artificial smoothing, pristine luxury magazine close-up, 8k.", "duration": 16.66, "img": "macro_beauty_02.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "macro_beauty_03", "title": "45度侧颜蜜桃水光肌", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "美妆特写 · 水光蜜桃颊", "style_slug": "macro_beauty", "desc": "侧脸45度特写，透亮玻璃水光肌与颧骨上的淡淡蜜桃色红润，柔和逆光勾勒鼻尖与唇形轮廓，高端护肤大片质感。", "prompt": "A close-up 45-degree profile beauty portrait of an East Asian woman showcasing pristine Korean 'glass skin' aesthetics. High cheekbones glowing with natural dewy luminescence and a soft wash of warm peach blush. Delicate straight nose bridge, soft rim light outlining her facial profile, wispy flyaway hairs along her ear. Flawless yet unmistakably human skin texture with microscopic pores, gentle tranquil closed-lip expression, luxury high-end skincare campaign, Hasselblad H6D, 8k.", "duration": 15.52, "img": "agnes_1789997389_9574.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "macro_beauty_04", "title": "天鹅颈与锁骨高级珠宝", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "美妆特写 · 天鹅颈项", "style_slug": "macro_beauty", "desc": "微距展现修长细腻的肩颈锁骨线，佩戴极简钻石水滴锁骨链，肌肤如温润白玉，高奢珠宝广告视觉。", "prompt": "An exquisite luxury jewelry editorial close-up focusing on a young Asian woman's graceful collarbones, neck, and lower chin. Wearing a minimalist teardrop diamond necklace resting in the hollow of her throat. Smooth satin-finish porcelain skin, delicate jugular hollow and sculpted clavicle line catching dramatic side studio strobe lighting. Sleek black hair pulled back tightly, clean dark background, high-end Bulgari / Tiffany ad campaign aesthetic, razor-sharp textures, 8k.", "duration": 15.57, "img": "agnes_1789997390_7322.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "macro_beauty_05", "title": "高级秀场微湿发感妆效", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "美妆特写 · 柔光湿发妆", "style_slug": "macro_beauty", "desc": "微湿发丝轻贴额头与两颊，清透伪素颜底妆与镜面水光高光，面部细腻绒毛与真实光影流转，Vogue 美妆头版级质感。", "prompt": "A high-fashion runway beauty portrait featuring an Asian model with artistic wet-look hair styling. Fine damp tendrils of hair sculpted softly across her forehead and temple. Dewy, hyper-hydrated skin with gleaming glazed-donut finish on high points of the face. Clear eyes gazing boldly into the camera with quiet power, natural groomed boy-brows, soft tinted lip balm. High contrast softbox lighting creating liquid reflections, authentic visible pore fidelity and dermal texture, Vogue Beauty cover, 8k.", "duration": 13.23, "img": "agnes_1789997397_8277.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "亚洲美人 25 幅摄影系列"}, {"id": "fullbody_01_neochinese", "title": "新中式 · 苏园马面裙全身立像", "category_id": "fullbody-fashion", "category_name": "全身站姿大片", "style_tag": "新中式国风", "style_slug": "fullbody", "desc": "江南苏式古典园林青石连廊，身着月白立领云锦短衫搭配水绿色刺绣马面裙，手执苏绣团扇，足着浅口珍珠平底鞋，端庄清雅。", "prompt": "A magnificent full-body fashion lookbook photograph of The exact same recurring character: a 20-year-old East Asian college beauty with a soft rounded oval jawline, clear almond-shaped dark brown eyes with subtle natural double eyelids, slender straight nose bridge, and natural coral-pink lips with defined cupid's bow. Signature messy high ponytail tied with a simple band, airy wispy see-through bangs, and delicate flyaway hairs framing her temples. Natural bare-face makeup with translucent porcelain skin and faint peach blush on cheeks.  Full-length head-to-toe shot standing gracefully on an ancient grey-brick covered corridor in a Suzhou classical garden. She wears an exquisite modern Neo-Chinese ensemble: an ivory-white cloud-brocade stand-collar cropped jacket with mother-of-pearl frog buttons, paired with a pleated celadon-green silk Mamianqun (horse-face skirt) intricately embroidered with silver bamboo leaves. On her feet are delicate ivory flat silk slippers with subtle pearl embellishments. Holding a translucent circular silk fan in one hand. Complete head-to-toe view, feet clearly visible on the stone floor, elegant poised standing posture. Soft overcast diffused outdoor garden lighting, damp green moss and dark wooden pillars in soft focus, shot on Hasselblad H6D with 85mm lens, 8k crisp details.", "duration": 104.5, "img": "agnes_1789998061_5508.png", "aspect_ratio": "3:4", "model": "agnes-image-2.5-flash", "series": "全身高级时装画廊"}, {"id": "fullbody_02_french_chic", "title": "法式优雅 · 露台白色亚麻长裙", "category_id": "fullbody-fashion", "category_name": "全身站姿大片", "style_tag": "法式度假", "style_slug": "fullbody", "desc": "法式复古白雕花露台，一袭纯白开衩亚麻吊带长裙，微风掀动裙摆，脚穿细带棕色平底罗马凉鞋，修长身形与松弛夏日感。", "prompt": "An elegant editorial full-body lifestyle photograph of The exact same recurring character: a 20-year-old East Asian college beauty with a soft rounded oval jawline, clear almond-shaped dark brown eyes with subtle natural double eyelids, slender straight nose bridge, and natural coral-pink lips with defined cupid's bow. Signature messy high ponytail tied with a simple band, airy wispy see-through bangs, and delicate flyaway hairs framing her temples. Natural bare-face makeup with translucent porcelain skin and faint peach blush on cheeks.  Full-length head-to-toe framing leaning gently against the white ornate wrought-iron railing of a sunny vintage villa balcony. Wearing a breezy summer white linen maxi sundress with delicate spaghetti straps and a subtle side slit, the skirt billowing gently in the Mediterranean sea breeze. On her feet are chic minimalist tan leather strappy flat sandals, bare ankles and feet fully in frame. Left hand lightly touching the sun-warmed iron railing, head turned toward the viewer with a serene smile. Potted olive trees and warm sunlight casting soft palm shadows across the terra-cotta tiled terrace. Sony A7R V with 50mm f/1.4 lens, full body in crisp focus from hair to sandals, Kodak Portra 400 film warmth, 8k.", "duration": 96.42, "img": "agnes_1789998056_1319.png", "aspect_ratio": "3:4", "model": "agnes-image-2.5-flash", "series": "全身高级时装画廊"}, {"id": "fullbody_03_urban_trench", "title": "都市时髦 · 经典卡其风衣高街步态", "category_id": "fullbody-fashion", "category_name": "全身站姿大片", "style_tag": "高街通勤", "style_slug": "fullbody", "desc": "现代玻璃幕墙都市街头，双排扣卡其风衣敞开，高腰黑色垂坠西裤与德训鞋，斜挎复古皮包大步前行，自信潇洒。", "prompt": "A dynamic full-body street style photograph of The exact same recurring character: a 20-year-old East Asian college beauty with a soft rounded oval jawline, clear almond-shaped dark brown eyes with subtle natural double eyelids, slender straight nose bridge, and natural coral-pink lips with defined cupid's bow. Signature messy high ponytail tied with a simple band, airy wispy see-through bangs, and delicate flyaway hairs framing her temples. Natural bare-face makeup with translucent porcelain skin and faint peach blush on cheeks.  Full-length head-to-toe capture walking confidently across a paved urban pedestrian plaza in front of modern glass architecture. Wearing a classic double-breasted honey-beige trench coat unbuttoned, flowing behind her stride, over a fitted white ribbed tank top and high-waisted fluid black tailored wide-leg trousers that drape cleanly over retro cream leather German army trainer sneakers. Carrying a structured brown leather crossbody camera bag. Full body captured in mid-stride with slender tall proportions, feet firmly touching the pavement, hair and coat catching movement. Crisp golden afternoon city sun, Canon EOS R5 with 85mm f/1.8 lens, Vogue street edition, 8k.", "duration": 98.4, "img": "agnes_1789998058_2747.png", "aspect_ratio": "3:4", "model": "agnes-image-2.5-flash", "series": "全身高级时装画廊"}, {"id": "fullbody_04_preppy_tennis", "title": "甜酷学院 · 阳光球场网球百褶裙", "category_id": "fullbody-fashion", "category_name": "全身站姿大片", "style_tag": "青春学院", "style_slug": "fullbody", "desc": "阳光明媚的红土网球场边，粉白拼色修身运动Polo衫与白色百褶高腰短裙，白色中筒袜与复古网球鞋，手扶复古网球拍。", "prompt": "A vibrant athletic full-body portrait of The exact same recurring character: a 20-year-old East Asian college beauty with a soft rounded oval jawline, clear almond-shaped dark brown eyes with subtle natural double eyelids, slender straight nose bridge, and natural coral-pink lips with defined cupid's bow. Signature messy high ponytail tied with a simple band, airy wispy see-through bangs, and delicate flyaway hairs framing her temples. Natural bare-face makeup with translucent porcelain skin and faint peach blush on cheeks.  Full-length head-to-toe framing standing on the edge of a sun-drenched red clay tennis court. Wearing a preppy aesthetic sporty outfit: a fitted pale-pink and white collared tennis Polo shirt, a high-waisted pleated white tennis mini skirt, ribbed white athletic crew socks, and classic clean white court sneakers. She rests one hand on the upright handle of a vintage wooden tennis racket resting on the ground. Healthy glowing sun-kissed skin, energetic happy smile, athletic slender long legs, full body completely in frame from shoes to ponytail. Bright clear summer sunlight casting sharp natural shadows on the orange-red clay, Fujifilm Astia vibrant color tones, 85mm lens, 8k.", "duration": 97.29, "img": "agnes_1789998056_6528.png", "aspect_ratio": "3:4", "model": "agnes-image-2.5-flash", "series": "全身高级时装画廊"}, {"id": "consistency_ref_source", "title": "日系榻榻米 · 晨间抓拍 (母本基准)", "category_id": "character-consistency", "category_name": "角色一致性实测", "style_tag": "母本基准 (Source Face)", "style_slug": "consistency", "desc": "锁死人物核心特征：20岁东亚女生、微肉感鹅蛋脸、自然微双杏仁眼、高扎蓬松马尾与空气碎刘海、水光素颜肌。", "prompt": "A candid authentic photograph of a lovely 20-year-old East Asian college beauty sitting on a tatami mat in a sunlit bedroom. Natural dewy porcelain skin with visible fine pores, soft rounded oval jawline, clear almond-shaped dark brown eyes with subtle natural double eyelids, messy high ponytail tied with a simple band, airy wispy see-through bangs. Shot on Sony A7R V with 50mm f/1.4 lens, natural window light, 8k.", "duration": 12.5, "img": "agnes_1789995999_1670.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "同一人物跨场景实测"}, {"id": "consistency_snow_park", "title": "飘雪公园 · 红色羊绒围巾", "category_id": "character-consistency", "category_name": "角色一致性实测", "style_tag": "冬日雪景", "style_slug": "consistency", "desc": "同一位女孩在冬日雪景中哈气，严格保留了标志性鹅蛋脸、杏眼神态、高马尾与空气刘海，红色围巾衬托冷白皮。", "prompt": "An authentic candid outdoor photograph of The exact same 20-year-old East Asian college beauty: soft rounded oval jawline, clear almond-shaped dark brown eyes with subtle double eyelids, slender straight nose bridge, signature messy high ponytail tied with a simple band and airy wispy bangs. Standing in a winter park with gently falling snowflakes, wearing a chunky crimson red cashmere knit scarf and cream woolen coat. Natural cold-flushed cheeks, translucent pale skin, 85mm f/1.4 portrait lens, dreamy winter atmosphere, 8k.", "duration": 13.8, "img": "agnes_1789997730_4752.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "同一人物跨场景实测"}, {"id": "consistency_summer_beach", "title": "傍晚海滩 · 白色亚麻衬衫", "category_id": "character-consistency", "category_name": "角色一致性实测", "style_tag": "夏日落日", "style_slug": "consistency", "desc": "同一位女孩在落日海滩赤足漫步，海风吹拂发丝，同样的五官比例与清甜初恋感面容，夕阳金光勾勒发丝轮廓。", "prompt": "A warm golden-hour candid snapshot of The exact same 20-year-old East Asian college beauty: soft rounded oval jawline, clear almond-shaped dark brown eyes with subtle natural double eyelids, high messy ponytail with airy wispy bangs. Walking barefoot on a sandy beach during sunset, wearing an oversized breezy white linen button-down shirt over a simple swimsuit. Golden ocean breeze blowing her hair, luminous backlit hair halo, Fujifilm Provia warmth, 50mm f/1.4 lens, 8k.", "duration": 14.1, "img": "agnes_1789997760_2114.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "同一人物跨场景实测"}, {"id": "consistency_campus_library", "title": "大学图书馆 · 原木书架抱书", "category_id": "character-consistency", "category_name": "角色一致性实测", "style_tag": "学院日常", "style_slug": "consistency", "desc": "同一位女孩身着藏青针织衫在书架前，眼神温柔专注，面容五官保持高度辨识度与连贯性，知性学院风。", "prompt": "A warm atmospheric portrait of The exact same 20-year-old East Asian college beauty: soft rounded oval jawline, clear almond eyes, messy high ponytail with airy bangs. Standing between wooden bookshelves in a university library, holding a heavy hardbound book to her chest. Wearing a cozy navy-blue cable knit sweater. Soft warm ambient tungsten library lighting, intelligent gentle gaze, Ricoh GR III 28mm positive film look, nostalgic aesthetic, 8k.", "duration": 13.5, "img": "agnes_1789997811_3773.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "同一人物跨场景实测"}, {"id": "steampunk_commercial_poster", "title": "《铜钟与蒸汽城》终极概念海报 (矢量排版合成)", "category_id": "commercial-posters", "category_name": "动漫与商业海报", "style_tag": "纯正赛璐珞 + 矢量中文", "style_slug": "anime-poster", "desc": "新海诚与 Ufotable 纯正日漫二次元风格。预留左上角负空间，通过本地排版引擎合成高精宋体金箔字标，100% 根除中文乱码！", "prompt": "masterpiece anime commercial key visual, Makoto Shinkai and Ufotable style, clean 2D cel-shaded animation art, a young female steampunk mechanic with dark twin braids, wearing retro brass goggles, white shirt, dark leather vest, tool skirt. Standing with back slightly turned, looking back over shoulder toward camera, holding heavy wrench and glowing brass lantern. Mechanical industrial night city background with giant clockwork gears and steam, glowing gothic clocktower on right, dramatic complementary warm lantern light and cool blue night sky, clean negative space in upper-left, 8k.", "duration": 13.45, "img": "agnes_1790006749_b2b755da_poster.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "图文分层生成范式"}, {"id": "steampunk_pure_visual", "title": "《铜钟与蒸汽城》去污染纯净底图", "category_id": "commercial-posters", "category_name": "动漫与商业海报", "style_tag": "纯净二次元底图", "style_slug": "anime-pure", "desc": "彻底剔除哈苏相机、皮肤毛孔等摄影镜头词，纯净的赛璐珞线条与动漫冷暖光影，展现极佳画风纯度。", "prompt": "masterpiece anime commercial key visual, Makoto Shinkai and Ufotable style, clean 2D cel-shaded animation art, a young female steampunk mechanic with dark twin braids, wearing retro brass goggles, white shirt, dark leather vest, tool skirt, clean negative space in upper-left, 8k.", "duration": 13.45, "img": "agnes_1790006749_b2b755da.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "图文分层生成范式"}, {"id": "steampunk_native_chinese_compare", "title": "《铜钟与蒸汽城》原生生成对比图 (乱码对照)", "category_id": "commercial-posters", "category_name": "动漫与商业海报", "style_tag": "原生生成乱码", "style_slug": "anime-compare", "desc": "实测记录：生图模型底层直接渲染中文字符时发生的拓扑错乱、伪假名与文字伪形，作为对照组深度评测。", "prompt": "一部蒸汽朋克风格动画主视觉海报，主角是一位年轻的女性机械师，左上方排版有金色标题文本“铜钟与蒸汽城 STEAM & CHIME”，精致日系商业CG插画风格，8k", "duration": 18.9, "img": "agnes_1790006532_372a0b74.png", "aspect_ratio": "3:2", "model": "agnes-image-2.5-flash", "series": "图文分层生成范式"}, {"id": "oriental_muse_consistent", "title": "东方神颜白月光 (面部骨相锁定写真)", "category_id": "asian-portraits", "category_name": "亚洲美人摄影", "style_tag": "东方白月光", "style_slug": "oriental-muse", "desc": "微观三锚点面容锁定：微长鹅蛋骨相 + 扇形微双杏核眼 + 左眼下缘浅泪痣。次表面散射（SSS）呈现绝美通透肤质，告别塑料感。", "prompt": "A candid authentic photograph of the recurring character: a striking 21-year-old Chinese muse with a refined slender oval jawline, clear almond-shaped dark eyes with delicate natural double eyelids, and a tiny faint beauty mark below her left eye. Natural bare-face makeup with radiant dewy porcelain skin, subtle subsurface scattering (SSS) showing blood circulation and natural micro-pores. Soft morning sunlight filtering through cafe window, Sony A7R V with 85mm f/1.4 GM lens, natural fine hairs, creamy bokeh, 8k.", "duration": 11.2, "img": "agnes_1790005151_3feebcc6.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "骨相三锚点锁定系列"}, {"id": "bento_grid_infographic", "title": "Apple / Notion 风 Bento Grid 模块化信息图", "category_id": "infographics", "category_name": "信息图表与可视化", "style_tag": "Bento Grid 便当格", "style_slug": "bento", "desc": "8 模块不对称圆角矩形卡片排布，高密度信息组织，大模块作视觉锚点，微阴影与瑞士国际主义排版。", "prompt": "A clean, modern, highly organized Bento Grid infographic inspired by Apple newsroom and Notion UI dashboards. Multiple asymmetric modular rounded rectangular cards arranged on a warm off-white background. Subtle 3D card elevation, clean typography, micro data charts, and clean iconography, 8k.", "duration": 10.02, "img": "agnes_1790005466_792ae38c.png", "aspect_ratio": "3:4", "model": "agnes-image-2.5-flash", "series": "Garden-Skills 转化成果"}, {"id": "premium_skincare_bottle", "title": "高定磨砂精华液瓶静物商业摄影", "category_id": "product-commercial", "category_name": "商业静物与产品", "style_tag": "奢侈品电商", "style_slug": "luxury-product", "desc": "Phase One 150MP 微距 100mm 级物理材质：半透明磨砂玻璃瓶、拉丝香槟金泵头、纯白反射台面与极柔倒影。", "prompt": "Commercial studio product photography of a luxury minimalist frosted glass skincare serum bottle with a brushed champagne-gold dropper pump. Resting on a pristine white reflective acrylic surface with subtle soft water ripples. Dual softbox studio lighting, translucent glass refractions, tack-sharp macro details, Phase One 150MP, 8k.", "duration": 16.38, "img": "agnes_1790005484_13c29b26.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "商业广告摄影"}, {"id": "clay_astronaut_3d_icon", "title": "3D 黏土盲盒宇航员应用图标", "category_id": "3d-assets", "category_name": "3D资产与CGI", "style_tag": "Claymorphism 软黏土", "style_slug": "clay-3d", "desc": "C4D 与 Blender 黏土质感盲盒公仔，蓬松饱满软胶质感，柔和的环境光遮蔽（AO）与马卡龙粉彩调色。", "prompt": "A cute 3D claymorphism App icon of a playful chibi astronaut floating in space. Soft tactile polymer clay material with slight handmade thumbprint textures, smooth rounded inflated forms, soft pastel colors. Ambient occlusion shadows, studio soft lighting, isometric angle, C4D and Blender clay render, 8k.", "duration": 12.39, "img": "agnes_1790005512_13c7c62f.png", "aspect_ratio": "1:1", "model": "agnes-image-2.5-flash", "series": "3D与潮玩公仔"}];
+    const MASTER_CATEGORIES = [{"id": "all", "name": "全部作品全景", "count": 50}, {"id": "asian-portraits", "name": "亚洲美人写真", "count": 26}, {"id": "character-consistency", "name": "角色一致性 (同一人跨场景)", "count": 4}, {"id": "fullbody-fashion", "name": "全身站姿与高级时装", "count": 4}, {"id": "commercial-posters", "name": "动漫概念海报 (中文矢量排版)", "count": 13}, {"id": "infographics", "name": "Bento 便当格信息图", "count": 1}, {"id": "product-commercial", "name": "商业静物与产品摄影", "count": 1}, {"id": "3d-assets", "name": "3D 黏土资产与盲盒", "count": 1}];
+    const SKILLS_DATA = [{"id": "portraits-and-characters", "name": "人像与角色 (Portraits & Characters)", "desc": "专业肖像、创始人视觉、二次元角色、胶片写真与东方美学", "skill_count": 5, "templates": [{"id": "character-sheet", "title": "角色设定 / 三视图模板", "file": "references/portraits-and-characters/character-sheet.md", "dalle_sample": "{\n  \"type\": \"角色综合设定 sheet\",\n  \"goal\": \"生成一张可直接用于动画 / 游戏 / IP 立项的角色综合设定稿\",\n  \"character\": {\n    \"name\": \"{argument name=\\\"character name\\\" default=\\\"霜白·诺娜\\\"}\",\n    \"concept\": \"{argument name=\\\"character concept\\\" default=\\\"冬日守望者，孤独但坚定\\\"}\",\n    \"art_style\": \"{argument name=\\\"art style\\\" default=\\\"anim...", "agnes_conversion": "转换策略：提取 character-sheet 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "professional-portrait", "title": "职业肖像模板", "file": "references/portraits-and-characters/professional-portrait.md", "dalle_sample": "{\n  \"type\": \"现代商务职业肖像\",\n  \"goal\": \"生成一张可直接作为 LinkedIn 主图 / 公司官网团队页 / 媒体专访配图的职业肖像\",\n  \"subject\": {\n    \"gender\": \"{argument name=\\\"gender\\\" default=\\\"东亚男性\\\"}\",\n    \"age_range\": \"{argument name=\\\"age range\\\" default=\\\"30-40 岁\\\"}\",\n    \"appearance\": \"{argument name=\\\"appearance\\\" default=\\\"短发干净，戴细框眼镜\\\"...", "agnes_conversion": "转换策略：提取 professional-portrait 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "virtual-host", "title": "虚拟主播 / VTuber 形象模板", "file": "references/portraits-and-characters/virtual-host.md", "dalle_sample": "{\n  \"type\": \"VTuber Debut 个人资料卡\",\n  \"goal\": \"生成一张可作为 VTuber 出道日的官方个人资料卡视觉\",\n  \"character\": {\n    \"name\": \"{argument name=\\\"vtuber name\\\" default=\\\"霜白·诺娜\\\"}\",\n    \"style\": \"{argument name=\\\"art style\\\" default=\\\"日系 anime + 半写实\\\"}\",\n    \"gender\": \"{argument name=\\\"gender\\\" default=\\\"少女\\\"}\",\n    \"age_s...", "agnes_conversion": "转换策略：提取 virtual-host 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "pose-reference-sheet", "title": "姿势 / 动作参考表 N×N 模板", "file": "references/portraits-and-characters/pose-reference-sheet.md", "dalle_sample": "{\n  \"type\": \"pose reference sheet\",\n  \"goal\": \"生成一张同一角色 N 个不同姿势的纯动作参考表，可用于编舞 / 动画 / 健身 / AI pose 控制参考\",\n  \"subject\": {\n    \"theme\": \"{argument name=\\\"pose theme\\\" default=\\\"hip-hop dance and combat-ready movement chart\\\"}\",\n    \"character\": {\n      \"count\": 1,\n      \"gender_presentation\": \"{argument...", "agnes_conversion": "转换策略：提取 pose-reference-sheet 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "founder-portrait", "title": "创始人 / 媒体大片肖像模板", "file": "references/portraits-and-characters/founder-portrait.md", "dalle_sample": "{\n  \"type\": \"媒体大片级创始人肖像\",\n  \"goal\": \"生成一张能直接作为财经杂志 / 创业媒体专访配图 / 公司官网创始人主图的媒体大片肖像\",\n  \"subject\": {\n    \"identity\": \"{argument name=\\\"identity\\\" default=\\\"AI 公司创始人 CEO\\\"}\",\n    \"gender\": \"{argument name=\\\"gender\\\" default=\\\"东亚男性\\\"}\",\n    \"age_range\": \"{argument name=\\\"age range\\\" default=\\\"35-45 岁\\\"}\"...", "agnes_conversion": "转换策略：提取 founder-portrait 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}]}, {"id": "infographics", "name": "信息图表 (Infographics)", "desc": "Bento Grid 便当格、高密度数据图、流程拆解与科技图解", "skill_count": 6, "templates": [{"id": "comparison-infographic", "title": "对比信息图模板", "file": "references/infographics/comparison-infographic.md", "dalle_sample": "{\n  \"type\": \"双列对比信息图\",\n  \"goal\": \"生成一张让读者一眼分清「谁更适合自己」的对比图\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"3:4 portrait\\\"}\",\n    \"background\": \"{argument name=\\\"background\\\" default=\\\"warm off-white #F8F6F2\\\"}\",\n    \"split_line\": \"{argument name=\\\"split_line\\\" default=\\...", "agnes_conversion": "转换策略：提取 comparison-infographic 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "step-by-step-infographic", "title": "步骤 / 流程信息图模板", "file": "references/infographics/step-by-step-infographic.md", "dalle_sample": "{\n  \"type\": \"步骤教程信息图\",\n  \"goal\": \"生成一张让读者能照着一步步做的、插画感强、温暖易懂的教程图\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"3:4 portrait\\\"}\",\n    \"background\": \"{argument name=\\\"background\\\" default=\\\"warm cream #FAF6EE 带轻微纸质感\\\"}\"\n  },\n  \"header\": {\n    \"main_title\": \"{argument na...", "agnes_conversion": "转换策略：提取 step-by-step-infographic 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "legend-heavy-infographic", "title": "高图例密度信息图模板", "file": "references/infographics/legend-heavy-infographic.md", "dalle_sample": "{\n  \"type\": \"高密度因果链信息图海报\",\n  \"goal\": \"生成一张高完成度的科普 / 教育 / 解释型信息图，可作为单页 PDF 主图、自媒体长图首图、医院 / 学校宣传图\",\n  \"style\": {\n    \"aesthetic\": \"{argument name=\\\"aesthetic\\\" default=\\\"高度精细的解剖 / 工程图风格 + 干净结构化排版 + 科学示意感\\\"}\",\n    \"color_palette\": \"{argument name=\\\"color palette\\\" default=\\\"医疗红、医疗蓝、米色、解剖肉色\\\"}\",\n    \"la...", "agnes_conversion": "转换策略：提取 legend-heavy-infographic 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "hand-drawn-infographic", "title": "手绘风信息图模板", "file": "references/infographics/hand-drawn-infographic.md", "dalle_sample": "{}", "agnes_conversion": "转换策略：提取 hand-drawn-infographic 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "bento-grid-infographic", "title": "便当格 / 模块化信息图模板", "file": "references/infographics/bento-grid-infographic.md", "dalle_sample": "{\n  \"type\": \"便当格 / Bento grid 高密度模块化信息图\",\n  \"goal\": \"生成一张'像 Apple newsroom / iOS widget / Notion dashboard'的多模块信息图，一图说清多个维度\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"3:4 portrait\\\"}\",\n    \"background\": \"{argument name=\\\"background\\\" default=\\\"warm off-white #F5F2...", "agnes_conversion": "转换策略：提取 bento-grid-infographic 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "kpi-dashboard-infographic", "title": "KPI 仪表盘式信息图模板", "file": "references/infographics/kpi-dashboard-infographic.md", "dalle_sample": "{\n  \"type\": \"KPI 仪表盘信息图\",\n  \"goal\": \"把一组数字以'数据可视化仪表盘'的形式呈现，让读者一眼感知数据规模和分布\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"3:4 portrait\\\"}\",\n    \"background\": \"{argument name=\\\"background\\\" default=\\\"deep ink #0F172A 渐变到 #1E293B（暗色模式）\\\"}\",\n    \"alt_background_light\": \"w...", "agnes_conversion": "转换策略：提取 kpi-dashboard-infographic 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}]}, {"id": "storyboards-and-sequences", "name": "分镜与视觉序列 (Storyboards & Key Visuals)", "desc": "影视级 9 宫格分镜、动画主视觉、概念海报与动态张力", "skill_count": 8, "templates": [{"id": "character-relationship-diagram", "title": "人物关系图模板", "file": "references/storyboards-and-sequences/character-relationship-diagram.md", "dalle_sample": "{\n  \"type\": \"作品角色关系图海报\",\n  \"goal\": \"生成一张高完成度的角色关系图，可作为科普 / 同人 / 入坑指南海报\",\n  \"ip\": {\n    \"name\": \"{argument name=\\\"ip name\\\" default=\\\"鬼灭之刃\\\"}\",\n    \"tone\": \"{argument name=\\\"ip tone\\\" default=\\\"贴合原作风格 + 海报设计感\\\"}\"\n  },\n  \"characters\": {\n    \"count\": \"{argument name=\\\"character count\\\" default=\\\"9\\\"}\",...", "agnes_conversion": "转换策略：提取 character-relationship-diagram 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "four-panel-comic", "title": "4 格漫画模板", "file": "references/storyboards-and-sequences/four-panel-comic.md", "dalle_sample": "{\n  \"type\": \"2x2 反转 4 格漫画\",\n  \"goal\": \"生成一张 2×2 四格漫画，讲一个有节奏与反转的小故事\",\n  \"story\": {\n    \"theme\": \"{argument name=\\\"theme\\\" default=\\\"减肥的人和半夜的炸鸡\\\"}\",\n    \"structure\": \"起 / 承 / 转 / 合\",\n    \"main_character\": \"{argument name=\\\"main character\\\" default=\\\"短发女孩，穿睡衣\\\"}\"\n  },\n  \"style\": {\n    \"art_style\": \"{ar...", "agnes_conversion": "转换策略：提取 four-panel-comic 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "product-tvc-storyboard", "title": "产品 TVC 商业广告分镜板模板", "file": "references/storyboards-and-sequences/product-tvc-storyboard.md", "dalle_sample": "{\n  \"type\": \"product TVC storyboard board\",\n  \"goal\": \"生成一张 9 格分镜图，每格都是该产品商业广告的一个真实拍摄镜头视觉示意，可作为拍摄前 storyboard / 客户审稿 / 视频生成参考\",\n  \"input_mode\": \"{argument name=\\\"input mode\\\" default=\\\"text-only\\\"}\",\n  \"reference_image_note\": \"如果用户提供产品参考图，必须保持产品外观完全一致（颜色 / 包装 / logo 不可漂移）\",\n  \"header\": {\n    \"title\"...", "agnes_conversion": "转换策略：提取 product-tvc-storyboard 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "manga-spread-page", "title": "漫画跨页 / 多分镜页模板", "file": "references/storyboards-and-sequences/manga-spread-page.md", "dalle_sample": "{\n  \"type\": \"单页多分镜漫画\",\n  \"goal\": \"生成一张完整的单页漫画，含多个分镜，叙事节奏紧凑\",\n  \"story\": {\n    \"summary\": \"{argument name=\\\"story summary\\\" default=\\\"主角接到神秘电话，决定独自前往\\\"}\",\n    \"main_character\": \"{argument name=\\\"main character\\\" default=\\\"年轻女性侦探，短发，黑色风衣\\\"}\",\n    \"supporting\": \"{argument name=\\\"supporting\\\" default=\\\"...", "agnes_conversion": "转换策略：提取 manga-spread-page 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "anime-key-visual", "title": "动漫 Key Visual 单图模板", "file": "references/storyboards-and-sequences/anime-key-visual.md", "dalle_sample": "{\n  \"type\": \"动漫 Key Visual\",\n  \"goal\": \"生成一张可作为动漫 / 轻小说 / IP 主视觉的单图\",\n  \"ip\": {\n    \"title\": \"{argument name=\\\"ip title\\\" default=\\\"霜白幻想曲\\\"}\",\n    \"tagline\": \"{argument name=\\\"tagline\\\" default=\\\"这场雪，下了一千年\\\"}\"\n  },\n  \"characters\": {\n    \"count\": \"{argument name=\\\"character count\\\" default=\\\"3\\\"}\",\n ...", "agnes_conversion": "转换策略：提取 anime-key-visual 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "cinematic-storyboard-grid", "title": "电影感叙事分镜 contact sheet 模板", "file": "references/storyboards-and-sequences/cinematic-storyboard-grid.md", "dalle_sample": "{\n  \"type\": \"cinematic storyboard contact sheet\",\n  \"goal\": \"生成一张 12 镜分镜板，每镜都是一幅完整的电影 cinematic still，整组讲述一个连续叙事\",\n  \"subject\": {\n    \"primary\": \"{argument name=\\\"primary subject\\\" default=\\\"a small futuristic spacecraft descending into a massive gas giant storm system\\\"}\",\n    \"secondary\": \"{argume...", "agnes_conversion": "转换策略：提取 cinematic-storyboard-grid 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "recipe-process-flowchart", "title": "食谱 / 流程步骤图模板", "file": "references/storyboards-and-sequences/recipe-process-flowchart.md", "dalle_sample": "{\n  \"type\": \"食谱步骤图\",\n  \"goal\": \"生成一张可作为公众号 / 小红书 / 食谱书页的食谱步骤图\",\n  \"recipe\": {\n    \"name\": \"{argument name=\\\"recipe name\\\" default=\\\"番茄炒蛋\\\"}\",\n    \"subtitle\": \"{argument name=\\\"subtitle\\\" default=\\\"5 分钟家常版\\\"}\",\n    \"servings\": \"{argument name=\\\"servings\\\" default=\\\"2 人份\\\"}\",\n    \"time\": \"{argument na...", "agnes_conversion": "转换策略：提取 recipe-process-flowchart 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "process-photo-board", "title": "真人摄影流程图 / 装备穿戴 / 操作流程板模板", "file": "references/storyboards-and-sequences/process-photo-board.md", "dalle_sample": "{\n  \"type\": \"{argument name=\\\"theme type\\\" default=\\\"Japanese sci-fi armor dressing-process infographic\\\"}\",\n  \"goal\": \"生成一张以同一角色为主角、按步骤递进展示装备/操作变化的 cinematic 实拍流程板\",\n  \"style\": \"{argument name=\\\"overall style\\\" default=\\\"cinematic live-action tokusatsu-inspired promotional board, realistic industri...", "agnes_conversion": "转换策略：提取 process-photo-board 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}]}, {"id": "product-and-commercial", "name": "商业静物与产品 (Product & Commercial)", "desc": "电商白底爆款、奢华护肤品、数码电子与宏观景深质感", "skill_count": 0, "templates": []}, {"id": "3d-and-cgi", "name": "3D与CGI渲染 (3D & CGI Assets)", "desc": "Claymorphism 软黏土、Blender 渲染、环境光遮蔽与盲盒公仔", "skill_count": 0, "templates": []}, {"id": "digital-art", "name": "数字艺术与插画 (Digital Art & Illustration)", "desc": "概念原画、赛博朋克、吉卜力/新海诚唯美风、水彩晕染", "skill_count": 0, "templates": []}, {"id": "vector-and-minimalist", "name": "矢量与极简设计 (Vector & Minimalist)", "desc": "Flat 扁平矢量、Icon 体系、几何抽象与极简线条", "skill_count": 0, "templates": []}, {"id": "architecture-and-spaces", "name": "建筑与空间透视 (Architecture & Interior)", "desc": "现代极简室内、包豪斯建筑、等轴测切片与光影空间", "skill_count": 0, "templates": []}, {"id": "retro-and-vintage", "name": "复古与时代质感 (Retro & Vintage)", "desc": "80s 蒸汽波、复古黑胶海报、宝丽来胶片色散与老式印刷", "skill_count": 0, "templates": []}, {"id": "fantasy-and-scifi", "name": "奇幻与科幻视界 (Fantasy & Sci-Fi)", "desc": "太空歌剧、巨构建筑、机甲重装与魔导奇幻场景", "skill_count": 0, "templates": []}, {"id": "typography-and-text", "name": "排版与字形视觉 (Typography & Hybrid)", "desc": "负空间预留、纯正矢量排版、字体艺术与双重曝光", "skill_count": 0, "templates": []}, {"id": "editorial-and-fashion", "name": "时尚与杂志大片 (Editorial & Fashion)", "desc": "Vogue 封面级、高级时装秀场、戏剧硬光与超模动态", "skill_count": 0, "templates": []}, {"id": "food-and-culinary", "name": "美食与静物光影 (Food & Culinary)", "desc": "米其林精致摆盘、微距水滴与热气、诱人食欲色泽与暗调光影", "skill_count": 0, "templates": []}, {"id": "nature-and-landscape", "name": "自然风光与大地 (Nature & Landscapes)", "desc": "国家地理级风光、宏大航拍、丁达尔神光与冰川雪山", "skill_count": 0, "templates": []}, {"id": "technical-diagrams", "name": "技术图解与蓝图 (Technical Diagrams)", "desc": "工程剖面图、线框蓝图、结构爆炸图与精细标尺", "skill_count": 7, "templates": [{"id": "sequence-diagram", "title": "时序图模板", "file": "references/technical-diagrams/sequence-diagram.md", "dalle_sample": "{\n  \"type\": \"工程感时序图（UML sequence diagram）\",\n  \"goal\": \"生成一张工程感时序图作为 README / blog / 协议文档配图\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"16:9\\\"}\",\n    \"background\": \"deep slate #0F172A with subtle 1px grid #1E293B at 32px spacing\",\n    \"outer_padding\": \"60px\"\n  },\n  ...", "agnes_conversion": "转换策略：提取 sequence-diagram 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "er-diagram", "title": "ER 图 / 数据模型图模板", "file": "references/technical-diagrams/er-diagram.md", "dalle_sample": "{\n  \"type\": \"工程感 ER 图 / 数据模型图\",\n  \"goal\": \"生成一张工程感 ER 图作为数据库设计文档 / API schema / 领域模型 review 配图\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"4:3\\\"}\",\n    \"background\": \"deep slate #0F172A with subtle 1px grid #1E293B at 32px spacing\",\n    \"outer_padding\": \"60px\"\n  },...", "agnes_conversion": "转换策略：提取 er-diagram 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "system-architecture", "title": "系统架构图模板", "file": "references/technical-diagrams/system-architecture.md", "dalle_sample": "{\n  \"type\": \"技术系统架构图（暗色工程感）\",\n  \"goal\": \"生成一张用于 README / blog / 设计文档的工程感系统架构图\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"16:9\\\"}\",\n    \"background\": \"{argument name=\\\"background\\\" default=\\\"deep slate #0F172A with subtle 1px grid lines #1E293B at 32px spacing\\\"}\",...", "agnes_conversion": "转换策略：提取 system-architecture 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "network-topology", "title": "网络拓扑图模板", "file": "references/technical-diagrams/network-topology.md", "dalle_sample": "{\n  \"type\": \"工程感网络拓扑图\",\n  \"goal\": \"生成一张工程感网络拓扑图作为部署文档 / 网络架构 review / 培训材料\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"16:9\\\"}\",\n    \"background\": \"deep slate #0F172A with subtle 1px grid #1E293B at 32px spacing\",\n    \"outer_padding\": \"60px\"\n  },\n  \"title_strip\": {...", "agnes_conversion": "转换策略：提取 network-topology 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "mind-map-tech", "title": "技术主题思维导图模板", "file": "references/technical-diagrams/mind-map-tech.md", "dalle_sample": "{\n  \"type\": \"工程感技术思维导图（放射式 mind map）\",\n  \"goal\": \"生成一张放射式思维导图，作为知识梳理 / 面试准备 / 学习路线 / 技术栈全景的可视化\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"16:9\\\"}\",\n    \"background\": \"deep slate #0F172A with subtle 1px grid #1E293B at 32px spacing\",\n    \"outer_padding\": \"60px\"\n  }...", "agnes_conversion": "转换策略：提取 mind-map-tech 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "flowchart-decision", "title": "流程图 / 决策图模板", "file": "references/technical-diagrams/flowchart-decision.md", "dalle_sample": "{\n  \"type\": \"工程感流程图 / 决策图\",\n  \"goal\": \"生成一张用 BPMN 标准形状语义画的业务流程图，可作 README / blog / 文档配图\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"3:4 portrait\\\"}\",\n    \"background\": \"deep slate #0F172A with subtle 1px grid #1E293B at 32px spacing\",\n    \"outer_padding\": \"60px\"\n  ...", "agnes_conversion": "转换策略：提取 flowchart-decision 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}, {"id": "state-machine", "title": "状态机 / 生命周期图模板", "file": "references/technical-diagrams/state-machine.md", "dalle_sample": "{\n  \"type\": \"工程感状态机 / 生命周期图（UML state diagram）\",\n  \"goal\": \"生成一张状态机图作为业务文档 / 协议规范 / 教学配图\",\n  \"canvas\": {\n    \"aspect_ratio\": \"{argument name=\\\"aspect_ratio\\\" default=\\\"16:9\\\"}\",\n    \"background\": \"deep slate #0F172A with subtle 1px grid #1E293B at 32px spacing\",\n    \"outer_padding\": \"60px\"\n  },\n  \"t...", "agnes_conversion": "转换策略：提取 state-machine 的核心构图与光影参数，映射至 Agnes 光学与材质叙事描述"}]}, {"id": "iconography-and-ui", "name": "图标与UI界面 (Iconography & UI)", "desc": "拟物化图标、Glassmorphism 毛玻璃、Dashboard 界面", "skill_count": 0, "templates": []}, {"id": "textures-and-patterns", "name": "材质与抽象纹理 (Textures & Patterns)", "desc": "流动液体流体、金箔大理石、编织物微观纤维与无缝平铺", "skill_count": 0, "templates": []}];
+    const ECOSYSTEM_DATA = [{"id": "new_api_gateway", "name": "New API 聚合网关", "category": "模型路由与负载均衡", "version": "v1.0.0-rc.24", "status": "healthy", "endpoint": "http://127.0.0.1:3000", "upstream_count": 6, "upstream_type": "Agnes 官方多 Key 聚合池", "features": ["6 渠道阶梯权重动态分发 (Weight 5~1)", "连续 3 次失败自动熔断 (Auto-Disable)", "自动探活自愈 (Auto-Enable)", "全局重试优化 (RetryTimes: 3)", "端到端生图耗时 10~15s"], "docs": "local-newapi-agnes-setup.md"}, {"id": "agent_reach", "name": "Agent Reach 联网采集", "category": "数据与信息检索", "version": "v0.3.0", "status": "installed", "repo": "Panniantong/Agent-Reach", "local_path": "/Users/tom/.zcode/skills/agent-reach", "features": ["Jina Reader 免 Key 网页深度解析", "YouTube / Bilibili 跨平台视频字幕抓取", "全网热点与知识信息流自动汇聚"], "docs": "installed-tools-graphify-and-agentreach.md"}, {"id": "graphify", "name": "Graphify 代码知识图谱", "category": "AST 分析与知识图谱", "version": "v0.4.5", "status": "installed", "repo": "Graphify-Labs/graphify", "local_path": "/Users/tom/.zcode/skills/graphify", "features": ["Tree-sitter 确定性语法树解析", "Leiden 算法无向量社区聚类", "架构上帝节点与潜在坏味道探测"], "docs": "installed-tools-graphify-and-agentreach.md"}, {"id": "browser_use", "name": "Browser-Use 自动化代理", "category": "浏览器自主运行智能体", "version": "v0.1.37", "status": "installed", "venv_path": "/Users/tom/.browser-use/venv", "features": ["Playwright 浏览器异步底层接管", "DOM 树视觉多模态定位与交互", "端到端自动化表单填写与截图验证"]}, {"id": "tabbit_devtools", "name": "Tabbit Native 控制桥", "category": "宿主浏览器零侵入控制", "version": "v1.0.0", "status": "active", "app_path": "/Applications/Tabbit.app", "features": ["AppleScript IPC 零侵入读取活跃标签页", "macOS Accessibility 辅助功能精准交互", "本地 HTML 画廊实时一键加载展示"], "docs": "tabbit-browser-and-zcode-integration.md"}];
+
+    let currentCategory = 'all';
+    let currentAspectRatio = 'all';
+    let currentSearch = '';
+    let currentLayout = 'masonry';
+    let activeModalItem = null;
+
+    function switchTab(tabId) {
+      ['gallery', 'poster-studio', 'skills', 'ecosystem', 'sentinel'].forEach(t => {
+        const el = document.getElementById('tab-' + t);
+        const btn = document.getElementById('nav-' + t);
+        if (t === tabId) {
+          el.classList.remove('hidden');
+          btn.className = 'tab-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm';
+        } else {
+          el.classList.add('hidden');
+          btn.className = 'tab-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white';
+        }
+      });
+    }
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      const sun = document.getElementById('theme-icon-sun');
+      const moon = document.getElementById('theme-icon-moon');
+      if (html.classList.contains('dark')) {
+        html.classList.remove('dark');
+        html.classList.add('light');
+        sun.classList.remove('hidden');
+        moon.classList.add('hidden');
+      } else {
+        html.classList.remove('light');
+        html.classList.add('dark');
+        sun.classList.add('hidden');
+        moon.classList.remove('hidden');
+      }
+    }
+
+    // 电影感海报与版式预设数据库 (5大架构 × 2张大作 = 10大商业大师级示例)
+    const POSTER_PRESETS = {
+      // 架构 1: 瑞士国际主义网格流派 (Responsive Müller-Brockmann)
+      swiss_01: {
+        img: 'assets/poster_pro_swiss_01.png',
+        badge: '👑 瑞士网格 A · 苏黎世秩序 (Josef Müller-Brockmann)',
+        desc: '<b>致敬约瑟夫·米勒-布罗克曼：</b>严格 12 栏绝对对齐红黑栅格、124px 巨型无衬线字标穿透版芯、瑞士红 (#E11D48) 强调色块与 1px 极细贯穿基线。右下画芯硬裁切 20px 实色投影，展现瑞士国际平面设计风格极致的理性与秩序美感。'
+      },
+      swiss_02: {
+        img: 'assets/poster_pro_swiss_02.png',
+        badge: '👑 瑞士网格 B · Musica Viva 空间对角律动 (1959 Classic)',
+        desc: '<b>致敬 1959 年经典 Musica Viva：</b>45° 几何同心圆弧线营造空间动势，包豪斯象牙白底衬 (#ECE7E1) 搭配深蓝黑与克莱因蓝。小写无衬线排印 musica viva，底部三栏音乐会曲目与演出排期微排版，将音乐律动与建筑几何融为一体。'
+      },
+      // 架构 2: 长文杂志与现代信息图流派 (Article Poster Generator)
+      article_01: {
+        img: 'assets/poster_pro_article_01.png',
+        badge: '👑 现代长文 A · 暗夜科技 CNC 特刊 (Article Generator)',
+        desc: '<b>吸收 article-poster-generator 的 dark-tech 风格：</b>CNC 金属冷调深色底 (#141414) + 猩红高光 (#CC4444)。顶部科技特刊刊头，左侧毛玻璃核心观点卡片搭配霞鹜文楷引言，右下角矢量条形码与阅读时长元数据，尽显严肃财经/前沿科技大刊风范。'
+      },
+      article_02: {
+        img: 'assets/poster_pro_article_02.png',
+        badge: '👑 现代长文 B · 数字游民极简生活志 (Minimal Biz)',
+        desc: '<b>吸收 article-poster-generator 的 minimal-biz 风格：</b>浅青灰高奢纯净底衬 (#F0F5F5) + 深松石绿 (#1A7D7D)。浮雕双层白卡片微弥散阴影，内嵌名言引用与双列对比网格（2-Column Cells），典雅温润，去除一切喧闹杂质。'
+      },
+      // 架构 3: 先锋酸性与赛博机能流派 (Cyber Acid & Brutalist Tech)
+      cyber_01: {
+        img: 'assets/poster_pro_cyber_01.png',
+        badge: '👑 赛博机能 A · HUD 战术瞄准对焦 (Tactical Acid)',
+        desc: '<b>先锋工业机能 HUD 界面：</b>四角 L 型战术定位框与中央十字准心 (Crosshairs ✛)，得意黑 8° 窄斜体电光青蓝金属流光渐变。悬挂式毛玻璃卡片完全避让右侧机甲主体，底部矢量条码与校验序列号，呈现 3A 游戏视效质感。'
+      },
+      cyber_02: {
+        img: 'assets/poster_pro_cyber_02.png',
+        badge: '👑 赛博机能 B · Y2K 酸性霓虹先锋 (Reconstruct)',
+        desc: '<b>Y2K 新野兽主义先锋排版：</b>荧光绿 (#00FF66) 与霓虹品红 (#FF007C) 强烈撞色，巨型穿透字标「重构视界 · RECONSTRUCT」，底部等宽黑客命令行终端日志卡片（Terminal Log），充满未驯服的高频视觉张力。'
+      },
+      // 架构 4: 新中式当代金石意境流派 (Neo-Chinese Poetics)
+      chinese_01: {
+        img: 'assets/poster_pro_chinese_01.png',
+        badge: '👑 新中式 A · 苏园惊鸿对角避障拆字 (Poetics)',
+        desc: '<b>原生 Vision 面部避障 + 东方当代排印：</b>中轴 40% 走廊彻底留白透气，避免文字遮挡面部。刀刻思源大宋体竖排对角错位拆字（左上「苏园」/右下「惊鸿」），霞鹜小楷七绝诗词、赫蹏标点挤压与朱砂红方印，古韵金石与现代高画质完美交融。'
+      },
+      chinese_02: {
+        img: 'assets/poster_pro_chinese_02.png',
+        badge: '👑 新中式 B · 墨韵山海极简空灵金石 (Ink Landscape)',
+        desc: '<b>南宋马远夏圭“边角之景”水墨留白：</b>极深水墨暗夜底衬，竖排大字「山海微澜」单字 0.4em 呼吸字距。诗经题跋、竖向朱砂长条引首章「清怀」与中西文盘古之白，呈现高古空灵的当代东方金石品格。'
+      },
+      // 架构 5: 院线 2.35:1 宽银幕大片流派 (Cinematic Billing Block)
+      cinema_01: {
+        img: 'assets/poster_pro_cinema_01.png',
+        badge: '👑 院线大片 A · 最后的地平线 (2.35:1 Billing Block)',
+        desc: '<b>2.35:1 院线宽银幕 + 好莱坞演职员微排版：</b>上下 14% 极深纯黑遮幅，画面正中刀刻思源大宋体极致拉宽字距（28px 字间距），底部黑边塞入合规国际标准的电影制片厂密集演职员微排版与 Dolby / IMAX 矢量标识，压迫感叙事直接拉满！'
+      },
+      cinema_02: {
+        img: 'assets/poster_pro_cinema_02.png',
+        badge: '👑 院线大片 B · 深渊回响黑色悬疑 (Festival Laurels)',
+        desc: '<b>国际电影节官方入选桂冠 (Laurel Wreaths 🌿)：</b>顶部双金冠对称布局，冷峻暗调大宋体「深渊回响 // VOICES IN THE MIST」，正中悬疑影评名句，底部电影摄影机参数与 R 级分级框，极具国际独立电影节大奖质感。'
+      },
+      // 兼容别名
+      pro_steampunk: {
+        img: 'assets/poster_pro_cyber_01.png',
+        badge: '👑 商业大师 01 · 赛博机能 HUD 工业微排版',
+        desc: '<b>Chrome 无头高精矢量光栅化：</b>搭载得益黑 8° 窄斜体金箔流光文字渐变，右下角矢量条形码与批次序列号，四周工业 L 型取景对焦框与 ✛ 字准心。中英双语错落微排版，彻底脱离脚本感，达到国际 3A 游戏与赛博先锋商业大片质感！'
+      },
+      pro_neochinese: {
+        img: 'assets/poster_pro_chinese_01.png',
+        badge: '👑 商业大师 02 · 东方当代与金石意境',
+        desc: '<b>原生 Vision 智能人脸避障 + 金石古韵排印：</b>实时避开人物面部，中轴 40% 走廊彻底留白透气。左列「苏园」上浮、右列「惊鸿」下沉，搭配霞鹜小楷七绝诗词、赫蹏标点挤压与古法朱砂红方印，完美融合现代东方美学与江南水墨意境。'
+      },
+      pro_cinema: {
+        img: 'assets/poster_pro_cinema_01.png',
+        badge: '👑 商业大师 03 · 院线 2.35:1 宽银幕大片',
+        desc: '<b>2.35:1 院线宽银幕 + 演职员微排版 (Billing Block)：</b>上下 14% 极深纯黑遮幅，画面正中刀刻思源大宋体极致拉宽字距（28px 字间距），底部黑边内嵌国际标准的电影制片厂密集演职员微排版与 Dolby / IMAX 矢量标识，压迫感叙事直接拉满！'
+      },
+      pro_swiss: {
+        img: 'assets/poster_pro_swiss_01.png',
+        badge: '👑 商业大师 04 · 苏黎世秩序 瑞士 12 栏网格',
+        desc: '<b>瑞士国际平面设计风格 (Swiss Style)：</b>致敬约瑟夫·米勒-布罗克曼。严格 12 栏网格对齐、超大字号破格穿透、瑞士红 (#e11d48) 撞色色块与极细基准线，呈现无可挑剔的理性之美与现代平面先锋质感。'
+      },
+      expert_steampunk: {
+        img: 'assets/poster_expert_dynamic_steampunk.png',
+        badge: '专家实操 01: 黄金分割字阶 · 非对称左上悬挂',
+        desc: '<b>智能专家排版实操：</b>经空间方差检测锁定左上角平整负空间（方差仅 0.4），严格按 1.618 黄金分割字阶（68pt / 42pt / 16pt）建立多层级。主标采用 8° 得意黑并吸取油灯金箔色，配以霞鹜文楷温润金句，视线与右下回眸女机械师形成极佳对角平衡。'
+      },
+      expert_neochinese: {
+        img: 'assets/poster_expert_dynamic_neochinese.png',
+        badge: '专家实操 02: 瑞士网格 · 智能人脸避障与对角双列拆字',
+        desc: '<b>原生 Vision 智能人脸避障 + 瑞士 12 栏网格：</b>实时检测到人物面部在 x:45%~55%, y:8%~18%，严禁居中横排压头！自动切换对角拆字法：左列 Column 0 竖排「苏园」，右列 Column 10 下移竖排「惊鸿」，中间 40% 核心走廊完全留白。结合霞鹜文楷标点挤压诗文与朱砂红方印，实现零遮挡国风大片！'
+      },
+      shusheng_capsule: {
+        img: 'assets/cover_shusheng_capsule_green.png',
+        badge: '书生六式 01: 绿色刊头 · 圆角横胶囊',
+        desc: '<b>绿色刊头 + 双端排字：</b>顶部 #00F05A 荧光绿圆角横胶囊，左右各留 3%，上留 5%。署名放左端、DESIGN放右端，中间留空给人物头部让位；下部 y68% 超粗黑体左对齐大标题，搭配双色紧凑副标（白字+荧光绿字），商业电影大片感十足！'
+      },
+      shusheng_split_red: {
+        img: 'assets/cover_shusheng_split_red.png',
+        badge: '书生六式 02: 红色错位 · 左右竖排夹击',
+        desc: '<b>红色错位 + 左右夹击：</b>左字列(y29%起)与右字列(y45%起)错落竖排，比左列低一字；纯红色超粗锐角美术字，中轴严格留出 2% 呼吸空隙完全避让人体，左上角两行黑心白描边副标题，极具视觉冲击力！'
+      },
+      shusheng_side_yellow: {
+        img: 'assets/cover_shusheng_side_yellow.png',
+        badge: '书生八式 01: 侧边色块 · 11%贯穿明黄带',
+        desc: '<b>侧边色块 + 2:1特粗黑体：</b>贴紧左边缘 11% 宽明黄 #F9EF51 色带贯穿到底，纵向大写黑色英文；左下角黄色宋体 + 超窄特粗黑体“封面”（2:1 高宽比），底部白色副标，原照动作与场景自然保留。'
+      },
+      shusheng_top_green: {
+        img: 'assets/cover_shusheng_top_green.png',
+        badge: '书生八式 02: 绿底上下 · 1/3色块分割',
+        desc: '<b>上1/3色块 + 跨层柔和阴影：</b>上方 30% 苹果绿大色块，深钴蓝 #06469A 剪纸大字单行居中，副标深蓝粗黑体；人物头顶自然伸入绿区 4% 产生柔和微投影，下方 2/3 完整保留高清原照，海报层级立显。'
+      },
+      split_green: {
+        img: 'assets/cover_cinematic_split_green.png',
+        badge: '经典实战: 加块绿 · 左右拆字法 (莫兰迪半透绿块)',
+        desc: '<b>智能专家排版实操：</b>经空间方差检测锁定左上角平整负空间（方差仅 0.4），严格按 1.618 黄金分割字阶（68pt / 42pt / 16pt）建立多层级。主标采用 8° 得意黑并吸取油灯金箔色，配以霞鹜文楷温润金句，视线与右下回眸女机械师形成极佳对角平衡。'
+      },
+      letterbox: {
+        img: 'assets/cover_cinematic_letterbox.png',
+        badge: '经典实战: 电影宽银幕上下黑边遮幅 (2.35:1)',
+        desc: '<b>电影宽银幕遮幅：</b>上下 12% 纯黑遮幅，结合经典大宋体居中排版与底部导演微排版，瞬间赋予画面院线大片级叙事压迫感与沉浸感。'
+      },
+      wenkai: {
+        img: 'assets/poster_style_wenkai.png',
+        badge: 'Preset: 霞鹜文楷 · 日漫温润诗意',
+        desc: '<b>落霞孤鹜开源文楷：</b>字形舒展柔和，带日系手写温度，与蒸汽朋克机械形成奇妙的刚柔对冲，新海诚/宫崎骏动漫感拉满。'
+      },
+      smiley: {
+        img: 'assets/poster_style_smiley.png',
+        badge: 'Preset: 得意黑 · 现代潮流先锋',
+        desc: '<b>锚工房开源得意黑：</b>窄斜体几何大字标，搭配赛博冷调青蓝光，在小红书/抖音等移动端信息流中极具一眼抓住眼球的爆款张力。'
+      },
+      songti: {
+        img: 'assets/poster_style_songti.png',
+        badge: 'Preset: 经典宋体 · 商业大片大字重',
+        desc: '<b>传统精修宋体：</b>经典电影海报第一首选，严谨执行盘古之白呼吸微间隙，字标自带金箔双重微投影，庄重典雅。'
+      }
+    };
+
+    let isGridOverlayActive = false;
+    let isBackdropDark = true;
+    let activePosterKey = 'swiss_01';
+
+    function toggleGridOverlay() {
+      isGridOverlayActive = !isGridOverlayActive;
+      const overlay = document.getElementById('swiss-grid-overlay');
+      const dot = document.getElementById('dot-grid-status');
+      const text = document.getElementById('text-grid-status');
+      if (isGridOverlayActive) {
+        overlay.classList.add('active');
+        dot.className = 'w-2 h-2 rounded-full bg-cyan-500 animate-pulse';
+        text.innerText = '瑞士 12 栏参考线: 开';
+      } else {
+        overlay.classList.remove('active');
+        dot.className = 'w-2 h-2 rounded-full bg-gray-400';
+        text.innerText = '瑞士 12 栏参考线: 关';
+      }
+    }
+
+    function toggleBackdropTheme() {
+      isBackdropDark = !isBackdropDark;
+      const box = document.getElementById('poster-viewport-container');
+      const text = document.getElementById('text-backdrop-mode');
+      if (isBackdropDark) {
+        box.style.backgroundColor = '#07080D';
+        text.innerText = '暗房 🖤';
+      } else {
+        box.style.backgroundColor = '#F4F5F7';
+        text.innerText = '展厅 🤍';
+      }
+    }
+
+    function openPosterModal() {
+      const data = POSTER_PRESETS[activePosterKey];
+      if (!data) return;
+      document.getElementById('modal-img').src = data.img;
+      document.getElementById('modal-tag').innerText = '4K Master Poster';
+      document.getElementById('modal-aspect').innerText = '画幅: 1:1 · 1024×1024';
+      document.getElementById('modal-title').innerText = data.badge;
+      document.getElementById('modal-desc').innerHTML = data.desc;
+      document.getElementById('modal-prompt').innerText = 'Agnes 2.5 Flash + Hybrid Vector Typography // Swiss 12-Column Baseline Grid';
+      document.getElementById('modal-model').innerText = 'Agnes 2.5 Flash + PIL';
+      document.getElementById('modal-duration').innerText = '0.42 秒';
+      document.getElementById('modal-series').innerText = 'Cinematic Master Series';
+      document.getElementById('modal-raw-link').href = data.img;
+      document.getElementById('detail-modal').classList.remove('hidden');
+    }
+
+    function switchPosterPreset(k) {
+      activePosterKey = k;
+      document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.classList.remove('border-cyan-500', 'shadow-sm');
+        btn.classList.add('border-gray-200', 'dark:border-white/10');
+        const span = btn.querySelector('span');
+        if (span) {
+          span.innerText = '切换 →';
+          span.className = 'text-gray-400 text-xs';
+        }
+      });
+      const curBtn = document.getElementById('btn-preset-' + k);
+      if (curBtn) {
+        curBtn.classList.remove('border-gray-200', 'dark:border-white/10');
+        curBtn.classList.add('border-cyan-500', 'shadow-sm');
+        const span = curBtn.querySelector('span');
+        if (span) {
+          span.innerText = '当前展示 ✓';
+          span.className = 'text-cyan-600 dark:text-cyan-400 font-bold text-xs';
+        }
+      }
+
+      const data = POSTER_PRESETS[k];
+      if (!data) return;
+      const img = document.getElementById('poster-preview-img');
+      img.style.opacity = '0.3';
+      img.src = data.img;
+      img.onload = () => { img.style.opacity = '1'; };
+      
+      document.getElementById('badge-font-name').innerText = data.badge;
+      document.getElementById('preset-formula-desc').innerHTML = data.desc;
+      document.getElementById('btn-download-poster').href = data.img;
+    }
+
+    function renderCategoryTabs() {
+      const container = document.getElementById('category-tabs');
+      container.innerHTML = MASTER_CATEGORIES.map(cat => `
+        <button onclick="filterCategory('${cat.id}')" class="cat-pill whitespace-nowrap px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${cat.id === currentCategory ? 'bg-gray-900 dark:bg-white text-white dark:text-black shadow-sm' : 'bg-white dark:bg-obsidian-card text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white border border-paper-border dark:border-obsidian-border'}">
+          ${cat.name} <span class="opacity-70 font-mono text-[10px]">(${cat.count})</span>
+        </button>
+      `).join('');
+    }
+
+    function filterCategory(catId) {
+      currentCategory = catId;
+      renderCategoryTabs();
+      renderGallery();
+    }
+
+    function filterAspectRatio(ratio) {
+      currentAspectRatio = ratio;
+      document.querySelectorAll('.aspect-btn').forEach(b => {
+        if (b.innerText.includes(ratio) || (ratio === 'all' && b.innerText === '全部')) {
+          b.className = 'aspect-btn px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-white/10 font-semibold text-gray-900 dark:text-white';
+        } else {
+          b.className = 'aspect-btn px-2.5 py-1 rounded-lg text-gray-500 hover:text-gray-900 dark:hover:text-white';
+        }
+      });
+      renderGallery();
+    }
+
+    function handleSearch() {
+      currentSearch = document.getElementById('gallery-search').value.toLowerCase().trim();
+      renderGallery();
+    }
+
+    function setLayoutMode(mode) {
+      currentLayout = mode;
+      const c = document.getElementById('gallery-container');
+      const btnMasonry = document.getElementById('btn-layout-masonry');
+      const btnGrid = document.getElementById('btn-layout-grid');
+      if (mode === 'masonry') {
+        c.className = 'masonry-grid min-h-[400px]';
+        btnMasonry.className = 'p-1.5 rounded-lg bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white';
+        btnGrid.className = 'p-1.5 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-white';
+      } else {
+        c.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 min-h-[400px]';
+        btnGrid.className = 'p-1.5 rounded-lg bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white';
+        btnMasonry.className = 'p-1.5 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-white';
+      }
+      renderGallery();
+    }
+
+    function renderGallery() {
+      const container = document.getElementById('gallery-container');
+      const filtered = MASTER_GALLERY.filter(item => {
+        const matchCat = (currentCategory === 'all' || item.category_id === currentCategory);
+        const matchRatio = (currentAspectRatio === 'all' || item.aspect_ratio === currentAspectRatio);
+        const matchSearch = (!currentSearch || 
+          item.title.toLowerCase().includes(currentSearch) || 
+          item.desc.toLowerCase().includes(currentSearch) || 
+          item.style_tag.toLowerCase().includes(currentSearch) ||
+          item.prompt.toLowerCase().includes(currentSearch)
+        );
+        return matchCat && matchRatio && matchSearch;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full py-20 text-center text-gray-400 space-y-2">
+            <div class="text-4xl">🍃</div>
+            <p>未找到符合条件的生成资产</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(item => `
+        <div class="${currentLayout === 'masonry' ? 'masonry-item' : ''} bg-white dark:bg-obsidian-card border border-paper-border dark:border-obsidian-border rounded-2xl overflow-hidden editorial-shadow editorial-hover-shadow transition-all duration-300 group cursor-pointer flex flex-col" onclick="openDetailModalById('${item.id}')">
+          <div class="relative overflow-hidden bg-gray-100 dark:bg-black/50 image-placeholder ${currentLayout === 'grid' ? 'aspect-[4/5]' : 'min-h-[200px]'}">
+            <img src="assets/${item.img}" loading="lazy" alt="${item.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 block" onload="this.parentElement.classList.remove('image-placeholder')">
+            <div class="absolute top-3 left-3 bg-white/80 dark:bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold text-gray-800 dark:text-cyan-300 border border-gray-200 dark:border-white/10 shadow-sm">
+              ${item.style_tag}
+            </div>
+            <div class="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-mono text-white">
+              ${item.aspect_ratio} · ${item.duration}s
+            </div>
+          </div>
+          <div class="p-4 flex-1 flex flex-col justify-between space-y-2 bg-white dark:bg-obsidian-card">
+            <div>
+              <h3 class="font-bold text-sm text-gray-900 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors line-clamp-1">${item.title}</h3>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2 leading-relaxed">${item.desc}</p>
+            </div>
+            <div class="pt-2 flex items-center justify-between border-t border-gray-100 dark:border-white/5 text-[11px] text-gray-400 font-mono">
+              <span>${item.category_name}</span>
+              <span class="text-cyan-600 dark:text-cyan-400 font-semibold group-hover:underline">检视详情 →</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openDetailModalById(id) {
+      const item = MASTER_GALLERY.find(x => x.id === id);
+      if (!item) return;
+      activeModalItem = item;
+
+      document.getElementById('modal-img').src = 'assets/' + item.img;
+      document.getElementById('modal-tag').innerText = item.style_tag;
+      document.getElementById('modal-aspect').innerText = '画幅: ' + item.aspect_ratio;
+      document.getElementById('modal-title').innerText = item.title;
+      document.getElementById('modal-desc').innerText = item.desc;
+      document.getElementById('modal-prompt').innerText = item.prompt;
+      document.getElementById('modal-model').innerText = item.model;
+      document.getElementById('modal-duration').innerText = item.duration + ' 秒';
+      document.getElementById('modal-series').innerText = item.series;
+      document.getElementById('modal-raw-link').href = 'assets/' + item.img;
+
+      document.getElementById('detail-modal').classList.remove('hidden');
+    }
+
+    function closeDetailModal(e) {
+      if (e.target.id === 'detail-modal') forceCloseModal();
+    }
+
+    function forceCloseModal() {
+      document.getElementById('detail-modal').classList.add('hidden');
+      const img = document.getElementById('modal-img');
+      img.classList.remove('scale-150');
+      img.classList.add('cursor-zoom-in');
+      img.classList.remove('cursor-zoom-out');
+    }
+
+    function toggleZoom(img) {
+      if (img.classList.contains('scale-150')) {
+        img.classList.remove('scale-150');
+        img.classList.remove('cursor-zoom-out');
+        img.classList.add('cursor-zoom-in');
+      } else {
+        img.classList.add('scale-150');
+        img.classList.remove('cursor-zoom-in');
+        img.classList.add('cursor-zoom-out');
+      }
+    }
+
+    function copyModalPrompt() {
+      if (!activeModalItem) return;
+      navigator.clipboard.writeText(activeModalItem.prompt).then(() => {
+        alert('提示词已复制到剪贴板！');
+      });
+    }
+
+    function sendToTranspiler() {
+      if (!activeModalItem) return;
+      switchTab('skills');
+      document.getElementById('json-input').value = JSON.stringify({
+        "type": activeModalItem.category_id,
+        "style": activeModalItem.style_tag,
+        "title": activeModalItem.title,
+        "reference_prompt": activeModalItem.prompt
+      }, null, 2);
+      forceCloseModal();
+      doTranspile();
+    }
+
+    function setupSlider() {
+      const container = document.getElementById('comparison-container');
+      const overlay = document.getElementById('slider-overlay');
+      const handle = document.getElementById('slider-handle');
+      const imgBefore = document.getElementById('slider-img-before');
+
+      function updateWidth() {
+        imgBefore.style.width = container.offsetWidth + 'px';
+      }
+      window.addEventListener('resize', updateWidth);
+      updateWidth();
+
+      let isDown = false;
+      function setPosition(x) {
+        const rect = container.getBoundingClientRect();
+        let pos = (x - rect.left) / rect.width;
+        pos = Math.max(0.02, Math.min(0.98, pos));
+        overlay.style.width = (pos * 100) + '%';
+        handle.style.left = (pos * 100) + '%';
+      }
+
+      container.addEventListener('mousedown', (e) => { isDown = true; setPosition(e.clientX); });
+      window.addEventListener('mouseup', () => { isDown = false; });
+      window.addEventListener('mousemove', (e) => { if (isDown) setPosition(e.clientX); });
+
+      container.addEventListener('touchstart', (e) => { isDown = true; setPosition(e.touches[0].clientX); });
+      window.addEventListener('touchend', () => { isDown = false; });
+      window.addEventListener('touchmove', (e) => { if (isDown) setPosition(e.touches[0].clientX); });
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') forceCloseModal();
+      if (document.getElementById('detail-modal').classList.contains('hidden')) return;
+      if (activeModalItem) {
+        const idx = MASTER_GALLERY.findIndex(x => x.id === activeModalItem.id);
+        if (e.key === 'ArrowRight' && idx < MASTER_GALLERY.length - 1) {
+          openDetailModalById(MASTER_GALLERY[idx + 1].id);
+        } else if (e.key === 'ArrowLeft' && idx > 0) {
+          openDetailModalById(MASTER_GALLERY[idx - 1].id);
+        }
+      }
+    });
+
+    const PRESETS = {
+      steampunk: {
+        "type": "anime-key-visual",
+        "subject": "年轻女性机械师，背向镜头微侧身躯，转头回眸直视观者，手持重型扳手与发光黄铜油灯，深色双麻花辫，复古风镜，白衬衫工装裙",
+        "background": "工业质感机械夜城，左侧巨大齿轮与喷涌蒸汽，右侧哥特式发光钟楼，夜空流动浮云",
+        "lighting": "冷暖互补光影，暖黄色提灯与深蓝色夜空互补",
+        "composition": "低角度仰视半身构图，主角居中偏右，左上方严格留白负空间",
+        "text": "铜钟与蒸汽城 STEAM & CHIME 她修理时间，也修理人心"
+      },
+      bento: {
+        "type": "bento-grid-infographic",
+        "title": "2026 年新一代 AI 多模态工作台架构",
+        "modules_count": 8,
+        "style": "Apple newsroom / Notion dashboard 极简微模块",
+        "palette": "warm off-white #F8F9FA + deep ink #111827 + cyber cyan #00F0FF",
+        "visual_elements": "圆角卡片、数据条形图、大数字指标、极简线框图"
+      }
+    };
+
+    function loadSamplePreset(k) {
+      document.getElementById('json-input').value = JSON.stringify(PRESETS[k], null, 2);
+      doTranspile();
+    }
+
+    function doTranspile() {
+      const raw = document.getElementById('json-input').value;
+      if (!raw) return;
+      try {
+        const data = JSON.parse(raw);
+        const decontaminate = document.getElementById('opt-decontaminate').checked;
+        const negativeSpace = document.getElementById('opt-negative-space').checked;
+
+        let parts = [];
+        if (data.type && data.type.includes("anime")) {
+          parts.push("masterpiece anime commercial key visual, Makoto Shinkai and Ufotable style, clean 2D cel-shaded animation art");
+        } else if (data.type && data.type.includes("bento")) {
+          parts.push("A clean, modern, highly organized Bento Grid modular infographic inspired by Apple and Notion dashboards");
+        } else {
+          parts.push("masterpiece commercial visual, high aesthetic quality, clean lighting");
+        }
+
+        if (data.subject) parts.push(data.subject);
+        if (data.background) parts.push(data.background);
+        if (data.lighting) parts.push(data.lighting);
+        if (data.composition) parts.push(data.composition);
+
+        if (negativeSpace) {
+          parts.push("clean negative space carefully reserved in the upper quadrant for commercial typography, unobstructed background");
+        }
+        if (decontaminate) {
+          parts.push("sharp crisp lineart, vibrant anime coloring, high aesthetic value, 8k resolution");
+        }
+
+        document.getElementById('transpiled-output').innerText = parts.join(", ");
+      } catch (e) {
+        document.getElementById('transpiled-output').innerText = "// JSON 编译解析异常: " + e.message;
+      }
+    }
+
+    function copyAgnesPrompt() {
+      const text = document.getElementById('transpiled-output').innerText;
+      navigator.clipboard.writeText(text).then(() => alert('转译提示词已成功复制！'));
+    }
+
+    function renderSkills() {
+      const grid = document.getElementById('skills-categories-grid');
+      grid.innerHTML = SKILLS_DATA.map(cat => `
+        <div class="rounded-2xl bg-white dark:bg-obsidian-card border border-paper-border dark:border-obsidian-border p-6 space-y-4 editorial-shadow hover:border-cyan-500/30 transition-all flex flex-col justify-between">
+          <div class="space-y-2">
+            <div class="flex justify-between items-start">
+              <h3 class="font-bold text-sm text-gray-900 dark:text-white">${cat.name}</h3>
+              <span class="text-xs font-mono px-2 py-0.5 rounded bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/20">${cat.skill_count} 模板</span>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">${cat.desc}</p>
+          </div>
+          <div class="space-y-2 pt-3 border-t border-gray-100 dark:border-white/5">
+            <div class="text-[10px] font-mono text-gray-400">收录高频模板:</div>
+            <div class="flex flex-wrap gap-1">
+              ${cat.templates.map(t => `<span class="px-2 py-0.5 rounded text-[10px] bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-300">${t.title}</span>`).join('')}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderEcosystem() {
+      const grid = document.getElementById('ecosystem-grid');
+      grid.innerHTML = ECOSYSTEM_DATA.map(tool => `
+        <div class="rounded-2xl bg-white dark:bg-obsidian-card border border-paper-border dark:border-obsidian-border p-6 space-y-4 editorial-shadow hover:border-cyan-500/30 transition-all flex flex-col justify-between">
+          <div class="space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-mono text-cyan-600 dark:text-cyan-400 font-semibold">${tool.category}</span>
+              <span class="px-2 py-0.5 rounded text-xs bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono border border-emerald-200 dark:border-emerald-500/20">${tool.status}</span>
+            </div>
+            <h3 class="font-bold text-base text-gray-900 dark:text-white">${tool.name}</h3>
+            <div class="text-xs font-mono text-gray-400">${tool.version || ''} ${tool.endpoint || ''}</div>
+          </div>
+          <ul class="space-y-1.5 text-xs text-gray-600 dark:text-gray-300 pt-3 border-t border-gray-100 dark:border-white/5">
+            ${tool.features.map(f => `<li class="flex items-start space-x-2"><span class="text-cyan-500">✓</span><span>${f}</span></li>`).join('')}
+          </ul>
+        </div>
+      `).join('');
+    }
+
+    window.onload = function() {
+      renderCategoryTabs();
+      renderGallery();
+      renderSkills();
+      renderEcosystem();
+      setupSlider();
+      loadSamplePreset('steampunk');
+      if (window.location.hash) {
+        const tab = window.location.hash.replace('#', '');
+        if (['gallery', 'poster-studio', 'skills', 'ecosystem', 'sentinel'].includes(tab)) {
+          switchTab(tab);
+        }
+      }
+    };
+  </script>
+</body>
+</html>

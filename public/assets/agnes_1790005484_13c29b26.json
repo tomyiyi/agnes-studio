@@ -1,0 +1,15 @@
+{
+  "timestamp": 1790005484,
+  "filename": "agnes_1790005484_13c29b26.png",
+  "local_path": "/Users/tom/.new-api/generated_images/agnes_1790005484_13c29b26.png",
+  "remote_url": "https://platform-outputs.agnes-ai.space/images/t2i/task_UyOGFNF2JZYiviv2RcmJN3gdscixubqn/output_b1f9780a1beb49528da5ad7be33408bf.png",
+  "prompt": "Award-winning luxury commercial product photography of a premium skincare serum bottle. Centered on a clean, solid pure white reflective pedestal with subtle soft gradient reflections. The bottle is crafted from heavy translucent frosted glass with dewy crystal clarity, showing amber liquid inside, topped with a brushed champagne-gold metallic dropper cap with fine micro-grooves. Shot on Phase One XF IQ4 150MP, 100mm macro lens, f/8 for tack-sharp product details. Overhead massive softbox lighting creating a silky smooth white gradient reflection along the glass curvature, subtle warm rim light emphasizing the bottle silhouette, pristine high-end Vogue cosmetics advertising aesthetic, clean studio lighting.",
+  "model": "agnes-image-2.5-flash",
+  "file_size_kb": "696.5 KB",
+  "download_duration_s": "0.55s",
+  "extra": {
+    "skill_id": "premium_studio_product",
+    "name": "高级静物商业摄影 (极简护肤/科技)",
+    "category": "产品摄影 (Product Visuals)"
+  }
+}

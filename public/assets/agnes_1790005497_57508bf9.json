@@ -1,0 +1,15 @@
+{
+  "timestamp": 1790005497,
+  "filename": "agnes_1790005497_57508bf9.png",
+  "local_path": "/Users/tom/.new-api/generated_images/agnes_1790005497_57508bf9.png",
+  "remote_url": "https://platform-outputs.agnes-ai.space/images/t2i/task_vmEXkpxt1zqsoHvxRe246fie9M12Efr7/output_1336d10902bc4dbcabec64b77962ad04.png",
+  "prompt": "A striking editorial business portrait of a graceful 26-year-old East Asian female founder, looking confidently directly into the camera. She has a refined soft oval face, intelligent almond-shaped dark eyes with natural luminous double eyelids and a faint beauty mark near her temple, and natural dewy lips with a serene warm smile. Hair is styled in a sleek low ponytail with a few loose flyaway strands framing her cheek. Wearing a tailored minimalist ivory-white Italian wool blazer over a silk cream blouse, clean collarbone line. Shot on Hasselblad H6D-100c, 85mm f/1.4 portrait lens, creamy muted warm grey studio backdrop. Subsurface scattering (SSS) on skin, authentic human skin texture with delicate fine pores, soft Rembrandt directional lighting, Forbes 30 Under 30 cover style, effortless quiet luxury, candid authenticity, no CGI.",
+  "model": "agnes-image-2.5-flash",
+  "file_size_kb": "1035.6 KB",
+  "download_duration_s": "2.92s",
+  "extra": {
+    "skill_id": "professional_portrait",
+    "name": "杂志封面级东方职业肖像",
+    "category": "人物肖像 (Portraits & Characters)"
+  }
+}
