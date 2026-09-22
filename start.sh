@@ -24,6 +24,12 @@ else
     exit 1
 fi
 
+# 启动前自动检查远程 GitHub 更新（跨电脑无缝同步）
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "🔄 正在检查远程 GitHub 最新改动..."
+    git pull --rebase origin main 2>/dev/null || echo "ℹ️  跳过远程拉取（离线或已是最新）"
+fi
+
 # 检查端口是否被占用，若被占用则提示或复用
 if lsof -i :$PORT >/dev/null 2>&1; then
     echo "ℹ️  端口 $PORT 已在运行中，直接打开浏览器即可。"
