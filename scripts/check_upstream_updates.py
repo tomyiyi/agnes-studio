@@ -12,9 +12,21 @@ import time
 STUDIO_ROOT = "/Users/tom/Desktop/agnes-studio"
 UPDATES_PATH = os.path.join(STUDIO_ROOT, "data", "updates.json")
 
+def get_local_auth_key():
+    local_key_path = os.path.expanduser("~/.new-api/local_key.json")
+    if os.path.exists(local_key_path):
+        try:
+            with open(local_key_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("api_key", "")
+        except Exception:
+            pass
+    return os.environ.get("NEW_API_KEY", "")
+
 def check_new_api_health():
     url = "http://127.0.0.1:3000/v1/models"
-    headers = {"Authorization": "Bearer sk-dtG1nh9qwKOFcW2F40rP04xuCToCECtnyxuaTTpSAiCO2FKw"}
+    api_key = get_local_auth_key()
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     req = urllib.request.Request(url, headers=headers)
     start_t = time.time()
     try:
