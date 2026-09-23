@@ -20,6 +20,7 @@ import time
 import urllib.request
 import urllib.error
 import urllib.parse
+from html import escape
 from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
@@ -105,10 +106,12 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             resp = {
                 "success": True,
                 "detected": cfg["detected"],
+                "local_key_detected": cfg["detected"],
                 "base_url": cfg["base_url"],
                 "masked_api_key": masked_key,
                 "has_api_key": bool(cfg["api_key"]),
-                "api_key": cfg["api_key"], # 仅在本地运行返回给前台
+                # 不向前端回传明文密钥；调用时由服务端按需注入本地密钥
+                "api_key": "",
                 "default_model": cfg["default_model"],
                 "available_models": cfg["models"],
                 "preset_endpoints": [
@@ -134,7 +137,11 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/test-connection":
             base_url = req_body.get("base_url", "").strip().rstrip("/")
             api_key = req_body.get("api_key", "").strip()
-            
+            if not api_key:
+                local_cfg = get_local_newapi_config()
+                if local_cfg["detected"] and base_url.startswith("http://127.0.0.1"):
+                    api_key = local_cfg["api_key"]
+
             if not base_url:
                 self._send_json({"success": False, "error": "请提供有效的 Base URL"}, status=400)
                 return
@@ -261,11 +268,17 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             subtitle = req_body.get("subtitle", "STRUCTURE & ESSENCE")
             body = req_body.get("body", "设计不是情绪的宣泄，而是对客观秩序的精确度量。让字符锚定在理性的基准线上。")
             author = req_body.get("author", "TOM // AGNES STUDIO")
-            bg_image_rel = req_body.get("bg_image", "assets/poster_pro_swiss_01.png")
+            title = escape(title, quote=True)
+            subtitle = escape(subtitle, quote=True)
+            body = escape(body, quote=True)
+            author = escape(author, quote=True)
 
-            # 定位底图绝对路径
-            bg_abs_path = PUBLIC_DIR / bg_image_rel.lstrip("/")
-            if not bg_abs_path.exists():
+            # 兼容前端 background_img 与历史 bg_image 两种字段名
+            bg_image_rel = req_body.get("bg_image") or req_body.get("background_img") or "assets/poster_pro_swiss_01.png"
+
+            # 定位底图绝对路径（限制在 public/ 内，防止路径穿越）
+            bg_abs_path = (PUBLIC_DIR / bg_image_rel.lstrip("/")).resolve()
+            if not str(bg_abs_path).startswith(str(PUBLIC_DIR.resolve())) or not bg_abs_path.exists():
                 bg_abs_path = ASSETS_DIR / "agnes_1789995698_9987.png"
 
             bg_uri = get_base64_image(str(bg_abs_path))

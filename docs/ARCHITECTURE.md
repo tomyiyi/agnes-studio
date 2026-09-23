@@ -81,7 +81,7 @@ Agnes Studio 全局系统架构
 
 ## 3. 配置驱动型数据架构（Data-Driven Architecture）
 
-所有模块均由 `/Users/tom/Desktop/agnes-studio/data/` 目录下的标准 JSON 实体驱动，具备热插拔与动态扩展能力：
+所有模块均由 `/Users/tom/Desktop/workspace/agnesstudio/data/` 目录下的标准 JSON 实体驱动，具备热插拔与动态扩展能力：
 
 | 数据集路径 | 数据结构实体 | 说明 |
 | :--- | :--- | :--- |

@@ -1,0 +1,107 @@
+[
+  {
+    "platform": "xhs",
+    "label": "小红书竖版 3:4",
+    "canvas": "1080×1440",
+    "safe": "高 12%–72% · 左右 8%",
+    "mode": "vertical",
+    "title_zone": "safe",
+    "layout_subject": {
+      "platform": "xhs",
+      "skin_centroid": [
+        0.473,
+        0.423
+      ],
+      "place": [
+        0.55,
+        0.34
+      ],
+      "place_err": 0.113,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.466,
+        "headroom_sigma": 3.4,
+        "ok": true
+      },
+      "ok": true
+    },
+    "layout_final": {
+      "platform": "xhs",
+      "skin_centroid": [
+        0.434,
+        0.48
+      ],
+      "place": [
+        0.55,
+        0.34
+      ],
+      "place_err": 0.182,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.474,
+        "headroom_sigma": 8.2,
+        "ok": true
+      },
+      "ok": true
+    },
+    "copy_errors": [],
+    "qa_face_gate": {
+      "faces": [
+        {
+          "y_min": 0.22816202044487,
+          "x_min": 0.31566184759140015,
+          "x_max": 0.6788694858551025,
+          "y_max": 0.5006929934024811
+        }
+      ],
+      "candidates": [
+        [
+          0.04,
+          0.08,
+          0.26,
+          0.78
+        ],
+        [
+          0.74,
+          0.08,
+          0.96,
+          0.78
+        ],
+        [
+          0.04,
+          0.04,
+          0.28,
+          0.55
+        ],
+        [
+          0.72,
+          0.1,
+          0.96,
+          0.62
+        ]
+      ],
+      "chosen": [
+        0.04,
+        0.08,
+        0.26,
+        0.78
+      ],
+      "block_css": "left:4.0%; right:74.0%; top:8.0%; bottom:22.0%;",
+      "ok": true,
+      "note": "clear"
+    },
+    "qa_thumbnail_ok": true,
+    "qa_list_sim": null,
+    "qa_visual_check_required": true,
+    "files": {
+      "png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_vertical_safe.png",
+      "png_kb": 2032,
+      "jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_vertical_safe.jpg",
+      "jpg_kb": 208,
+      "named_png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_main_vertical_1080x1440_20260923_oriental-beauty.png",
+      "named_jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_main_vertical_1080x1440_20260923_oriental-beauty.jpg"
+    }
+  }
+]

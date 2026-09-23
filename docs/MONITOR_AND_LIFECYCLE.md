@@ -56,7 +56,7 @@ Agnes Studio 不仅是一个本地生图工作台，更是与开源生态保持�
 0 3 * * * /bin/bash /Users/tom/.new-api/backup_db.sh > /dev/null 2>&1
 
 # 2. 每小时第 15 分钟运行依赖与网关健康巡检，更新 data/updates.json
-15 * * * * /usr/bin/python3 /Users/tom/Desktop/agnes-studio/scripts/check_upstream_updates.py > /dev/null 2>&1
+15 * * * * /usr/bin/python3 /Users/tom/Desktop/workspace/agnesstudio/scripts/check_upstream_updates.py > /dev/null 2>&1
 ```
 
 ---
@@ -64,6 +64,6 @@ Agnes Studio 不仅是一个本地生图工作台，更是与开源生态保持�
 ## 5. 手动运行与验证
 在终端或工作台脚本目录直接执行：
 ```bash
-python3 /Users/tom/Desktop/agnes-studio/scripts/check_upstream_updates.py
+python3 /Users/tom/Desktop/workspace/agnesstudio/scripts/check_upstream_updates.py
 ```
 控制台将即时输出探活日志并自动刷新数据文件。

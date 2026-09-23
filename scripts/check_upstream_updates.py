@@ -8,9 +8,10 @@ import urllib.request
 import json
 import os
 import time
+from pathlib import Path
 
-STUDIO_ROOT = "/Users/tom/Desktop/agnes-studio"
-UPDATES_PATH = os.path.join(STUDIO_ROOT, "data", "updates.json")
+STUDIO_ROOT = Path(__file__).resolve().parent.parent
+UPDATES_PATH = str(STUDIO_ROOT / "data" / "updates.json")
 
 def get_local_auth_key():
     local_key_path = os.path.expanduser("~/.new-api/local_key.json")

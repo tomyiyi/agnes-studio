@@ -1,23 +1,41 @@
 {
-  "last_checked_at": "2026-09-22 00:21:52",
+  "last_checked_at": "2026-09-23 10:14:02",
   "gateway": {
     "status": "healthy",
-    "latency_ms": 32,
-    "available_models_count": 13,
+    "latency_ms": 19,
+    "available_models_count": 88,
     "image_models": [
-      "agnes-image-2.0-flash",
       "agnes-image-2.1-flash",
       "agnes-image-2.5-flash",
-      "dall-e-3"
+      "gemini-3-pro-image",
+      "gemini-3-pro-image-16x9",
+      "gemini-3-pro-image-1x1",
+      "gemini-3-pro-image-21x9",
+      "gemini-3-pro-image-2k",
+      "gemini-3-pro-image-2k-16x9",
+      "gemini-3-pro-image-2k-1x1",
+      "gemini-3-pro-image-2k-21x9",
+      "gemini-3-pro-image-2k-3x4",
+      "gemini-3-pro-image-2k-4x3",
+      "gemini-3-pro-image-2k-9x16",
+      "gemini-3-pro-image-3x4",
+      "gemini-3-pro-image-4k",
+      "gemini-3-pro-image-4k-16x9",
+      "gemini-3-pro-image-4k-1x1",
+      "gemini-3-pro-image-4k-21x9",
+      "gemini-3-pro-image-4k-3x4",
+      "gemini-3-pro-image-4k-4x3",
+      "gemini-3-pro-image-4k-9x16",
+      "gemini-3-pro-image-4x3",
+      "gemini-3-pro-image-9x16",
+      "gemini-3.1-flash-image"
     ]
   },
   "upstream_repositories": [
     {
       "repo": "ConardLi/garden-skills",
-      "latest_commit": "aaf9a82",
-      "date": "2026-07-12T14:36:27Z",
-      "message": "fix(marketplace): update skill source paths for presentation, web design, knowledge base, image generation, and beautiful article skills #20",
-      "status": "synchronized"
+      "status": "cached",
+      "note": "Local cached or rate-limited"
     },
     {
       "repo": "QuantumNous/new-api",

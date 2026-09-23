@@ -1,0 +1,12 @@
+{
+  "base_url": "http://127.0.0.1:3000/v1",
+  "api_key": "sk-your-new-api-token",
+  "models": {
+    "image_generation": [
+      "agnes-image-2.5-flash",
+      "agnes-image-2.1-flash",
+      "dall-e-3"
+    ]
+  },
+  "note": "复制到 ~/.new-api/local_key.json 后由 studio_server 自动感应；切勿提交真实密钥"
+}

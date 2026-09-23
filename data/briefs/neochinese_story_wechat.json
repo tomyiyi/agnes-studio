@@ -1,0 +1,14 @@
+{
+  "platform": "wechat-sq",
+  "goal": "story",
+  "subject": "scenery",
+  "tone": "neo-chinese",
+  "mode": "auto",
+  "title_a": "山海",
+  "title_b": "回信",
+  "title_accent": "回",
+  "latin": "LETTER FROM MOUNTAINS",
+  "slogan": "一纸烟云寄远人",
+  "slug": "shanhai-letter",
+  "title_zone": "safe"
+}

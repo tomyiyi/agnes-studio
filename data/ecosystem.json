@@ -1,22 +1,46 @@
 {
   "system_name": "Agnes Studio Open Ecosystem",
-  "updated_at": "2026-09-22T00:05:00Z",
+  "updated_at": "2026-09-23T14:20:00Z",
+  "gateway": {
+    "name": "New API 负载均衡",
+    "base_url": "http://127.0.0.1:3000/v1",
+    "local_key": "~/.new-api/local_key.json",
+    "rotation": "Agnes-Hub-01..06 多 Key 权重分流 + 失败熔断 + 自动探活",
+    "models": [
+      "agnes-image-2.5-flash",
+      "agnes-image-2.1-flash"
+    ]
+  },
   "tools": [
+    {
+      "id": "understand_anything",
+      "name": "Understand-Anything",
+      "category": "多模态理解 · 万能解析",
+      "version": "community",
+      "status": "listed",
+      "github": "https://github.com/tomyiyi/Understand-Anything",
+      "features": [
+        "任意模态内容理解与结构化解析",
+        "与 Agent 工作流/知识库协同",
+        "可作为封面简报理解与素材入库前置"
+      ]
+    },
     {
       "id": "new_api_gateway",
       "name": "New API 聚合网关",
       "category": "模型路由与负载均衡",
-      "version": "v1.0.0-rc.24",
+      "version": "v1.0.0-rc.34",
       "status": "healthy",
+      "github": "https://github.com/QuantumNous/new-api",
       "endpoint": "http://127.0.0.1:3000",
       "upstream_count": 6,
-      "upstream_type": "Agnes 官方多 Key 聚合池",
+      "upstream_type": "Agnes 免费/官方多 Key 聚合池（Hub-01..06）",
       "features": [
         "6 渠道阶梯权重动态分发 (Weight 5~1)",
         "连续 3 次失败自动熔断 (Auto-Disable)",
         "自动探活自愈 (Auto-Enable)",
         "全局重试优化 (RetryTimes: 3)",
-        "端到端生图耗时 10~15s"
+        "封面流水线统一走此网关轮换生图"
       ],
       "docs": "local-newapi-agnes-setup.md"
     },
@@ -26,14 +50,14 @@
       "category": "数据与信息检索",
       "version": "v0.3.0",
       "status": "installed",
+      "github": "https://github.com/Panniantong/Agent-Reach",
       "repo": "Panniantong/Agent-Reach",
       "local_path": "/Users/tom/.zcode/skills/agent-reach",
       "features": [
         "Jina Reader 免 Key 网页深度解析",
         "YouTube / Bilibili 跨平台视频字幕抓取",
         "全网热点与知识信息流自动汇聚"
-      ],
-      "docs": "installed-tools-graphify-and-agentreach.md"
+      ]
     },
     {
       "id": "graphify",
@@ -41,14 +65,14 @@
       "category": "AST 分析与知识图谱",
       "version": "v0.4.5",
       "status": "installed",
+      "github": "https://github.com/Graphify-Labs/graphify",
       "repo": "Graphify-Labs/graphify",
       "local_path": "/Users/tom/.zcode/skills/graphify",
       "features": [
         "Tree-sitter 确定性语法树解析",
         "Leiden 算法无向量社区聚类",
         "架构上帝节点与潜在坏味道探测"
-      ],
-      "docs": "installed-tools-graphify-and-agentreach.md"
+      ]
     },
     {
       "id": "browser_use",
@@ -56,6 +80,7 @@
       "category": "浏览器自主运行智能体",
       "version": "v0.1.37",
       "status": "installed",
+      "github": "https://github.com/browser-use/browser-use",
       "venv_path": "/Users/tom/.browser-use/venv",
       "features": [
         "Playwright 浏览器异步底层接管",
@@ -69,13 +94,125 @@
       "category": "宿主浏览器零侵入控制",
       "version": "v1.0.0",
       "status": "active",
-      "app_path": "/Applications/Tabbit.app",
+      "github": null,
+      "app_path": "/Applications/Tabbit Browser.app",
       "features": [
-        "AppleScript IPC 零侵入读取活跃标签页",
+        "AppleScript / CLI 零侵入读取活跃标签页",
         "macOS Accessibility 辅助功能精准交互",
         "本地 HTML 画廊实时一键加载展示"
       ],
-      "docs": "tabbit-browser-and-zcode-integration.md"
+      "note": "本机 App，暂无公开 GitHub 仓库"
+    },
+    {
+      "id": "copywriting",
+      "name": "中文文案排版指北",
+      "category": "排印规范 · 工艺源",
+      "version": "15k+ ★",
+      "status": "wired",
+      "github": "https://github.com/sparanoid/chinese-copywriting-guidelines",
+      "features": [
+        "中英文之间加空格",
+        "全形中文标点",
+        "直角引号「」"
+      ],
+      "wired_to": "scripts/copywriting_rules.py"
+    },
+    {
+      "id": "pangu",
+      "name": "pangu.js 盘古之白",
+      "category": "排印规范 · 自动化",
+      "version": "auto-spacing",
+      "status": "wired",
+      "github": "https://github.com/vinta/pangu.js",
+      "features": [
+        "CJK 与英文数字自动插空",
+        "cover_pipeline 出图前 lint/fix"
+      ],
+      "wired_to": "scripts/copywriting_rules.py"
+    },
+    {
+      "id": "smiley_sans",
+      "name": "得意黑 Smiley Sans",
+      "category": "中文字体 · 显示体",
+      "version": "14k+ ★ SIL OFL",
+      "status": "in_use",
+      "github": "https://github.com/atelier-anchor/smiley-sans",
+      "features": [
+        "窄斜体高冲击主标",
+        "电影感/大字报适用"
+      ]
+    },
+    {
+      "id": "lxgw_wenkai",
+      "name": "霞鹜文楷 LXGW WenKai",
+      "category": "中文字体 · 诗性正文",
+      "version": "26k+ ★ SIL OFL",
+      "status": "in_use",
+      "github": "https://github.com/lxgw/LxgwWenKai",
+      "features": [
+        "日系温润楷体",
+        "slogan / 新中式"
+      ]
+    },
+    {
+      "id": "posterdown",
+      "name": "posterdown · HTML 海报",
+      "category": "HTML/CSS 海报生成工艺",
+      "version": "881 ★",
+      "status": "method",
+      "github": "https://github.com/brentthorne/posterdown",
+      "features": [
+        "Rmd/HTML→PDF 海报",
+        "可打印栅格排版参考"
+      ]
+    },
+    {
+      "id": "posterly",
+      "name": "posterly · 单文件海报",
+      "category": "HTML/CSS 海报生成工艺",
+      "version": "410 ★",
+      "status": "method",
+      "github": "https://github.com/Chenruishuo/posterly",
+      "features": [
+        "单 HTML/CSS 成稿",
+        "学术/工作坊版式参考"
+      ]
+    },
+    {
+      "id": "pagedjs",
+      "name": "paged.js 分页排版",
+      "category": "印刷级分页引擎",
+      "version": "1.5k+ ★",
+      "status": "method",
+      "github": "https://github.com/pagedjs/pagedjs",
+      "features": [
+        "浏览器分页/出血/天头地脚",
+        "长图/册页扩展方向"
+      ]
+    },
+    {
+      "id": "muller_brockmann",
+      "name": "ResponsiveMullerBrockmann",
+      "category": "瑞士网格 · 构图源",
+      "version": "教学用",
+      "status": "method",
+      "github": "https://github.com/laurasandoval/ResponsiveMullerBrockmann",
+      "features": [
+        "12 栏栅格",
+        "非对称留白"
+      ]
+    },
+    {
+      "id": "article_poster",
+      "name": "article-poster-generator",
+      "category": "杂志信息图 · 构图源",
+      "version": "实战",
+      "status": "method",
+      "github": "https://github.com/tengj/article-poster-generator",
+      "features": [
+        "长文封面构图",
+        "信息层级"
+      ]
     }
   ]
 }

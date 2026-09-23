@@ -1,0 +1,43 @@
+{
+  "themes": {
+    "beauty": {
+      "title_a": ["东方", "肌密", "生图", "镜像", "封面"],
+      "title_b": ["神颜", "高光", "定式", "工法", "秩序"],
+      "accent_chars": ["颜", "光", "式", "序"],
+      "latin": ["ORIENTAL BEAUTY", "SKIN RITUAL", "COVER ENGINE"],
+      "slogan": [
+        "她以骨相写诗，以眉眼成章",
+        "三秒定胜负，留白见高级",
+        "不靠滤镜，靠结构"
+      ]
+    },
+    "tech": {
+      "title_a": ["生成", "工场", "夜航", "矢量"],
+      "title_b": ["光栅", "引擎", "协议", "网格"],
+      "accent_chars": ["光", "擎", "约", "网"],
+      "latin": ["RASTER ENGINE", "SWISS GRID PROTOCOL"],
+      "slogan": ["像素服从秩序", "1 秒交付 4A 质感"]
+    }
+  },
+  "rules": {
+    "title_a_chars": [2, 4],
+    "title_b_chars": [2, 4],
+    "slogan_max_chars": 18,
+    "pangu_required": true,
+    "forbid_chars": ["“", "”", "‘", "’"],
+    "prefer_quotes": ["「", "」"]
+  },
+  "naming": {
+    "pattern": "{platform}_{mode}_{WxH}_{YYYYMMDD}_{slug}",
+    "examples": [
+      "wx_head_diag_2350x1000_20260923_oriental-beauty.png",
+      "xhs_main_bignews_1080x1440_20260923_oriental-beauty.png"
+    ],
+    "platform_code": {
+      "wechat": "wx_head",
+      "wechat-sq": "wx_sub",
+      "xhs": "xhs_main",
+      "xhs-sq": "xhs_sq"
+    }
+  }
+}
