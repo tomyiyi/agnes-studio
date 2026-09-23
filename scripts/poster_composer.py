@@ -7,9 +7,10 @@ Agnes Studio - 商业海报排版与中文字体合成引擎
 
 import os
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from env_config import FONTS_DIR, ASSETS_DIR
 
-FONTS_DIR = "/Users/tom/Desktop/agnes-studio/public/fonts"
-ASSETS_DIR = "/Users/tom/Desktop/agnes-studio/public/assets"
+FONTS_DIR = str(FONTS_DIR)
+ASSETS_DIR = str(ASSETS_DIR)
 
 FONT_MAP = {
     "wenkai": os.path.join(FONTS_DIR, "LXGWWenKai-Regular.ttf"),

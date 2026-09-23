@@ -12,9 +12,9 @@ Agnes Studio · 电影感封面排版引擎 (Cinematic Cover Engine)
 
 import os
 from PIL import Image, ImageDraw, ImageFont
-
-FONTS_DIR = "/Users/tom/Desktop/agnes-studio/public/fonts"
-ASSETS_DIR = "/Users/tom/Desktop/agnes-studio/public/assets"
+from env_config import FONTS_DIR, ASSETS_DIR
+FONTS_DIR = str(FONTS_DIR)
+ASSETS_DIR = str(ASSETS_DIR)
 
 FONT_SMILEY = os.path.join(FONTS_DIR, "SmileySans-Oblique.ttf")
 FONT_WENKAI = os.path.join(FONTS_DIR, "LXGWWenKai-Regular.ttf")

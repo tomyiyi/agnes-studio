@@ -16,9 +16,10 @@ import numpy as np
 # 导入专业中文字体排印学与瑞士网格系统引擎
 from typography_rules import ChineseTypographyRules, ModularScale, SwissGridSystem, SmartPosterComposer
 from vision_subject_detector import detect_faces
+from env_config import FONTS_DIR, ASSETS_DIR
 
-FONTS_DIR = "/Users/tom/Desktop/agnes-studio/public/fonts"
-ASSETS_DIR = "/Users/tom/Desktop/agnes-studio/public/assets"
+FONTS_DIR = str(FONTS_DIR)
+ASSETS_DIR = str(ASSETS_DIR)
 
 FONT_SMILEY = os.path.join(FONTS_DIR, "SmileySans-Oblique.ttf")
 FONT_WENKAI = os.path.join(FONTS_DIR, "LXGWWenKai-Regular.ttf")
