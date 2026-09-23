@@ -1,0 +1,1598 @@
+[
+  {
+    "platform": "wechat",
+    "label": "微信头条 2.35:1",
+    "canvas": "2350×1000",
+    "safe": "上 70% · 左右 6%",
+    "mode": "diag",
+    "title_zone": "safe",
+    "layout_subject": {
+      "platform": "wechat",
+      "skin_centroid": [
+        0.57,
+        0.537
+      ],
+      "place": [
+        0.62,
+        0.42
+      ],
+      "place_err": 0.127,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.369,
+        "headroom_sigma": 103.8,
+        "ok": true
+      },
+      "ok": true
+    },
+    "layout_final": {
+      "platform": "wechat",
+      "skin_centroid": [
+        0.658,
+        0.528
+      ],
+      "place": [
+        0.62,
+        0.42
+      ],
+      "place_err": 0.114,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.297,
+        "headroom_sigma": 69.7,
+        "ok": true
+      },
+      "ok": true
+    },
+    "copy_errors": [],
+    "qa_face_gate": {
+      "faces": [
+        {
+          "y_max": 0.6840154230594635,
+          "x_max": 0.763955146074295,
+          "y_min": 0.15614500641822815,
+          "x_min": 0.5395204424858093
+        }
+      ],
+      "candidates": [
+        [
+          0.05,
+          0.1,
+          0.48,
+          0.55
+        ],
+        [
+          0.55,
+          0.08,
+          0.95,
+          0.55
+        ],
+        [
+          0.05,
+          0.04,
+          0.95,
+          0.2
+        ],
+        [
+          0.05,
+          0.1,
+          0.48,
+          0.55
+        ],
+        [
+          0.04,
+          0.02,
+          0.96,
+          0.16
+        ],
+        [
+          0.04,
+          0.06,
+          0.26,
+          0.7
+        ],
+        [
+          0.74,
+          0.06,
+          0.96,
+          0.7
+        ],
+        [
+          0.04,
+          0.02,
+          0.26,
+          0.55
+        ],
+        [
+          0.74,
+          0.02,
+          0.96,
+          0.55
+        ]
+      ],
+      "chosen": [
+        0.05,
+        0.1,
+        0.48,
+        0.55
+      ],
+      "block_css": "left:5.0%; right:52.0%; top:10.0%; bottom:45.0%;",
+      "ok": true,
+      "note": "clear"
+    },
+    "qa_thumbnail_ok": true,
+    "qa_list_sim": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wechat_diag_safe_list_sim.jpg",
+    "qa_visual_check_required": true,
+    "files": {
+      "png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wechat_diag_safe.png",
+      "png_kb": 3815,
+      "jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wechat_diag_safe.jpg",
+      "jpg_kb": 322,
+      "named_png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wx_head_diag_2350x1000_20260923_oriental-beauty.png",
+      "named_jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wx_head_diag_2350x1000_20260923_oriental-beauty.jpg"
+    }
+  },
+  {
+    "platform": "wechat-sq",
+    "label": "微信次条 1:1",
+    "canvas": "1080×1080",
+    "safe": "中央 80%",
+    "mode": "diag",
+    "title_zone": "safe",
+    "layout_subject": {
+      "platform": "wechat-sq",
+      "skin_centroid": [
+        0.46,
+        0.431
+      ],
+      "place": [
+        0.58,
+        0.36
+      ],
+      "place_err": 0.139,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.64,
+        "headroom_sigma": 96.0,
+        "ok": true
+      },
+      "ok": true
+    },
+    "layout_final": {
+      "platform": "wechat-sq",
+      "skin_centroid": [
+        0.459,
+        0.455
+      ],
+      "place": [
+        0.58,
+        0.36
+      ],
+      "place_err": 0.154,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.66,
+        "headroom_sigma": 42.6,
+        "ok": true
+      },
+      "ok": true
+    },
+    "copy_errors": [],
+    "qa_face_gate": {
+      "faces": [
+        {
+          "y_max": 0.46312689781188965,
+          "y_min": 0.103936105966568,
+          "x_min": 0.31878966093063354,
+          "x_max": 0.6779804527759552
+        }
+      ],
+      "candidates": [
+        [
+          0.05,
+          0.1,
+          0.48,
+          0.55
+        ],
+        [
+          0.55,
+          0.08,
+          0.95,
+          0.55
+        ],
+        [
+          0.05,
+          0.04,
+          0.95,
+          0.2
+        ],
+        [
+          0.08,
+          0.12,
+          0.55,
+          0.55
+        ],
+        [
+          0.04,
+          0.02,
+          0.96,
+          0.16
+        ],
+        [
+          0.04,
+          0.06,
+          0.26,
+          0.7
+        ],
+        [
+          0.74,
+          0.06,
+          0.96,
+          0.7
+        ],
+        [
+          0.04,
+          0.02,
+          0.26,
+          0.55
+        ],
+        [
+          0.74,
+          0.02,
+          0.96,
+          0.55
+        ]
+      ],
+      "chosen": [
+        0.04,
+        0.06,
+        0.26,
+        0.7
+      ],
+      "block_css": "left:4.0%; right:74.0%; top:6.0%; bottom:30.0%;",
+      "ok": true,
+      "note": "clear"
+    },
+    "qa_thumbnail_ok": true,
+    "qa_list_sim": null,
+    "qa_visual_check_required": true,
+    "files": {
+      "png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wechat-sq_diag_safe.png",
+      "png_kb": 1584,
+      "jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wechat-sq_diag_safe.jpg",
+      "jpg_kb": 170,
+      "named_png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wx_sub_diag_1080x1080_20260923_oriental-beauty.png",
+      "named_jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wx_sub_diag_1080x1080_20260923_oriental-beauty.jpg"
+    }
+  },
+  {
+    "platform": "xhs",
+    "label": "小红书竖版 3:4",
+    "canvas": "1080×1440",
+    "safe": "高 12%–72% · 左右 8%",
+    "mode": "diag",
+    "title_zone": "safe",
+    "layout_subject": {
+      "platform": "xhs",
+      "skin_centroid": [
+        0.473,
+        0.423
+      ],
+      "place": [
+        0.55,
+        0.34
+      ],
+      "place_err": 0.113,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.466,
+        "headroom_sigma": 3.4,
+        "ok": true
+      },
+      "ok": true
+    },
+    "layout_final": {
+      "platform": "xhs",
+      "skin_centroid": [
+        0.43,
+        0.473
+      ],
+      "place": [
+        0.55,
+        0.34
+      ],
+      "place_err": 0.179,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.477,
+        "headroom_sigma": 8.6,
+        "ok": true
+      },
+      "ok": true
+    },
+    "copy_errors": [],
+    "qa_face_gate": {
+      "faces": [
+        {
+          "x_max": 0.6788694858551025,
+          "y_min": 0.22816202044487,
+          "y_max": 0.5006929934024811,
+          "x_min": 0.31566184759140015
+        }
+      ],
+      "candidates": [
+        [
+          0.05,
+          0.1,
+          0.48,
+          0.55
+        ],
+        [
+          0.55,
+          0.08,
+          0.95,
+          0.55
+        ],
+        [
+          0.05,
+          0.04,
+          0.95,
+          0.2
+        ],
+        [
+          0.06,
+          0.12,
+          0.72,
+          0.58
+        ],
+        [
+          0.04,
+          0.02,
+          0.96,
+          0.16
+        ],
+        [
+          0.04,
+          0.06,
+          0.26,
+          0.7
+        ],
+        [
+          0.74,
+          0.06,
+          0.96,
+          0.7
+        ],
+        [
+          0.04,
+          0.02,
+          0.26,
+          0.55
+        ],
+        [
+          0.74,
+          0.02,
+          0.96,
+          0.55
+        ]
+      ],
+      "chosen": [
+        0.04,
+        0.02,
+        0.96,
+        0.16
+      ],
+      "block_css": "left:4.0%; right:4.0%; top:2.0%; bottom:84.0%;",
+      "ok": true,
+      "note": "clear"
+    },
+    "qa_thumbnail_ok": true,
+    "qa_list_sim": null,
+    "qa_visual_check_required": true,
+    "files": {
+      "png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_diag_safe.png",
+      "png_kb": 2035,
+      "jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_diag_safe.jpg",
+      "jpg_kb": 216,
+      "named_png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_main_diag_1080x1440_20260923_oriental-beauty.png",
+      "named_jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_main_diag_1080x1440_20260923_oriental-beauty.jpg"
+    }
+  },
+  {
+    "platform": "xhs-sq",
+    "label": "小红书方图 1:1",
+    "canvas": "1080×1080",
+    "safe": "中央 84%",
+    "mode": "diag",
+    "title_zone": "safe",
+    "layout_subject": {
+      "platform": "xhs-sq",
+      "skin_centroid": [
+        0.46,
+        0.431
+      ],
+      "place": [
+        0.55,
+        0.36
+      ],
+      "place_err": 0.115,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.64,
+        "headroom_sigma": 96.0,
+        "ok": true
+      },
+      "ok": true
+    },
+    "layout_final": {
+      "platform": "xhs-sq",
+      "skin_centroid": [
+        0.443,
+        0.444
+      ],
+      "place": [
+        0.55,
+        0.36
+      ],
+      "place_err": 0.136,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.654,
+        "headroom_sigma": 47.3,
+        "ok": true
+      },
+      "ok": true
+    },
+    "copy_errors": [],
+    "qa_face_gate": {
+      "faces": [
+        {
+          "x_max": 0.6779804527759552,
+          "y_max": 0.46312689781188965,
+          "x_min": 0.31878966093063354,
+          "y_min": 0.103936105966568
+        }
+      ],
+      "candidates": [
+        [
+          0.05,
+          0.1,
+          0.48,
+          0.55
+        ],
+        [
+          0.55,
+          0.08,
+          0.95,
+          0.55
+        ],
+        [
+          0.05,
+          0.04,
+          0.95,
+          0.2
+        ],
+        [
+          0.06,
+          0.1,
+          0.7,
+          0.55
+        ],
+        [
+          0.04,
+          0.02,
+          0.96,
+          0.16
+        ],
+        [
+          0.04,
+          0.06,
+          0.26,
+          0.7
+        ],
+        [
+          0.74,
+          0.06,
+          0.96,
+          0.7
+        ],
+        [
+          0.04,
+          0.02,
+          0.26,
+          0.55
+        ],
+        [
+          0.74,
+          0.02,
+          0.96,
+          0.55
+        ]
+      ],
+      "chosen": [
+        0.04,
+        0.06,
+        0.26,
+        0.7
+      ],
+      "block_css": "left:4.0%; right:74.0%; top:6.0%; bottom:30.0%;",
+      "ok": true,
+      "note": "clear"
+    },
+    "qa_thumbnail_ok": true,
+    "qa_list_sim": null,
+    "qa_visual_check_required": true,
+    "files": {
+      "png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs-sq_diag_safe.png",
+      "png_kb": 1628,
+      "jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs-sq_diag_safe.jpg",
+      "jpg_kb": 177,
+      "named_png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_sq_diag_1080x1080_20260923_oriental-beauty.png",
+      "named_jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_sq_diag_1080x1080_20260923_oriental-beauty.jpg"
+    }
+  },
+  {
+    "platform": "wechat-sq",
+    "label": "微信次条 1:1",
+    "canvas": "1080×1080",
+    "safe": "中央 80%",
+    "mode": "stack",
+    "title_zone": "safe",
+    "layout_subject": {
+      "platform": "wechat-sq",
+      "skin_centroid": [
+        0.46,
+        0.431
+      ],
+      "place": [
+        0.58,
+        0.36
+      ],
+      "place_err": 0.139,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.64,
+        "headroom_sigma": 96.0,
+        "ok": true
+      },
+      "ok": true
+    },
+    "layout_final": {
+      "platform": "wechat-sq",
+      "skin_centroid": [
+        0.469,
+        0.46
+      ],
+      "place": [
+        0.58,
+        0.36
+      ],
+      "place_err": 0.149,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.66,
+        "headroom_sigma": 42.6,
+        "ok": true
+      },
+      "ok": true
+    },
+    "copy_errors": [],
+    "qa_face_gate": {
+      "faces": [
+        {
+          "x_max": 0.6779804527759552,
+          "y_min": 0.103936105966568,
+          "x_min": 0.31878966093063354,
+          "y_max": 0.46312689781188965
+        }
+      ],
+      "candidates": [
+        [
+          0.05,
+          0.1,
+          0.32,
+          0.62
+        ],
+        [
+          0.68,
+          0.08,
+          0.95,
+          0.58
+        ],
+        [
+          0.08,
+          0.12,
+          0.55,
+          0.55
+        ],
+        [
+          0.04,
+          0.02,
+          0.96,
+          0.16
+        ],
+        [
+          0.04,
+          0.06,
+          0.26,
+          0.7
+        ],
+        [
+          0.74,
+          0.06,
+          0.96,
+          0.7
+        ],
+        [
+          0.04,
+          0.02,
+          0.26,
+          0.55
+        ],
+        [
+          0.74,
+          0.02,
+          0.96,
+          0.55
+        ]
+      ],
+      "chosen": [
+        0.04,
+        0.06,
+        0.26,
+        0.7
+      ],
+      "block_css": "left:4.0%; right:74.0%; top:6.0%; bottom:30.0%;",
+      "ok": true,
+      "note": "clear"
+    },
+    "qa_thumbnail_ok": true,
+    "qa_list_sim": null,
+    "qa_visual_check_required": true,
+    "files": {
+      "png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wechat-sq_stack_safe.png",
+      "png_kb": 1587,
+      "jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wechat-sq_stack_safe.jpg",
+      "jpg_kb": 170,
+      "named_png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wx_sub_stack_1080x1080_20260923_shanhai-letter.png",
+      "named_jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wx_sub_stack_1080x1080_20260923_shanhai-letter.jpg"
+    }
+  },
+  {
+    "platform": "wechat",
+    "label": "微信头条 2.35:1",
+    "canvas": "2350×1000",
+    "safe": "上 70% · 左右 6%",
+    "mode": "stack",
+    "title_zone": "safe",
+    "layout_subject": {
+      "platform": "wechat",
+      "skin_centroid": [
+        0.57,
+        0.537
+      ],
+      "place": [
+        0.62,
+        0.42
+      ],
+      "place_err": 0.127,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.369,
+        "headroom_sigma": 103.8,
+        "ok": true
+      },
+      "ok": true
+    },
+    "layout_final": {
+      "platform": "wechat",
+      "skin_centroid": [
+        0.684,
+        0.537
+      ],
+      "place": [
+        0.62,
+        0.42
+      ],
+      "place_err": 0.133,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.297,
+        "headroom_sigma": 69.7,
+        "ok": true
+      },
+      "ok": true
+    },
+    "copy_errors": [],
+    "qa_face_gate": {
+      "faces": [
+        {
+          "y_min": 0.15614500641822815,
+          "y_max": 0.6840154230594635,
+          "x_max": 0.763955146074295,
+          "x_min": 0.5395204424858093
+        }
+      ],
+      "candidates": [
+        [
+          0.05,
+          0.1,
+          0.32,
+          0.62
+        ],
+        [
+          0.68,
+          0.08,
+          0.95,
+          0.58
+        ],
+        [
+          0.05,
+          0.1,
+          0.48,
+          0.55
+        ],
+        [
+          0.04,
+          0.02,
+          0.96,
+          0.16
+        ],
+        [
+          0.04,
+          0.06,
+          0.26,
+          0.7
+        ],
+        [
+          0.74,
+          0.06,
+          0.96,
+          0.7
+        ],
+        [
+          0.04,
+          0.02,
+          0.26,
+          0.55
+        ],
+        [
+          0.74,
+          0.02,
+          0.96,
+          0.55
+        ]
+      ],
+      "chosen": [
+        0.05,
+        0.1,
+        0.32,
+        0.62
+      ],
+      "block_css": "left:5.0%; right:68.0%; top:10.0%; bottom:38.0%;",
+      "ok": true,
+      "note": "clear"
+    },
+    "qa_thumbnail_ok": true,
+    "qa_list_sim": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wechat_stack_safe_list_sim.jpg",
+    "qa_visual_check_required": true,
+    "files": {
+      "png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wechat_stack_safe.png",
+      "png_kb": 3815,
+      "jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wechat_stack_safe.jpg",
+      "jpg_kb": 318,
+      "named_png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wx_head_stack_2350x1000_20260923_shanhai-letter.png",
+      "named_jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wx_head_stack_2350x1000_20260923_shanhai-letter.jpg"
+    }
+  },
+  {
+    "platform": "xhs",
+    "label": "小红书竖版 3:4",
+    "canvas": "1080×1440",
+    "safe": "高 12%–72% · 左右 8%",
+    "mode": "stack",
+    "title_zone": "safe",
+    "layout_subject": {
+      "platform": "xhs",
+      "skin_centroid": [
+        0.473,
+        0.423
+      ],
+      "place": [
+        0.55,
+        0.34
+      ],
+      "place_err": 0.113,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.466,
+        "headroom_sigma": 3.4,
+        "ok": true
+      },
+      "ok": true
+    },
+    "layout_final": {
+      "platform": "xhs",
+      "skin_centroid": [
+        0.435,
+        0.482
+      ],
+      "place": [
+        0.55,
+        0.34
+      ],
+      "place_err": 0.183,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.475,
+        "headroom_sigma": 8.4,
+        "ok": true
+      },
+      "ok": true
+    },
+    "copy_errors": [],
+    "qa_face_gate": {
+      "faces": [
+        {
+          "y_max": 0.5006929934024811,
+          "x_min": 0.31566184759140015,
+          "x_max": 0.6788694858551025,
+          "y_min": 0.22816202044487
+        }
+      ],
+      "candidates": [
+        [
+          0.05,
+          0.1,
+          0.32,
+          0.62
+        ],
+        [
+          0.68,
+          0.08,
+          0.95,
+          0.58
+        ],
+        [
+          0.06,
+          0.12,
+          0.72,
+          0.58
+        ],
+        [
+          0.04,
+          0.02,
+          0.96,
+          0.16
+        ],
+        [
+          0.04,
+          0.06,
+          0.26,
+          0.7
+        ],
+        [
+          0.74,
+          0.06,
+          0.96,
+          0.7
+        ],
+        [
+          0.04,
+          0.02,
+          0.26,
+          0.55
+        ],
+        [
+          0.74,
+          0.02,
+          0.96,
+          0.55
+        ]
+      ],
+      "chosen": [
+        0.04,
+        0.02,
+        0.96,
+        0.16
+      ],
+      "block_css": "left:4.0%; right:4.0%; top:2.0%; bottom:84.0%;",
+      "ok": true,
+      "note": "clear"
+    },
+    "qa_thumbnail_ok": true,
+    "qa_list_sim": null,
+    "qa_visual_check_required": true,
+    "files": {
+      "png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_stack_safe.png",
+      "png_kb": 2035,
+      "jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_stack_safe.jpg",
+      "jpg_kb": 213,
+      "named_png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_main_stack_1080x1440_20260923_shanhai-letter.png",
+      "named_jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_main_stack_1080x1440_20260923_shanhai-letter.jpg"
+    }
+  },
+  {
+    "platform": "xhs-sq",
+    "label": "小红书方图 1:1",
+    "canvas": "1080×1080",
+    "safe": "中央 84%",
+    "mode": "stack",
+    "title_zone": "safe",
+    "layout_subject": {
+      "platform": "xhs-sq",
+      "skin_centroid": [
+        0.46,
+        0.431
+      ],
+      "place": [
+        0.55,
+        0.36
+      ],
+      "place_err": 0.115,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.64,
+        "headroom_sigma": 96.0,
+        "ok": true
+      },
+      "ok": true
+    },
+    "layout_final": {
+      "platform": "xhs-sq",
+      "skin_centroid": [
+        0.45,
+        0.449
+      ],
+      "place": [
+        0.55,
+        0.36
+      ],
+      "place_err": 0.134,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.654,
+        "headroom_sigma": 47.3,
+        "ok": true
+      },
+      "ok": true
+    },
+    "copy_errors": [],
+    "qa_face_gate": {
+      "faces": [
+        {
+          "x_max": 0.6779804527759552,
+          "y_min": 0.103936105966568,
+          "y_max": 0.46312689781188965,
+          "x_min": 0.31878966093063354
+        }
+      ],
+      "candidates": [
+        [
+          0.05,
+          0.1,
+          0.32,
+          0.62
+        ],
+        [
+          0.68,
+          0.08,
+          0.95,
+          0.58
+        ],
+        [
+          0.06,
+          0.1,
+          0.7,
+          0.55
+        ],
+        [
+          0.04,
+          0.02,
+          0.96,
+          0.16
+        ],
+        [
+          0.04,
+          0.06,
+          0.26,
+          0.7
+        ],
+        [
+          0.74,
+          0.06,
+          0.96,
+          0.7
+        ],
+        [
+          0.04,
+          0.02,
+          0.26,
+          0.55
+        ],
+        [
+          0.74,
+          0.02,
+          0.96,
+          0.55
+        ]
+      ],
+      "chosen": [
+        0.04,
+        0.06,
+        0.26,
+        0.7
+      ],
+      "block_css": "left:4.0%; right:74.0%; top:6.0%; bottom:30.0%;",
+      "ok": true,
+      "note": "clear"
+    },
+    "qa_thumbnail_ok": true,
+    "qa_list_sim": null,
+    "qa_visual_check_required": true,
+    "files": {
+      "png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs-sq_stack_safe.png",
+      "png_kb": 1630,
+      "jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs-sq_stack_safe.jpg",
+      "jpg_kb": 176,
+      "named_png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_sq_stack_1080x1080_20260923_shanhai-letter.png",
+      "named_jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_sq_stack_1080x1080_20260923_shanhai-letter.jpg"
+    }
+  },
+  {
+    "platform": "xhs",
+    "label": "小红书竖版 3:4",
+    "canvas": "1080×1440",
+    "safe": "高 12%–72% · 左右 8%",
+    "mode": "bignews",
+    "title_zone": "safe",
+    "layout_subject": {
+      "platform": "xhs",
+      "skin_centroid": [
+        0.473,
+        0.423
+      ],
+      "place": [
+        0.55,
+        0.34
+      ],
+      "place_err": 0.113,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.466,
+        "headroom_sigma": 3.4,
+        "ok": true
+      },
+      "ok": true
+    },
+    "layout_final": {
+      "platform": "xhs",
+      "skin_centroid": [
+        0.43,
+        0.473
+      ],
+      "place": [
+        0.55,
+        0.34
+      ],
+      "place_err": 0.179,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.48,
+        "headroom_sigma": 8.3,
+        "ok": true
+      },
+      "ok": true
+    },
+    "copy_errors": [],
+    "qa_face_gate": {
+      "faces": [
+        {
+          "x_max": 0.6788694858551025,
+          "x_min": 0.31566184759140015,
+          "y_max": 0.5006929934024811,
+          "y_min": 0.22816202044487
+        }
+      ],
+      "candidates": [
+        [
+          0.05,
+          0.02,
+          0.95,
+          0.16
+        ],
+        [
+          0.05,
+          0.1,
+          0.3,
+          0.55
+        ],
+        [
+          0.7,
+          0.1,
+          0.95,
+          0.55
+        ],
+        [
+          0.06,
+          0.12,
+          0.72,
+          0.58
+        ],
+        [
+          0.04,
+          0.02,
+          0.96,
+          0.16
+        ],
+        [
+          0.04,
+          0.06,
+          0.26,
+          0.7
+        ],
+        [
+          0.74,
+          0.06,
+          0.96,
+          0.7
+        ],
+        [
+          0.04,
+          0.02,
+          0.26,
+          0.55
+        ],
+        [
+          0.74,
+          0.02,
+          0.96,
+          0.55
+        ]
+      ],
+      "chosen": [
+        0.05,
+        0.02,
+        0.95,
+        0.16
+      ],
+      "block_css": "left:5.0%; right:5.0%; top:2.0%; bottom:84.0%;",
+      "ok": true,
+      "note": "clear"
+    },
+    "qa_thumbnail_ok": true,
+    "qa_list_sim": null,
+    "qa_visual_check_required": true,
+    "files": {
+      "png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_bignews_safe.png",
+      "png_kb": 2035,
+      "jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_bignews_safe.jpg",
+      "jpg_kb": 218,
+      "named_png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_main_bignews_1080x1440_20260923_three-sec-hook.png",
+      "named_jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_main_bignews_1080x1440_20260923_three-sec-hook.jpg"
+    }
+  },
+  {
+    "platform": "wechat",
+    "label": "微信头条 2.35:1",
+    "canvas": "2350×1000",
+    "safe": "上 70% · 左右 6%",
+    "mode": "bignews",
+    "title_zone": "safe",
+    "layout_subject": {
+      "platform": "wechat",
+      "skin_centroid": [
+        0.57,
+        0.537
+      ],
+      "place": [
+        0.62,
+        0.42
+      ],
+      "place_err": 0.127,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.369,
+        "headroom_sigma": 103.8,
+        "ok": true
+      },
+      "ok": true
+    },
+    "layout_final": {
+      "platform": "wechat",
+      "skin_centroid": [
+        0.659,
+        0.522
+      ],
+      "place": [
+        0.62,
+        0.42
+      ],
+      "place_err": 0.11,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.297,
+        "headroom_sigma": 69.7,
+        "ok": true
+      },
+      "ok": true
+    },
+    "copy_errors": [],
+    "qa_face_gate": {
+      "faces": [
+        {
+          "x_min": 0.5395204424858093,
+          "x_max": 0.763955146074295,
+          "y_min": 0.15614500641822815,
+          "y_max": 0.6840154230594635
+        }
+      ],
+      "candidates": [
+        [
+          0.05,
+          0.02,
+          0.95,
+          0.16
+        ],
+        [
+          0.05,
+          0.1,
+          0.3,
+          0.55
+        ],
+        [
+          0.7,
+          0.1,
+          0.95,
+          0.55
+        ],
+        [
+          0.05,
+          0.1,
+          0.48,
+          0.55
+        ],
+        [
+          0.04,
+          0.02,
+          0.96,
+          0.16
+        ],
+        [
+          0.04,
+          0.06,
+          0.26,
+          0.7
+        ],
+        [
+          0.74,
+          0.06,
+          0.96,
+          0.7
+        ],
+        [
+          0.04,
+          0.02,
+          0.26,
+          0.55
+        ],
+        [
+          0.74,
+          0.02,
+          0.96,
+          0.55
+        ]
+      ],
+      "chosen": [
+        0.05,
+        0.1,
+        0.3,
+        0.55
+      ],
+      "block_css": "left:5.0%; right:70.0%; top:10.0%; bottom:45.0%;",
+      "ok": true,
+      "note": "clear"
+    },
+    "qa_thumbnail_ok": true,
+    "qa_list_sim": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wechat_bignews_safe_list_sim.jpg",
+    "qa_visual_check_required": true,
+    "files": {
+      "png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wechat_bignews_safe.png",
+      "png_kb": 3817,
+      "jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wechat_bignews_safe.jpg",
+      "jpg_kb": 324,
+      "named_png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wx_head_bignews_2350x1000_20260923_three-sec-hook.png",
+      "named_jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wx_head_bignews_2350x1000_20260923_three-sec-hook.jpg"
+    }
+  },
+  {
+    "platform": "wechat-sq",
+    "label": "微信次条 1:1",
+    "canvas": "1080×1080",
+    "safe": "中央 80%",
+    "mode": "bignews",
+    "title_zone": "safe",
+    "layout_subject": {
+      "platform": "wechat-sq",
+      "skin_centroid": [
+        0.46,
+        0.431
+      ],
+      "place": [
+        0.58,
+        0.36
+      ],
+      "place_err": 0.139,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.64,
+        "headroom_sigma": 96.0,
+        "ok": true
+      },
+      "ok": true
+    },
+    "layout_final": {
+      "platform": "wechat-sq",
+      "skin_centroid": [
+        0.461,
+        0.456
+      ],
+      "place": [
+        0.58,
+        0.36
+      ],
+      "place_err": 0.153,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.66,
+        "headroom_sigma": 42.6,
+        "ok": true
+      },
+      "ok": true
+    },
+    "copy_errors": [],
+    "qa_face_gate": {
+      "faces": [
+        {
+          "y_min": 0.103936105966568,
+          "x_max": 0.6779804527759552,
+          "y_max": 0.46312689781188965,
+          "x_min": 0.31878966093063354
+        }
+      ],
+      "candidates": [
+        [
+          0.05,
+          0.02,
+          0.95,
+          0.16
+        ],
+        [
+          0.05,
+          0.1,
+          0.3,
+          0.55
+        ],
+        [
+          0.7,
+          0.1,
+          0.95,
+          0.55
+        ],
+        [
+          0.08,
+          0.12,
+          0.55,
+          0.55
+        ],
+        [
+          0.04,
+          0.02,
+          0.96,
+          0.16
+        ],
+        [
+          0.04,
+          0.06,
+          0.26,
+          0.7
+        ],
+        [
+          0.74,
+          0.06,
+          0.96,
+          0.7
+        ],
+        [
+          0.04,
+          0.02,
+          0.26,
+          0.55
+        ],
+        [
+          0.74,
+          0.02,
+          0.96,
+          0.55
+        ]
+      ],
+      "chosen": [
+        0.04,
+        0.06,
+        0.26,
+        0.7
+      ],
+      "block_css": "left:4.0%; right:74.0%; top:6.0%; bottom:30.0%;",
+      "ok": true,
+      "note": "clear"
+    },
+    "qa_thumbnail_ok": true,
+    "qa_list_sim": null,
+    "qa_visual_check_required": true,
+    "files": {
+      "png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wechat-sq_bignews_safe.png",
+      "png_kb": 1590,
+      "jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wechat-sq_bignews_safe.jpg",
+      "jpg_kb": 172,
+      "named_png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wx_sub_bignews_1080x1080_20260923_three-sec-hook.png",
+      "named_jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/wx_sub_bignews_1080x1080_20260923_three-sec-hook.jpg"
+    }
+  },
+  {
+    "platform": "xhs-sq",
+    "label": "小红书方图 1:1",
+    "canvas": "1080×1080",
+    "safe": "中央 84%",
+    "mode": "bignews",
+    "title_zone": "safe",
+    "layout_subject": {
+      "platform": "xhs-sq",
+      "skin_centroid": [
+        0.46,
+        0.431
+      ],
+      "place": [
+        0.55,
+        0.36
+      ],
+      "place_err": 0.115,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.64,
+        "headroom_sigma": 96.0,
+        "ok": true
+      },
+      "ok": true
+    },
+    "layout_final": {
+      "platform": "xhs-sq",
+      "skin_centroid": [
+        0.448,
+        0.448
+      ],
+      "place": [
+        0.55,
+        0.36
+      ],
+      "place_err": 0.135,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.654,
+        "headroom_sigma": 47.3,
+        "ok": true
+      },
+      "ok": true
+    },
+    "copy_errors": [],
+    "qa_face_gate": {
+      "faces": [
+        {
+          "y_min": 0.103936105966568,
+          "y_max": 0.46312689781188965,
+          "x_min": 0.31878966093063354,
+          "x_max": 0.6779804527759552
+        }
+      ],
+      "candidates": [
+        [
+          0.05,
+          0.02,
+          0.95,
+          0.16
+        ],
+        [
+          0.05,
+          0.1,
+          0.3,
+          0.55
+        ],
+        [
+          0.7,
+          0.1,
+          0.95,
+          0.55
+        ],
+        [
+          0.06,
+          0.1,
+          0.7,
+          0.55
+        ],
+        [
+          0.04,
+          0.02,
+          0.96,
+          0.16
+        ],
+        [
+          0.04,
+          0.06,
+          0.26,
+          0.7
+        ],
+        [
+          0.74,
+          0.06,
+          0.96,
+          0.7
+        ],
+        [
+          0.04,
+          0.02,
+          0.26,
+          0.55
+        ],
+        [
+          0.74,
+          0.02,
+          0.96,
+          0.55
+        ]
+      ],
+      "chosen": [
+        0.04,
+        0.06,
+        0.26,
+        0.7
+      ],
+      "block_css": "left:4.0%; right:74.0%; top:6.0%; bottom:30.0%;",
+      "ok": true,
+      "note": "clear"
+    },
+    "qa_thumbnail_ok": true,
+    "qa_list_sim": null,
+    "qa_visual_check_required": true,
+    "files": {
+      "png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs-sq_bignews_safe.png",
+      "png_kb": 1633,
+      "jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs-sq_bignews_safe.jpg",
+      "jpg_kb": 178,
+      "named_png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_sq_bignews_1080x1080_20260923_three-sec-hook.png",
+      "named_jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_sq_bignews_1080x1080_20260923_three-sec-hook.jpg"
+    }
+  }
+]

@@ -1,0 +1,140 @@
+[
+  {
+    "platform": "xhs",
+    "label": "小红书竖版 3:4",
+    "canvas": "1080×1440",
+    "safe": "高 12%–72% · 左右 8%",
+    "mode": "bignews",
+    "title_zone": "safe",
+    "layout_subject": {
+      "platform": "xhs",
+      "skin_centroid": [
+        0.497,
+        0.363
+      ],
+      "place": [
+        0.55,
+        0.34
+      ],
+      "place_err": 0.058,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.468,
+        "headroom_sigma": 3.4,
+        "ok": true
+      },
+      "ok": true
+    },
+    "layout_final": {
+      "platform": "xhs",
+      "skin_centroid": [
+        0.499,
+        0.363
+      ],
+      "place": [
+        0.55,
+        0.34
+      ],
+      "place_err": 0.056,
+      "fx_ok": true,
+      "fy_ok": true,
+      "head": {
+        "skin_ratio": 0.55,
+        "headroom_sigma": 6.9,
+        "ok": true
+      },
+      "ok": true,
+      "vignette_ratio": 0.879
+    },
+    "qa_vignette_ratio": 0.879,
+    "copy_errors": [],
+    "qa_face_gate": {
+      "faces": [
+        {
+          "y_max": 0.4940882921218872,
+          "x_max": 0.6715577244758606,
+          "y_min": 0.23251336812973022,
+          "x_min": 0.32295143604278564
+        }
+      ],
+      "candidates": [
+        [
+          0.05,
+          0.02,
+          0.95,
+          0.16
+        ],
+        [
+          0.05,
+          0.1,
+          0.3,
+          0.55
+        ],
+        [
+          0.7,
+          0.1,
+          0.95,
+          0.55
+        ],
+        [
+          0.06,
+          0.12,
+          0.72,
+          0.58
+        ],
+        [
+          0.04,
+          0.02,
+          0.96,
+          0.16
+        ],
+        [
+          0.04,
+          0.06,
+          0.26,
+          0.7
+        ],
+        [
+          0.74,
+          0.06,
+          0.96,
+          0.7
+        ],
+        [
+          0.04,
+          0.02,
+          0.26,
+          0.55
+        ],
+        [
+          0.74,
+          0.02,
+          0.96,
+          0.55
+        ]
+      ],
+      "chosen": [
+        0.05,
+        0.02,
+        0.95,
+        0.16
+      ],
+      "block_css": "left:5.0%; right:5.0%; top:2.0%; bottom:84.0%;",
+      "ok": true,
+      "note": "clear"
+    },
+    "qa_sharpness": 5.54,
+    "qa_thumbnail_ok": true,
+    "qa_list_sim": null,
+    "qa_visual_check_required": true,
+    "files": {
+      "png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_bignews_safe.png",
+      "png_kb": 2409,
+      "jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_bignews_safe.jpg",
+      "jpg_kb": 257,
+      "named_png": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_main_bignews_1080x1440_20260923_three-sec-hook.png",
+      "named_jpg": "/Users/tom/Desktop/workspace/agnesstudio/outputs/covers/xhs_main_bignews_1080x1440_20260923_three-sec-hook.jpg"
+    }
+  }
+]

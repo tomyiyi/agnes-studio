@@ -21,9 +21,22 @@ import argparse
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
-CHROME_PATH = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-ASSETS_DIR = "/Users/tom/Desktop/agnes-studio/public/assets"
-FONTS_DIR = "/Users/tom/Desktop/agnes-studio/public/fonts"
+ROOT = Path(__file__).resolve().parent.parent
+ASSETS_DIR = ROOT / "public" / "assets"
+FONTS_DIR = ROOT / "public" / "fonts"
+
+def _resolve_chrome():
+    candidates = (
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+    )
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return None
+
+CHROME_PATH = _resolve_chrome()
 
 def get_base64_image(image_path):
     """读取本地图片并转为 base64 data URI，确保无头浏览器 100% 离线秒级加载"""
@@ -36,11 +49,18 @@ def get_base64_image(image_path):
 def render_html_to_poster(html_content, output_path):
     """通用无头 Chrome 渲染管线，1200x1200 亚像素级渲染"""
     with sync_playwright() as p:
-        browser = p.chromium.launch(executable_path=CHROME_PATH, headless=True)
+        launch_kwargs = {"headless": True}
+        if CHROME_PATH:
+            launch_kwargs["executable_path"] = CHROME_PATH
+        browser = p.chromium.launch(**launch_kwargs)
         page = browser.new_page(viewport={"width": 1200, "height": 1200})
         page.set_content(html_content)
         page.wait_for_timeout(350)
-        page.screenshot(path=output_path, quality=95, type="jpeg")
+        ext = os.path.splitext(output_path)[1].lower()
+        if ext in (".jpg", ".jpeg"):
+            page.screenshot(path=output_path, quality=95, type="jpeg")
+        else:
+            page.screenshot(path=output_path, type="png")
         browser.close()
     size_kb = os.path.getsize(output_path) // 1024
     print(f"  ✓ 成功渲染: {os.path.basename(output_path)} ({size_kb} KB)")

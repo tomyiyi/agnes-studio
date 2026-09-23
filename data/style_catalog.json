@@ -1,0 +1,194 @@
+{
+  "font_stacks": {
+    "display_east": "font-family:'SmileySans','PingFang SC',sans-serif;",
+    "serif_east": "font-family:'Songti SC','Source Han Serif SC','SmileySans',serif;",
+    "soft_east": "font-family:'LXGW WenKai','PingFang SC',serif;",
+    "mono_meta": "font-family:ui-monospace,'SF Mono',Menlo,monospace;"
+  },
+  "subjects": {
+    "beauty": {
+      "gen_prompt": "editorial candid photograph of a stunning real East Asian woman, elegant bone structure, full head and shoulders with headroom, face in right two-thirds of frame, clean negative space for typography, candid authentic photograph of a real East Asian young woman, natural luminous skin with visible fine pores and micro skin texture, delicate flyaway hairs and baby hairs, NO plastic smoothing, NO beauty filter, true-to-life human face, subtle asymmetry, film-like organic grain, shot on Sony A7R V 35mm f/1.4 GM, Kodak Portra/Gold film warmth, 8k realistic photography, summer outfit airy white linen sundress or ribbed tank top, bare shoulders and light fabric, fresh summer daylight"
+    },
+    "product": {
+      "gen_prompt": "high-end product photography, hero object centered-right on seamless gradient, macro detail, studio softbox light, generous empty left field for typography, photorealistic, natural materials and texture, no glossy plastic CG look"
+    },
+    "scenery": {
+      "gen_prompt": "cinematic landscape still, atmospheric depth, soft mist, open sky and horizon kept calm in upper-left for typography, photorealistic, natural materials and texture, no glossy plastic CG look"
+    },
+    "character": {
+      "gen_prompt": "stylized character key visual, full head visible, dynamic pose, clear silhouette, background simplified for type overlay, photorealistic, natural materials and texture, no glossy plastic CG look"
+    },
+    "abstract": {
+      "gen_prompt": "abstract silk and ink textures, minimal geometric tension, large calm fields reserved for typography, photorealistic, natural materials and texture, no glossy plastic CG look"
+    },
+    "none": {
+      "gen_prompt": "pure typography poster ground, paper grain, extreme negative space, no figure, photorealistic, natural materials and texture, no glossy plastic CG look"
+    },
+    "candid": {
+      "gen_prompt": "candid authentic lifestyle photograph of a lovely 20-year-old East Asian college beauty, sweet natural smile, messy high ponytail with airy wispy bangs, natural luminous dewy skin with visible fine pores, soft rounded oval jawline, sitting in sunlit cream bedroom on edge of bed, airy white linen summer sundress, bare shoulders and light fabric, natural window sunbeams and dust motes, Kodak Gold film warmth, Sony A7R V 35mm f/1.4, raw intimate perspective, 8k, no artificial smoothing, no beauty filter"
+    }
+  },
+  "tones": {
+    "luxury": {
+      "font_css": "font-family:'SmileySans','PingFang SC',sans-serif;",
+      "palette": {
+        "ink": "#0c0b0a",
+        "cream": "#f6f1e8",
+        "accent": "#c9a063"
+      },
+      "scrim": "linear-gradient(96deg, rgba(12,11,10,0.78) 0%, rgba(12,11,10,0.55) 28%, rgba(12,11,10,0.18) 48%, transparent 72%)",
+      "photo_filter": "saturate(0.92) contrast(1.06)",
+      "gen_prompt": "muted cream charcoal champagne gold palette, authentic film photograph light, authentic documentary photo, no retouching plastic skin, natural pores and real texture",
+      "type_scale": 1.0,
+      "copy_tone": "克制、诗性短句"
+    },
+    "minimal": {
+      "font_css": "font-family:'PingFang SC','SmileySans',sans-serif;",
+      "palette": {
+        "ink": "#111827",
+        "cream": "#f4f4f0",
+        "accent": "#111827"
+      },
+      "scrim": "linear-gradient(96deg, rgba(244,244,240,0.72) 0%, rgba(244,244,240,0.2) 45%, transparent 70%)",
+      "photo_filter": "saturate(0.85) contrast(1.02)",
+      "gen_prompt": "Swiss editorial minimal, paper white, almost monochrome, hard clean light, authentic documentary photo, no retouching plastic skin, natural pores and real texture",
+      "type_scale": 0.92,
+      "copy_tone": "陈述、去形容词"
+    },
+    "cyber": {
+      "font_css": "font-family:'SmileySans','PingFang SC',sans-serif;",
+      "palette": {
+        "ink": "#06080d",
+        "cream": "#e8fbff",
+        "accent": "#00f0ff"
+      },
+      "scrim": "linear-gradient(105deg, rgba(6,8,13,0.88) 0%, rgba(6,8,13,0.45) 40%, transparent 68%)",
+      "photo_filter": "saturate(1.1) contrast(1.12) hue-rotate(-6deg)",
+      "gen_prompt": "cyber HUD night city neon, cyan magenta rim light, tech material, authentic documentary photo, no retouching plastic skin, natural pores and real texture",
+      "type_scale": 1.05,
+      "copy_tone": "短促指令感"
+    },
+    "neo-chinese": {
+      "font_css": "font-family:'Songti SC','Source Han Serif SC',serif;",
+      "palette": {
+        "ink": "#1a1410",
+        "cream": "#f3ead8",
+        "accent": "#b4232a"
+      },
+      "scrim": "linear-gradient(96deg, rgba(26,20,16,0.75) 0%, rgba(26,20,16,0.4) 42%, transparent 70%)",
+      "photo_filter": "saturate(0.9) contrast(1.05) sepia(0.08)",
+      "gen_prompt": "neo-Chinese ink wash landscape texture, vermilion seal energy, mountain mist, authentic documentary photo, no retouching plastic skin, natural pores and real texture",
+      "type_scale": 1.0,
+      "copy_tone": "古意短句 / 七绝感"
+    },
+    "magazine": {
+      "font_css": "font-family:'Songti SC','Source Han Serif SC',serif;",
+      "palette": {
+        "ink": "#111111",
+        "cream": "#f7f5f2",
+        "accent": "#c41e3a"
+      },
+      "scrim": "linear-gradient(96deg, rgba(17,17,17,0.7) 0%, rgba(17,17,17,0.25) 48%, transparent 72%)",
+      "photo_filter": "saturate(0.88) contrast(1.08)",
+      "gen_prompt": "fashion magazine cover photography, grain, bold editorial crop, authentic documentary photo, no retouching plastic skin, natural pores and real texture",
+      "type_scale": 1.02,
+      "copy_tone": "封面体：主标+断言"
+    },
+    "warm": {
+      "font_css": "font-family:'LXGW WenKai','PingFang SC',serif;",
+      "palette": {
+        "ink": "#3b2f2f",
+        "cream": "#fff8f0",
+        "accent": "#e07a5f"
+      },
+      "scrim": "linear-gradient(180deg, rgba(255,248,240,0.65) 0%, transparent 40%, rgba(59,47,47,0.35) 100%)",
+      "photo_filter": "saturate(1.05) contrast(1.02)",
+      "gen_prompt": "warm afternoon film photograph, soft amber light, approachable lifestyle, authentic documentary photo, no retouching plastic skin, natural pores and real texture",
+      "type_scale": 0.95,
+      "copy_tone": "亲和、口语"
+    },
+    "fresh": {
+      "font_css": "font-family:'PingFang SC','SmileySans',sans-serif;",
+      "palette": {
+        "ink": "#0f3d3e",
+        "cream": "#f2fbf7",
+        "accent": "#2a9d8f"
+      },
+      "scrim": "linear-gradient(96deg, rgba(242,251,247,0.7) 0%, rgba(242,251,247,0.15) 50%, transparent 72%)",
+      "photo_filter": "saturate(1.05) contrast(1.04)",
+      "gen_prompt": "fresh clean daylight, airy green-cyan tones, open background, authentic documentary photo, no retouching plastic skin, natural pores and real texture",
+      "type_scale": 0.95,
+      "copy_tone": "清爽、利益点前置"
+    }
+  },
+  "goals": {
+    "editorial": {
+      "mode": "diag",
+      "title_zone": "safe",
+      "copy_tone": "刊例：美感优先",
+      "gen_prompt": "editorial cover composition, rule of thirds face"
+    },
+    "ctr": {
+      "mode": "bignews",
+      "title_zone": "safe",
+      "copy_tone": "爆点：数字/痛点/悬念，≤12 字",
+      "gen_prompt": "high contrast thumbnail-friendly subject, immediate focal point"
+    },
+    "brand": {
+      "mode": "diag",
+      "title_zone": "safe",
+      "copy_tone": "品牌口吻：稳定、可复用",
+      "gen_prompt": "brand campaign still, consistent hero product language"
+    },
+    "story": {
+      "mode": "stack",
+      "title_zone": "safe",
+      "copy_tone": "叙事：两行断句",
+      "gen_prompt": "narrative cinematic still, emotional mid-shot"
+    },
+    "vertical": {
+      "mode": "vertical",
+      "title_zone": "safe",
+      "copy_tone": "竖排新中式：两列竖题",
+      "gen_prompt": "neo-Chinese vertical composition, side margin for vertical type"
+    }
+  },
+  "platform_tune": {
+    "wechat": {
+      "hero_size": 148,
+      "sub_size": 22,
+      "place": [
+        0.62,
+        0.42
+      ],
+      "palette_overlay": {}
+    },
+    "wechat-sq": {
+      "hero_size": 92,
+      "sub_size": 14,
+      "place": [
+        0.58,
+        0.36
+      ],
+      "palette_overlay": {}
+    },
+    "xhs": {
+      "hero_size": 110,
+      "sub_size": 16,
+      "place": [
+        0.55,
+        0.34
+      ],
+      "palette_overlay": {}
+    },
+    "xhs-sq": {
+      "hero_size": 88,
+      "sub_size": 13,
+      "place": [
+        0.55,
+        0.36
+      ],
+      "palette_overlay": {}
+    }
+  }
+}
