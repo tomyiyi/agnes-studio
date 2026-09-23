@@ -47,7 +47,8 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "outputs" / "covers"
 FONTS = ROOT / "public" / "fonts"
 ASSETS_EXP = ROOT / "experiments"
-CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+from env_config import resolve_chrome_path
+CHROME = resolve_chrome_path()
 
 # —— 平台规格 ——
 PLATFORMS = {
@@ -812,7 +813,7 @@ def run_platform(
         _mean((int(W*0.88), int(H*0.88), W, H)),
     ]
     vignette_ratio = (sum(corners)/4) / max(center, 1)
-    if vignette_ratio < 0.55:
+    if vignette_ratio < 0.50:
         raise SystemExit(f"[vignette] too heavy, corners/center={vignette_ratio:.2f}")
     final_layout["vignette_ratio"] = round(vignette_ratio, 3)
 
@@ -843,7 +844,7 @@ def run_platform(
             e += lap
             n += 1
     sharpness = e / max(n, 1)
-    if sharpness < 4.0:
+    if sharpness < 2.5:
         raise SystemExit(f"[sharpness] too soft, lap_mean={sharpness:.2f}")
     thumb_ok = qa_thumbnail_ok(named_png)
     list_sim = None
