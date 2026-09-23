@@ -52,6 +52,11 @@ def detect_faces(image_path):
     if not safe_img.is_file():
         return []
 
+    import shutil
+    if not shutil.which("swift"):
+        # 非 macOS 环境或无 swift 编译器时跳过原生视觉避障检测
+        return []
+
     safe_swift = Path("/tmp/detect_faces.swift").resolve()
     if not (str(safe_swift).startswith("/tmp") or str(safe_swift).startswith("/private/tmp")) or ".." in str(safe_swift):
         raise ValueError("Invalid swift script path")

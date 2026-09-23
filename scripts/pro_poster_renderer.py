@@ -20,23 +20,13 @@ import base64
 import argparse
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from env_config import resolve_chrome_path, ASSETS_DIR, FONTS_DIR
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS_DIR = ROOT / "public" / "assets"
 FONTS_DIR = ROOT / "public" / "fonts"
 
-def _resolve_chrome():
-    candidates = (
-        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-        "/Applications/Chromium.app/Contents/MacOS/Chromium",
-        "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
-    )
-    for path in candidates:
-        if os.path.exists(path):
-            return path
-    return None
-
-CHROME_PATH = _resolve_chrome()
+CHROME_PATH = resolve_chrome_path()
 
 def get_base64_image(image_path):
     """读取本地图片并转为 base64 data URI，确保无头浏览器 100% 离线秒级加载"""
