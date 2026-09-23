@@ -119,6 +119,19 @@
       "gen_prompt": "fresh clean daylight, airy green-cyan tones, open background, authentic documentary photo, no retouching plastic skin, natural pores and real texture",
       "type_scale": 0.95,
       "copy_tone": "清爽、利益点前置"
+    },
+    "minimal_zine": {
+      "font_css": "font-family:'Songti SC','Source Han Serif SC','LXGW WenKai',serif;",
+      "palette": {
+        "ink": "#1c1b1a",
+        "cream": "#f8f5ee",
+        "accent": "#d93829"
+      },
+      "scrim": "linear-gradient(180deg, rgba(248,245,238,0.92) 0%, rgba(248,245,238,0.3) 40%, transparent 70%)",
+      "photo_filter": "contrast(1.08) grayscale(0.15) sepia(0.06)",
+      "gen_prompt": "poetic paper-texture minimal zine poster with 75% negative space, small editorial focal element, high-chroma vermilion red accent, organic risograph halftone texture, Japanese indie zine aesthetic",
+      "type_scale": 0.88,
+      "copy_tone": "日韩独立杂志克制、留白诗意"
     }
   },
   "goals": {
