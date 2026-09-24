@@ -1,0 +1,483 @@
+{
+  "source": "https://my.feishu.cn/docx/IRfYdamvforHDix8kGtc7VqOn4c",
+  "source_title": "GPT Image 2️⃣全球开放使用!100组Prompt合集",
+  "converted_for": "agnes-image-2.5-flash via New API / scripts/agnes_gateway.py",
+  "rules": [
+    "剥离 --ar/--v 等 Midjourney 参数，改由 size 字段表达画幅",
+    "默认追加 Agnes 净框后缀（no text/watermark/signature/corner stamp）",
+    "表情包/签名/多宫格等需要字的模板标记 keep_text=true，保留文字指令",
+    "中文长指令保留原文，供 GPT Image 式对话改写或人工精简"
+  ],
+  "ratio_map": {
+    "1:1": "1088x1088",
+    "3:4": "1088x1456",
+    "4:5": "1088x1360",
+    "2:3": "1088x1456",
+    "9:16": "1088x1456",
+    "16:9": "2352x1008",
+    "21:9": "2352x1008",
+    "4:3": "1456x1088",
+    "5:4": "1360x1088"
+  },
+  "count": 45,
+  "items": [
+    {
+      "id": "1001",
+      "title": "室内棚拍-烟雾缭绕(Vol:1)",
+      "category": "portrait",
+      "source_ratio": "3:4",
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "复制 Close-up portrait of a handsome charismatic East Asian man in a charcoal wool suit and black tie, intense gaze at the camera, exhaling delicate wispy smoke trails from lips, messy textured black hair with slight sheen, sharp jawline and high cheekbones, deep burgundy studio background, Rembrandt lighting with dramatic shadows, hyper-realistic skin texture and visible pores, shot on 85mm lens, f/1.8, cinematic film grain, 90s fashion editorial style, high contrast, moody atmosphere, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "复制\nClose-up portrait of a handsome charismatic East Asian man in a charcoal wool suit and black tie, intense gaze at the camera, exhaling delicate wispy smoke trails from lips, messy textured black hair with slight sheen, sharp jawline and high cheekbones, deep burgundy studio background, Rembrandt lighting with dramatic shadows, hyper-realistic skin texture and visible pores, shot on 85mm lens, f/1.8, cinematic film grain, 90s fashion editorial style, high contrast, moody atmosphere --ar 3:4 --v 6.0"
+    },
+    {
+      "id": "1002",
+      "title": "机车之魂(Vol:2)",
+      "category": "portrait",
+      "source_ratio": "2:3",
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Subject: A professional motorcycle racer in a red and blue racing suit, wearing a white aerodynamic helmet, leaning aggressively into a sharp turn on a superbike, knee dragging on the asphalt.Environment: Dense white tire smoke billowing from the rear wheel, grey race track background, layered composition with a close-up portrait of the rider overlaying the scene.Details: Sponsored decals \"ZXMOTO\", \"Si Anelli\", vibrant red and blue livery, carbon fiber textures, glowing brake discs, realistic leather creases.Technical: Shot on Sony A1, 70-200mm lens, f/2.8, high speed shutter, crisp details, hyper-realistic, volumetric fog, octane render style, dramatic studio lighting.Parameters: (or Flux.1), absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Subject: A professional motorcycle racer in a red and blue racing suit, wearing a white aerodynamic helmet, leaning aggressively into a sharp turn on a superbike, knee dragging on the asphalt.Environment: Dense white tire smoke billowing from the rear wheel, grey race track background, layered composition with a close-up portrait of the rider overlaying the scene.Details: Sponsored decals \"ZXMOTO\", \"Si Anelli\", vibrant red and blue livery, carbon fiber textures, glowing brake discs, realistic leather creases.Technical: Shot on Sony A1, 70-200mm lens, f/2.8, high speed shutter, crisp details, hyper-realistic, volumetric fog, octane render style, dramatic studio lighting.Parameters: --ar 2:3 --v 6.0 (or Flux.1)"
+    },
+    {
+      "id": "1003",
+      "title": "城市地标留影(Vol:2)",
+      "category": "portrait",
+      "source_ratio": "4:5",
+      "agnes_size": "1088x1360",
+      "keep_text": false,
+      "agnes_prompt": "A hyper-realistic portrait of an athletic Asian man around 35 years old, standing at the bottom of a stairway framed between tall concrete walls, with the iconic Guangzhou Tower rising sharply in the background. He wears a fitted short-sleeve black t-shirt and casual trousers. His posture is upright and confident, muscles subtly defined under the fabric. He turns his head slightly toward the camera with a calm yet powerful expression, his skin softly illuminated by natural light. The atmosphere is cinematic and urban, blending modern architecture with the vibrant landmark. Frame size 4:5., absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "A hyper-realistic portrait of an athletic Asian man around 35 years old, standing at the bottom of a stairway framed between tall concrete walls, with the iconic Guangzhou Tower rising sharply in the background. He wears a fitted short-sleeve black t-shirt and casual trousers. His posture is upright and confident, muscles subtly defined under the fabric. He turns his head slightly toward the camera with a calm yet powerful expression, his skin softly illuminated by natural light. The atmosphere is cinematic and urban, blending modern architecture with the vibrant landmark. Frame size 4:5."
+    },
+    {
+      "id": "1004",
+      "title": "海滩高角度自拍(Vol:3)",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Ultra-realistic smartphone selfie of an adult woman on a bright beach, shot from a raisedfront-camera angle slightly above the face. Natural 24mm-equivalent wide-angle geometry,believable smartphone depth rendering, realistic facial proportions, visible skin texture, finepores, soft peach fuzz, natural lip texture, and clean daylight highlights without beauty-filtersmoothing. Pale platinum hair in two tight braids, calm direct gaze into the lens, one handshielding sunlight. Bright late-morning coastal light around 5500K, white sand bounce filling theshadows from below, soft horizon in the background, subtle grains of sand catching light, cleanmodern phone-camera color science, slightly elevated exposure, controlled highlights, natural skintone, no cinematic teal-orange grading, no plastic skin, no doll-like eyes, no warped hands, noartificial blur  no watermark., absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Ultra-realistic smartphone selfie of an adult woman on a bright beach, shot from a raisedfront-camera angle slightly above the face. Natural 24mm-equivalent wide-angle geometry,believable smartphone depth rendering, realistic facial proportions, visible skin texture, finepores, soft peach fuzz, natural lip texture, and clean daylight highlights without beauty-filtersmoothing. Pale platinum hair in two tight braids, calm direct gaze into the lens, one handshielding sunlight. Bright late-morning coastal light around 5500K, white sand bounce filling theshadows from below, soft horizon in the background, subtle grains of sand catching light, cleanmodern phone-camera color science, slightly elevated exposure, controlled highlights, natural skintone, no cinematic teal-orange grading, no plastic skin, no doll-like eyes, no warped hands, noartificial blur, no text, no watermark."
+    },
+    {
+      "id": "1005",
+      "title": "东方女性骑楼街拍人像(Vol:3.2)",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Documentary-style street portrait of an adult Taiwanese woman under a real Taiwan arcade withtiled pavement, scooters, faded storefront signs, and everyday urban details. Soft side daylightentering from the street edge, believable shadow falloff, natural candid posture capturedmid-step, not looking directly at camera. Realistic skin with visible pores, under-eye detail,tiny imperfections, subtle skin sheen, long dark brown hair with natural baby hairs and a fewloose strands moved by light wind. Clean framing focused on face and eyes while preserving enoughenvironment to feel lived-in. Neutral color science, realistic proportions, phone-photoauthenticity mixed with premium full-frame clarity, no beauty retouching, no AI-smooth skin, noover-sharpening, no fake bokeh cutout  no watermark., absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Documentary-style street portrait of an adult Taiwanese woman under a real Taiwan arcade withtiled pavement, scooters, faded storefront signs, and everyday urban details. Soft side daylightentering from the street edge, believable shadow falloff, natural candid posture capturedmid-step, not looking directly at camera. Realistic skin with visible pores, under-eye detail,tiny imperfections, subtle skin sheen, long dark brown hair with natural baby hairs and a fewloose strands moved by light wind. Clean framing focused on face and eyes while preserving enoughenvironment to feel lived-in. Neutral color science, realistic proportions, phone-photoauthenticity mixed with premium full-frame clarity, no beauty retouching, no AI-smooth skin, noover-sharpening, no fake bokeh cutout, no text, no watermark."
+    },
+    {
+      "id": "1006",
+      "title": "韩系偶像九宫格写真(Vol:3.9)",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": true,
+      "agnes_prompt": "Vertical 3x3 collage of nine portraits featuring the same adult Korean female idol with perfectidentity consistency across all frames. Minimal studio or quiet indoor setting, soft diffusednatural light, gentle highlights, airy low-contrast mood, slight film softness. Long dark hairconsistent in shape and texture, clean minimal makeup, natural skin texture without retouching,cohesive white-and-neutral outfit across all nine images. Each panel has a distinct pose: relaxedstanding, mid-motion glance, soft side angle, upward thoughtful look, close-up smile, turningcandid frame, seated casual pose, over-shoulder look, playful near-camera frame. Keep framingvaried but coherent, preserve realistic anatomy and matching facial features in every panel, noduplicate poses, no warped hands, no text errors, no watermark., high resolution, professional photography, ultra sharp, no watermark, no signature stamp",
+      "gpt_image_prompt": "Vertical 3x3 collage of nine portraits featuring the same adult Korean female idol with perfectidentity consistency across all frames. Minimal studio or quiet indoor setting, soft diffusednatural light, gentle highlights, airy low-contrast mood, slight film softness. Long dark hairconsistent in shape and texture, clean minimal makeup, natural skin texture without retouching,cohesive white-and-neutral outfit across all nine images. Each panel has a distinct pose: relaxedstanding, mid-motion glance, soft side angle, upward thoughtful look, close-up smile, turningcandid frame, seated casual pose, over-shoulder look, playful near-camera frame. Keep framingvaried but coherent, preserve realistic anatomy and matching facial features in every panel, noduplicate poses, no warped hands, no text errors, no watermark."
+    },
+    {
+      "id": "1007",
+      "title": "室内棚拍婚纱(Vol:4)",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "An artistic, moody Korean wedding portrait of a couple in a dark studio. The bride is wearing a simple, sleek satin slip dress. The groom is in a black turtleneck and tailored trousers. They are embraced, with only their profiles visible. Dramatic, focused studio lighting creates a silhouette effect and beautiful highlights on their faces and clothing, with a spotlight on the bride's hand holding a single rose. The background is dark and indistinct. High contrast, emotive, and poetic. Shot with a Sony A7R IV with a 50mm f/1.4 lens. Dark and moody color grading, high detail in shadows.., absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "An artistic, moody Korean wedding portrait of a couple in a dark studio. The bride is wearing a simple, sleek satin slip dress. The groom is in a black turtleneck and tailored trousers. They are embraced, with only their profiles visible. Dramatic, focused studio lighting creates a silhouette effect and beautiful highlights on their faces and clothing, with a spotlight on the bride's hand holding a single rose. The background is dark and indistinct. High contrast, emotive, and poetic. Shot with a Sony A7R IV with a 50mm f/1.4 lens. Dark and moody color grading, high detail in shadows.."
+    },
+    {
+      "id": "1009",
+      "title": "窗边日系空气感全身人像",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Analog 35mm-inspired full-body portrait of an adult East Asian woman near a bright window withwhite curtains and a clean pale wall. Soft diffused natural window light, slight overexposure inhighlights, pastel low-saturation palette, subtle film grain, airy Japanese editorial mood.Oversized white button-up shirt, casual shorts, barefoot, relaxed posture with arms loose at thesides, gentle soft smile, slightly messy dark hair, realistic skin texture, natural makeup, quieteveryday atmosphere. Eye-level framing from mid-thigh to head with generous breathing room, noglamour retouching, no plastic skin, no exaggerated posing, no harsh contrast, no watermark, notext., absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Analog 35mm-inspired full-body portrait of an adult East Asian woman near a bright window withwhite curtains and a clean pale wall. Soft diffused natural window light, slight overexposure inhighlights, pastel low-saturation palette, subtle film grain, airy Japanese editorial mood.Oversized white button-up shirt, casual shorts, barefoot, relaxed posture with arms loose at thesides, gentle soft smile, slightly messy dark hair, realistic skin texture, natural makeup, quieteveryday atmosphere. Eye-level framing from mid-thigh to head with generous breathing room, noglamour retouching, no plastic skin, no exaggerated posing, no harsh contrast, no watermark, notext."
+    },
+    {
+      "id": "1010",
+      "title": "城市金色时刻时尚街拍",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Hyper-realistic fashion photograph of an adult woman in a modern city center during golden hour.She leans casually against a traffic light pole, unaware of the camera, captured like an expensiveeditorial candid. Warm low-angle sunlight wrapping the silhouette and hair, soft cinematiccontrast, urban background with strong bokeh and believable traffic details. Brown suede croppedjacket with shearling collar, dark minimal top, blue jeans, brown boots, long voluminouslight-brown curls in motion, lightly sun-kissed skin with visible pores and realistic highlights.Shot on a full-frame camera with an 85mm lens look, shallow depth of field, premium color grading,realistic body proportions, no over-sculpted face, no extra fingers  no watermark., absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Hyper-realistic fashion photograph of an adult woman in a modern city center during golden hour.She leans casually against a traffic light pole, unaware of the camera, captured like an expensiveeditorial candid. Warm low-angle sunlight wrapping the silhouette and hair, soft cinematiccontrast, urban background with strong bokeh and believable traffic details. Brown suede croppedjacket with shearling collar, dark minimal top, blue jeans, brown boots, long voluminouslight-brown curls in motion, lightly sun-kissed skin with visible pores and realistic highlights.Shot on a full-frame camera with an 85mm lens look, shallow depth of field, premium color grading,realistic body proportions, no over-sculpted face, no extra fingers, no text, no watermark."
+    },
+    {
+      "id": "1011",
+      "title": "复古巴士旅行时尚照",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Editorial travel portrait of an adult woman sitting on the front edge of a weathered vintage bus.Long red trench coat, knitted beanie, round blue reflective sunglasses, layered necklaces, ruggedbrown leather boots, wavy blonde hair, dreamy upward gaze. Clear blue sky, minimal urban backdrop,soft daylight, cinematic color grade, subtle nostalgic film texture, realistic fabric folds andpeeling paint on the bus in turquoise and rust tones. Medium-wide composition with strong subjectisolation, natural skin texture, sharp focus on the subject, shallow depth of field in theenvironment, no cartoon look, no distorted limbs  no watermark., absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Editorial travel portrait of an adult woman sitting on the front edge of a weathered vintage bus.Long red trench coat, knitted beanie, round blue reflective sunglasses, layered necklaces, ruggedbrown leather boots, wavy blonde hair, dreamy upward gaze. Clear blue sky, minimal urban backdrop,soft daylight, cinematic color grade, subtle nostalgic film texture, realistic fabric folds andpeeling paint on the bus in turquoise and rust tones. Medium-wide composition with strong subjectisolation, natural skin texture, sharp focus on the subject, shallow depth of field in theenvironment, no cartoon look, no distorted limbs, no text, no watermark."
+    },
+    {
+      "id": "1012",
+      "title": "极简红橘渐层男性肖像",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Cinematic minimal portrait of an adult man standing alone in an intense orange-to-red gradientenvironment. Strong silhouette edge lighting, deep shadow contrast, glossy reflective floor,centered symmetrical composition, quiet monumental presence. Keep the wardrobe simple and dark sothe color field dominates. Emphasize sculptural light, clean geometry, subtle texture on clothing,realistic facial structure if visible, premium editorial mood, uncluttered background, no props  no extra elements, no distortion, no watermark., absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Cinematic minimal portrait of an adult man standing alone in an intense orange-to-red gradientenvironment. Strong silhouette edge lighting, deep shadow contrast, glossy reflective floor,centered symmetrical composition, quiet monumental presence. Keep the wardrobe simple and dark sothe color field dominates. Emphasize sculptural light, clean geometry, subtle texture on clothing,realistic facial structure if visible, premium editorial mood, uncluttered background, no props,no text, no extra elements, no distortion, no watermark."
+    },
+    {
+      "id": "1013",
+      "title": "海风吹拂高级美妆人像",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Luxury beauty portrait of an adult Black woman with natural elegant styling, youthful confidence,dewy realistic skin, subtle pores, soft-focus cinematic lens rendering, and monochromatic stylingaccents in vanilla, mahogany red, and sapphire blue. Beachside breeze moving the hair gently,minimal jewelry, layered textured fabrics, symmetrical composition with soft haze and nostalgicglow. Keep makeup refined rather than theatrical, preserve natural anatomy, high-fashionphotography realism, controlled highlights on skin, no porcelain smoothing, no exaggerated glamourretouching  no watermark., absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Luxury beauty portrait of an adult Black woman with natural elegant styling, youthful confidence,dewy realistic skin, subtle pores, soft-focus cinematic lens rendering, and monochromatic stylingaccents in vanilla, mahogany red, and sapphire blue. Beachside breeze moving the hair gently,minimal jewelry, layered textured fabrics, symmetrical composition with soft haze and nostalgicglow. Keep makeup refined rather than theatrical, preserve natural anatomy, high-fashionphotography realism, controlled highlights on skin, no porcelain smoothing, no exaggerated glamourretouching, no text, no watermark."
+    },
+    {
+      "id": "1014",
+      "title": "CCD 闪光抓拍偶像感",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Old-CCD-camera-style candid snapshot of an adult Korean female idol indoors under messy dimambient light with direct harsh flash. Grainy texture, slight motion blur, accidental capturedmoment, head turning toward camera as if just noticed being photographed, shoulders slightlyraised, shy surprised expression, loose homewear with natural folds, nothing revealing. Preserve, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Old-CCD-camera-style candid snapshot of an adult Korean female idol indoors under messy dimambient light with direct harsh flash. Grainy texture, slight motion blur, accidental capturedmoment, head turning toward camera as if just noticed being photographed, shoulders slightlyraised, shy surprised expression, loose homewear with natural folds, nothing revealing. Preserve"
+    },
+    {
+      "id": "1015",
+      "title": "俯视厨房女厨师",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "CopyA bird's-eye view fisheye lens photograph of a young female chef standing in a modern, clean kitchen, wearing full kitchen attire (apron, chef hat), holding a cooking utensil and smiling confidently. The background shows countertops, shelves with utensils, and warm lighting. Wide-angle perspective with dynamic depth and cinematic lighting, high-resolution, professional photo style., absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "CopyA bird's-eye view fisheye lens photograph of a young female chef standing in a modern, clean kitchen, wearing full kitchen attire (apron, chef hat), holding a cooking utensil and smiling confidently. The background shows countertops, shelves with utensils, and warm lighting. Wide-angle perspective with dynamic depth and cinematic lighting, high-resolution, professional photo style."
+    },
+    {
+      "id": "1016",
+      "title": "青蛇小青妖娆写真集",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "复制 Green Snake Xiaoqing photoshoot blockbuster, green tight snake scale dress, wet hair red lips, seductive and enchanting, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "复制\nGreen Snake Xiaoqing photoshoot blockbuster, green tight snake scale dress, wet hair red lips, seductive and enchanting"
+    },
+    {
+      "id": "1017",
+      "title": "蜘蛛精",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "复制 Journey to the West spider spirit seduction poster, four seductive female demons in the Silk Spinning Cave, misty and enchanting, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "复制\nJourney to the West spider spirit seduction poster, four seductive female demons in the Silk Spinning Cave, misty and enchanting"
+    },
+    {
+      "id": "1018",
+      "title": "绝美唐风凤冠佳人的微醺特写",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Lip color like smudged rouge, slightly parted lips, gentle expression rich in emotional tension, presenting \"implicit oriental beauty\" Styling design: Pink luxurious Tang dynasty costume, softly fitting body curves, rich layers but not overly stacked; Moderate low neckline design, emphasizing collarbone and neck-shoulder lines, natural visual guidance without being overly blunt; Wearing an exquisite phoenix crown (metal, pearls, gemstones, tassels), realistic material reflections, swaying slightly with movement Dynamics and posture: Body slightly sideways or lightly rotating posture, neck extended, shoulder lines relaxed, hands forming soft guiding lines, enhancing picture rhythm and feminine soft tension Lighting system: Cinematic lighting Key light: warm golden side-front light focusing on face and skin highlights Fill light: cool environmental light shaping volume and space Rim light outlining hair and neck-shoulder contours Highlight control without overexposure, shadows retaining details, soft transition of facial light and shadow Picture style: Hyper-realistic CG portrait integrating oriental freehand spirit, slight hazy aesthetics Atmosphere and texture: Dreamy, implicit, advanced atmosphere of oriental aesthetics; Background bokeh, weakening environment to strengthen character; Slight film grain + soft focus glow, enhancing emotion and texture Color system: Primary colors: rouge pink, gilded gold Secondary colors: cool cyan-blue-gray Overall low saturation and high texture, avoiding vulgarity Lens parameters: 85mm portrait lens, f1.4–f2, shallow depth of field, cinematic framing Image quality: ultra detailed, 8K–16K, extreme detail, high resolution, cinematic lighting, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Chinese style CG illustration, Tang dynasty aesthetics, stunning ancient woman, half-body close-up shot, visual focus on face and upper body, advanced portrait composition, cinematic lens language and spatial perspective Character design: East Asian classical beauty, cold white translucent skin, delicate and realistic skin texture, soft and moist subtle glow; Exquisite and three-dimensional facial features but natural without being overly exaggerated, narrow phoenix eyes, slightly upturned eye tails, affectionate and shy gaze, slightly intoxicated and hazy, long eyelashes casting subtle shadows; Lip color like smudged rouge, slightly parted lips, gentle expression rich in emotional tension, presenting \"implicit oriental beauty\" Styling design: Pink luxurious Tang dynasty costume, softly fitting body curves, rich layers but not overly stacked; Moderate low neckline design, emphasizing collarbone and neck-shoulder lines, natural visual guidance without being overly blunt; Wearing an exquisite phoenix crown (metal, pearls, gemstones, tassels), realistic material reflections, swaying slightly with movement Dynamics and posture: Body slightly sideways or lightly rotating posture, neck extended, shoulder lines relaxed, hands forming soft guiding lines, enhancing picture rhythm and feminine soft tension Lighting system: Cinematic lighting Key light: warm golden side-front light focusing on face and skin highlights Fill light: cool environmental light shaping volume and space Rim light outlining hair and neck-shoulder contours Highlight control without overexposure, shadows retaining details, soft transition of facial light and shadow Picture style: Lip color like smudged rouge, slightly parted lips, gentle expression rich in emotional tension, presenting \"implicit oriental beauty\" Styling design: Pink luxurious Tang dynasty costume, softly fitting body curves, rich layers but not overly stacked; Moderate low neckline design, emphasizing collarbone and neck-shoulder lines, natural visual guidance without being overly blunt; Wearing an exquisite phoenix crown (metal, pearls, gemstones, tassels), realistic material reflections, swaying slightly with movement Dynamics and posture: Body slightly sideways or lightly rotating posture, neck extended, shoulder lines relaxed, hands forming soft guiding lines, enhancing picture rhythm and feminine soft tension Lighting system: Cinematic lighting Key light: warm golden side-front light focusing on face and skin highlights Fill light: cool environmental light shaping volume and space Rim light outlining hair and neck-shoulder contours Highlight control without overexposure, shadows retaining details, soft transition of facial light and shadow Picture style: Hyper-realistic CG portrait integrating oriental freehand spirit, slight hazy aesthetics Atmosphere and texture: Dreamy, implicit, advanced atmosphere of oriental aesthetics; Background bokeh, weakening environment to strengthen character; Slight film grain + soft focus glow, enhancing emotion and texture Color system: Primary colors: rouge pink, gilded gold Secondary colors: cool cyan-blue-gray Overall low saturation and high texture, avoiding vulgarity Lens parameters: 85mm portrait lens, f1.4–f2, shallow depth of field, cinematic framing Image quality: ultra detailed, 8K–16K, extreme detail, high resolution, cinematic lighting Fill light: cool environmental light shaping volume and space Rim light outlining hair and neck-shoulder contours Highlight control without overexposure, shadows retaining details, soft transition of facial light and shadow Picture style: Hyper-realistic CG portrait integrating oriental freehand spirit, slight hazy aesthetics Atmosphere and texture: Dreamy, implicit, advanced atmosphere of oriental aesthetics; Background bokeh, weakening environment to strengthen character; Slight film grain + soft focus glow, enhancing emotion and texture Color system: Primary colors: rouge pink, gilded gold Secondary colors: cool cyan-blue-gray Overall low saturation and high texture, avoiding vulgarity Lens parameters: 85mm portrait lens, f1.4–f2, shallow depth of field, cinematic framing Image quality: ultra detailed, 8K–16K, extreme detail, high resolution, cinematic lighting Aspect ratio: 9:16",
+      "merged_from": 3
+    },
+    {
+      "id": "1019",
+      "title": "冷艳高级感镜中倒影美女",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "复制 Stunningly beautiful woman with a cool, aloof atmospheric vibe, exquisite and refined facial features, cold and glamorous high-end face, long flowing hair, graceful and alluring figure, (character features completely locked and consistent) Scene: Indoor space with mirrors (bathroom or mirrored wall), multiple reflections, layered depth in the space Pose: Standing in front of the mirror, one hand lightly touching the mirror surface or resting on the countertop, body slightly angled, head gently turned toward the camera Expression: Calm and emotionless, with a hint of cold indifference and detachment Camera angle: Low angle or slight side angle shot, with the mirror reflection clearly visible in the frame Lighting: Cool white light as the main source, with localized shadows, emphasizing structural contours and three-dimensionality Style: High-end fashion editorial, subtle film grain, low contrast Details: Delicately realistic skin texture, clear yet softly layered and slightly blurred mirror reflections Atmosphere: Restrained, rational, distant, with a touch of surreal unreality Quality: Ultra-sharp 8K, extreme details, cinematic lighting and shadows, beautiful depth-of-field bokeh, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "复制\nStunningly beautiful woman with a cool, aloof atmospheric vibe, exquisite and refined facial features, cold and glamorous high-end face, long flowing hair, graceful and alluring figure, (character features completely locked and consistent) Scene: Indoor space with mirrors (bathroom or mirrored wall), multiple reflections, layered depth in the space Pose: Standing in front of the mirror, one hand lightly touching the mirror surface or resting on the countertop, body slightly angled, head gently turned toward the camera Expression: Calm and emotionless, with a hint of cold indifference and detachment Camera angle: Low angle or slight side angle shot, with the mirror reflection clearly visible in the frame Lighting: Cool white light as the main source, with localized shadows, emphasizing structural contours and three-dimensionality Style: High-end fashion editorial, subtle film grain, low contrast Details: Delicately realistic skin texture, clear yet softly layered and slightly blurred mirror reflections Atmosphere: Restrained, rational, distant, with a touch of surreal unreality Quality: Ultra-sharp 8K, extreme details, cinematic lighting and shadows, beautiful depth-of-field bokeh"
+    },
+    {
+      "id": "1020",
+      "title": "韩系女友私密白衬衫特写",
+      "category": "portrait",
+      "source_ratio": "9:16",
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "9:16 vertical — Korean idol intimate portrait, single subject, boyfriend POV soft black mist filter, glowing highlights, gentle bloom, slight overexposure, soft haze, lowered contrast, creamy tones close distance framing, intimate perspective, slight handheld feeling young Korean female idol, natural soft makeup, dewy realistic skin texture, subtle imperfections outfit: oversized white shirt slightly loose and relaxed + short bottoms, soft fabric, naturally draped, no revealing elements hair: long dark hair, slightly messy, soft movement around face pose: sitting or leaning slightly forward toward camera, upper body subtly angled; one hand resting lightly near collarbone or gently holding shirt edge, the other relaxed; shoulders loose, slight natural body curve expression: soft playful smile, slightly parted lips, warm eye contact with camera, hint of teasing intimacy camera: close-up to mid-body framing, eye-level or slightly lower angle, as if viewer is right in front of her lighting: warm diffused window light, soft highlight bloom on skin, gentle shadows, slight lens flare or light leak mood: intimate, romantic, subtly seductive, “caught in a private moment” feeling, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "9:16 vertical — Korean idol intimate portrait, single subject, boyfriend POV soft black mist filter, glowing highlights, gentle bloom, slight overexposure, soft haze, lowered contrast, creamy tones close distance framing, intimate perspective, slight handheld feeling young Korean female idol, natural soft makeup, dewy realistic skin texture, subtle imperfections outfit: oversized white shirt slightly loose and relaxed + short bottoms, soft fabric, naturally draped, no revealing elements hair: long dark hair, slightly messy, soft movement around face pose: sitting or leaning slightly forward toward camera, upper body subtly angled; one hand resting lightly near collarbone or gently holding shirt edge, the other relaxed; shoulders loose, slight natural body curve expression: soft playful smile, slightly parted lips, warm eye contact with camera, hint of teasing intimacy camera: close-up to mid-body framing, eye-level or slightly lower angle, as if viewer is right in front of her lighting: warm diffused window light, soft highlight bloom on skin, gentle shadows, slight lens flare or light leak mood: intimate, romantic, subtly seductive, “caught in a private moment” feeling pose: sitting or leaning slightly forward toward camera, upper body subtly angled; one hand resting lightly near collarbone or gently holding shirt edge, the other relaxed; shoulders loose, slight natural body curve expression: soft playful smile, slightly parted lips, warm eye contact with camera, hint of teasing intimacy camera: close-up to mid-body framing, eye-level or slightly lower angle, as if viewer is right in front of her lighting: warm diffused window light, soft highlight bloom on skin, gentle shadows, slight lens flare or light leak mood: intimate, romantic, subtly seductive, “caught in a private moment” feeling quality: ultra-realistic, fine film grain, slight motion blur, imperfect framing, dreamy cinematic softness",
+      "merged_from": 2
+    },
+    {
+      "id": "1021",
+      "title": "12格清醒场景图",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": true,
+      "agnes_prompt": "A 12-frame collage styled like a high-end luxury fashion Spring/Summer teaser campaign., high resolution, professional photography, ultra sharp, no watermark, no signature stamp",
+      "gpt_image_prompt": "A 12-frame collage styled like a high-end luxury fashion Spring/Summer teaser campaign."
+    },
+    {
+      "id": "1022",
+      "title": "帅气时尚照",
+      "category": "portrait",
+      "source_ratio": "3:4",
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Studio, minimalist, high-end fashion, realism, texture contrast, natural diffuse light, pose tension. [Actionable Prompt / 积木指令]: A full-body portrait of a confident Asian female model with a sharp, intense gaze, holding a powerful pose straddling a large, raw solid wood communal table. She has dark hair in a sleek bun and wears an off-the-shoulder matte black bodysuit and wide-leg trousers. She is accessorized with layered gold necklaces, gold bracelets, and rings. The environment is a minimalist industrial interior with light grey textured concrete walls and floor. The lighting is large, soft, natural daylight (diffused), creating minimal shadows and highlighting real skin texture and fabric folds. Shot on Hasselblad H6D, 80mm f/4 lens, natural grain. The text is for layout reference only and not part of the scene., absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Studio, minimalist, high-end fashion, realism, texture contrast, natural diffuse light, pose tension.\n[Actionable Prompt / 积木指令]: A full-body portrait of a confident Asian female model with a sharp, intense gaze, holding a powerful pose straddling a large, raw solid wood communal table. She has dark hair in a sleek bun and wears an off-the-shoulder matte black bodysuit and wide-leg trousers. She is accessorized with layered gold necklaces, gold bracelets, and rings. The environment is a minimalist industrial interior with light grey textured concrete walls and floor. The lighting is large, soft, natural daylight (diffused), creating minimal shadows and highlighting real skin texture and fabric folds. Shot on Hasselblad H6D, 80mm f/4 lens, natural grain. The text is for layout reference only and not part of the scene. --ar 3:4"
+    },
+    {
+      "id": "1023",
+      "title": "16 面板表情网格",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": true,
+      "agnes_prompt": "Create a 18-panel expression grid (4x4 layout) of the same young woman in a realistic portrait photography style, not anime or cartoon. The subject must remain highly consistent across all 16 panels in face shape, hairstyle, eye color, skin texture, and clothing. She should be an early-20s woman with ultra-realistic delicate features, bright blue eyes, a high nose bridge, a small sharp V-shaped jawline, flawless porcelain skin with a cool ivory undertone, subtle natural skin texture and micro pores, natural dewy makeup with a soft flush on the cheeks, and glossy natural pink lips. She has long silver hair with soft layers and loose strands framing her face. Clothing should remain the same in every panel: a simple clean white top or shirt with a minimal elegant look. Use a clean, consistent, studio-like or plain neutral background so the focus stays entirely on the expressions. The framing should be consistent across all panels, like a portrait reference sheet, with chest-up or head-and-shoulders composition. Lighting should be realistic and flattering, with a cinematic photographic feel, fine detail, and natural skin rendering. The 16 expressions should be: happy, sad, angry, surprised, shy, speechless, evil grin, contemplative, curious, proud, wronged, disdainful, confused, scared, crying, and heart expression. Each panel should clearly show a distinct expression while preserving the same identity and overall appearance. The final result should look like a professional realistic facial expression reference sheet, with no anime styling, no cartoon rendering, no watermark, and no distracting background elements., high resolution, professional photography, ultra sharp, no watermark, no signature stamp",
+      "gpt_image_prompt": "Create a 18-panel expression grid (4x4 layout) of the same young woman in a realistic portrait photography style, not anime or cartoon. The subject must remain highly consistent across all 16 panels in face shape, hairstyle, eye color, skin texture, and clothing. She should be an early-20s woman with ultra-realistic delicate features, bright blue eyes, a high nose bridge, a small sharp V-shaped jawline, flawless porcelain skin with a cool ivory undertone, subtle natural skin texture and micro pores, natural dewy makeup with a soft flush on the cheeks, and glossy natural pink lips. She has long silver hair with soft layers and loose strands framing her face. Clothing should remain the same in every panel: a simple clean white top or shirt with a minimal elegant look. Use a clean, consistent, studio-like or plain neutral background so the focus stays entirely on the expressions. The framing should be consistent across all panels, like a portrait reference sheet, with chest-up or head-and-shoulders composition. Lighting should be realistic and flattering, with a cinematic photographic feel, fine detail, and natural skin rendering. The 16 expressions should be: happy, sad, angry, surprised, shy, speechless, evil grin, contemplative, curious, proud, wronged, disdainful, confused, scared, crying, and heart expression. Each panel should clearly show a distinct expression while preserving the same identity and overall appearance. The final result should look like a professional realistic facial expression reference sheet, with no anime styling, no cartoon rendering, no watermark, and no distracting background elements."
+    },
+    {
+      "id": "1024",
+      "title": "签名照",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": true,
+      "agnes_prompt": "请依照提供的人物形象，设计一组拟人风格9张风格一致的专属贴图。角色设定为「你的身分」，整体采用跟提供图片一致的真实风格，保留人物五官特色与辨识度。 贴图需具备： • 表情丰富、情绪明确（开心、思考、惊讶、专注、加油等） • 动作自然生动 • 搭配生活日常情境元素 整体风格要求： • 色彩干净、柔和且具设计感 • 风格统一、角色比例一致 • 适用于简报、社群贴文与数位内容创作 • 具有个人品牌识别度与专业形象 贴图内容可包含简短文字（中英皆可），提升实用性与互动感。 最终呈现需： 一整套9张贴图完整排列 每张独立可用，亦可整体输出 高解析度、适合数位应用与分享￼ 请依照提供的人物形象，设计一组拟人风格9张风格一致的专属贴图。角色设定为「你请根据上传的人物参考照，生成一张超写实摄影棚自拍风格照片。 【人物要求】 需高度还原参考照脸型、五官比例、眼睛、鼻子、嘴巴、表情、肤色、自然肤质，视线看向镜头 服装都必须维持一致。禁止美化、瘦脸、改变年龄、改变表情、重塑五官或重新设计服装。 【构图与镜头】 使用超广角鱼眼镜头＋自拍视角 视角从上往下俯视的立体构图，让人物像近距离对着镜头自拍 （#在AI淘汰你之前成为AI大师吧）文字需像被笔尖直接写在镜头玻璃上，而不是背景字或后制字卡。文字起点靠近笔尖，沿着镜头表面自然延伸，可微斜、可有鱼眼透视变形。金色墨水需有手写笔迹、金属反光、玻璃上的笔触厚度与墨水残留感。文字不可遮住人物眼睛、鼻子、嘴巴或主要表情，并要让笔尖、墨水与文字有明确连续感，呈现正在签名的瞬间。 整体风格为超现实但接近真实照片，色彩自然，可有轻微底片颗粒，不要商业海报感。 禁止：改变人物脸部、脸部变形、瘦脸、美肌过度、卡通化、Q版化、动漫化、插画化、过多贴图、过度鲜艳滤镜、UI介面、平面设计排版、海报风、电脑字型文字、摄影器材、改变服装。3:4画幅的身分」，整体采用跟提供图片一致的真实风格，保留人物五官特色与辨识度。 贴图需具备： • 表情丰富、情绪明确（开心、思考、惊讶、专注、加油等） • 动作自然生动 • 搭配生活日常情境元素 整体风格要求： • 色彩干净、柔和且具设计感 • 风格统一、角色比例一致 • 适用于简报、社群贴文与数位内容创作 • 具有个人品牌识别度与专业形象 贴图内容可包含简短文字（中英皆可），提升实用性与互动感。 最终呈现需： 一整套9张贴图完整排列 每张独立可用，亦可整体输出 高解析度、适合数位应用与分享￼, high resolution, professional photography, ultra sharp, no watermark, no signature stamp",
+      "gpt_image_prompt": "请依照提供的人物形象，设计一组拟人风格9张风格一致的专属贴图。角色设定为「你的身分」，整体采用跟提供图片一致的真实风格，保留人物五官特色与辨识度。 贴图需具备： • 表情丰富、情绪明确（开心、思考、惊讶、专注、加油等） • 动作自然生动 • 搭配生活日常情境元素 整体风格要求： • 色彩干净、柔和且具设计感 • 风格统一、角色比例一致 • 适用于简报、社群贴文与数位内容创作 • 具有个人品牌识别度与专业形象 贴图内容可包含简短文字（中英皆可），提升实用性与互动感。 最终呈现需： 一整套9张贴图完整排列 每张独立可用，亦可整体输出 高解析度、适合数位应用与分享￼\n\n请依照提供的人物形象，设计一组拟人风格9张风格一致的专属贴图。角色设定为「你请根据上传的人物参考照，生成一张超写实摄影棚自拍风格照片。 【人物要求】 需高度还原参考照脸型、五官比例、眼睛、鼻子、嘴巴、表情、肤色、自然肤质，视线看向镜头 服装都必须维持一致。禁止美化、瘦脸、改变年龄、改变表情、重塑五官或重新设计服装。 【构图与镜头】 使用超广角鱼眼镜头＋自拍视角 视角从上往下俯视的立体构图，让人物像近距离对着镜头自拍 （#在AI淘汰你之前成为AI大师吧）文字需像被笔尖直接写在镜头玻璃上，而不是背景字或后制字卡。文字起点靠近笔尖，沿着镜头表面自然延伸，可微斜、可有鱼眼透视变形。金色墨水需有手写笔迹、金属反光、玻璃上的笔触厚度与墨水残留感。文字不可遮住人物眼睛、鼻子、嘴巴或主要表情，并要让笔尖、墨水与文字有明确连续感，呈现正在签名的瞬间。 整体风格为超现实但接近真实照片，色彩自然，可有轻微底片颗粒，不要商业海报感。 禁止：改变人物脸部、脸部变形、瘦脸、美肌过度、卡通化、Q版化、动漫化、插画化、过多贴图、过度鲜艳滤镜、UI介面、平面设计排版、海报风、电脑字型文字、摄影器材、改变服装。3:4画幅的身分」，整体采用跟提供图片一致的真实风格，保留人物五官特色与辨识度。 贴图需具备： • 表情丰富、情绪明确（开心、思考、惊讶、专注、加油等） • 动作自然生动 • 搭配生活日常情境元素 整体风格要求： • 色彩干净、柔和且具设计感 • 风格统一、角色比例一致 • 适用于简报、社群贴文与数位内容创作 • 具有个人品牌识别度与专业形象 贴图内容可包含简短文字（中英皆可），提升实用性与互动感。 最终呈现需： 一整套9张贴图完整排列 每张独立可用，亦可整体输出 高解析度、适合数位应用与分享￼"
+    },
+    {
+      "id": "1024-涂鸦的丑萌",
+      "title": "涂鸦的丑萌",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "把这 张照片改成画风笨拙又搞笑的涂鸦风插画 。 特点： - 营造出像是用平价马克笔、蜡笔随手画出来的潦草速写质感- 线条杂乱随性，充满孩子气画风- 透视扭曲失衡，整体构图比例不协调- 脸部五官稍作夸张处理，打造滑稽喜感 额外添加元素：- 简约漫画风背景（结合参考照片联想绘制即可）- 添上无意义的乱涂线条、细碎随性的小细节- 保留上色不均、涂色出界、明显的笔触痕迹 整体风格：- 透着敷衍潦草、毫无用心去画的随性感- 切勿画得太过精致完整- 沙雕搞笑的表情包趣味画风- 贴合网络轻松趣味的氛围 禁止要求：- 不要画得写实- 不要刻画得太过精致细腻- 不要做出专业规整的绘画效果。, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "把这 张照片改成画风笨拙又搞笑的涂鸦风插画 。\n特点： - 营造出像是用平价马克笔、蜡笔随手画出来的潦草速写质感- 线条杂乱随性，充满孩子气画风- 透视扭曲失衡，整体构图比例不协调- 脸部五官稍作夸张处理，打造滑稽喜感\n额外添加元素：- 简约漫画风背景（结合参考照片联想绘制即可）- 添上无意义的乱涂线条、细碎随性的小细节- 保留上色不均、涂色出界、明显的笔触痕迹\n整体风格：- 透着敷衍潦草、毫无用心去画的随性感- 切勿画得太过精致完整- 沙雕搞笑的表情包趣味画风- 贴合网络轻松趣味的氛围\n禁止要求：- 不要画得写实- 不要刻画得太过精致细腻- 不要做出专业规整的绘画效果。"
+    },
+    {
+      "id": "1025-法拉利车队",
+      "title": "法拉利车队",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": true,
+      "agnes_prompt": "Ultra-realistic cinematic Formula 1 racing poster collage featuring a masculine elite F1 driver with a sharp jawline, wearing luxury reflective aviator sunglasses. The driver is dressed in a premium white Ferrari Formula 1 racing suit with authentic sponsor logos, racing gloves, and red racing boots, confidently holding a red Ferrari racing helmet. Dynamic multi-panel motorsport editorial composition with multiple perspectives — dramatic close-up portrait, full-body standing poses beside the Formula 1 car, and aerial cinematic angle. Futuristic red Ferrari Formula 1 car with glossy aerodynamic bodywork, carbon fiber textures, realistic sponsor decals, Pirelli tires, Shell branding, and racing track environment.Luxury motorsport fashion editorial aesthetic, cinematic lighting, ultra-detailed skin texture, dramatic shadows, depth of field, high contrast, realistic reflections on sunglasses, atmospheric racetrack environment, cloudy sky backdrop, premium sports advertising style, magazine-cover composition, bold motivational typography integrated into the poster design, sponsor logos, sleek modern layout, high-end Ferrari racing campaign vibe. Color palette dominated by red, white, black, and metallic gray tones. Hyper-detailed, photorealistic, 8K ultra HD, cinematic photography, sharp focus, editorial storytelling, luxury masculine energy, poster masterpiece, Unreal Engine quality, volumetric lighting, highly detailed textures, premium advertising aesthetic., high resolution, professional photography, ultra sharp, no watermark, no signature stamp",
+      "gpt_image_prompt": "Ultra-realistic cinematic Formula 1 racing poster collage featuring a masculine elite F1 driver with a sharp jawline, wearing luxury reflective aviator sunglasses. The driver is dressed in a premium white Ferrari Formula 1 racing suit with authentic sponsor logos, racing gloves, and red racing boots, confidently holding a red Ferrari racing helmet.  Dynamic multi-panel motorsport editorial composition with multiple perspectives — dramatic close-up portrait, full-body standing poses beside the Formula 1 car, and aerial cinematic angle. Futuristic red Ferrari Formula 1 car with glossy aerodynamic bodywork, carbon fiber textures, realistic sponsor decals, Pirelli tires, Shell branding, and racing track environment.Luxury motorsport fashion editorial aesthetic, cinematic lighting, ultra-detailed skin texture, dramatic shadows, depth of field, high contrast, realistic reflections on sunglasses, atmospheric racetrack environment, cloudy sky backdrop, premium sports advertising style, magazine-cover composition, bold motivational typography integrated into the poster design, sponsor logos, sleek modern layout, high-end Ferrari racing campaign vibe.  \nColor palette dominated by red, white, black, and metallic gray tones. Hyper-detailed, photorealistic, 8K ultra HD, cinematic photography, sharp focus, editorial storytelling, luxury masculine energy, poster masterpiece, Unreal Engine quality, volumetric lighting, highly detailed textures, premium advertising aesthetic."
+    },
+    {
+      "id": "1026-迈凯轮车队",
+      "title": "迈凯轮车队",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Ultra-realistic cinematic motorsport fashion editorial poster of a masculine male model, wearing luxury dark aviator sunglasses and a full black-and-orange Formula 1 racing suit inspired by McLaren F1 Team aesthetics, covered with realistic sponsor patches and technical detailing, standing confidently in front of a futuristic Formula 1 race car at a modern racing circuit paddock during golden hour. Triple-composition layout: one large close-up side portrait on the left showing detailed facial tattoos and textured beard, one centered full-body hero pose with hands in pockets, and one side-profile portrait on the right. Hyper-detailed tattoos on neck and face, luxury masculine appearance, athletic body proportions, calm dominant expression.Cinematic motorsport atmosphere, dramatic cloudy sky, premium racing campaign aesthetic, high contrast lighting, shallow depth of field, realistic reflections on visor and sunglasses, glossy carbon fiber textures, orange and black color palette, ultra-detailed racing helmet placed beside the model, high-end sponsor branding, editorial typography and motivational quotes integrated into the composition. Text elements: ‘McLaren Formula 1 Team’ at the top, ‘You don’t become a Legend by playing safe’ on the left, ‘Pressure? That’s where I perform best.’ on the right, large typography at bottom center reading ‘Live Fast. RACE FASTER.’ and smaller tagline ‘Beyond Speed. Beyond Limits.’ Luxury fashion magazine poster design, photorealistic, ultra-detailed skin texture, cinematic shadows, sharp focus, 85mm lens, premium motorsport advertisement style, symmetrical balanced composition, 8K resolution, realistic racetrack environment, elite Formula 1 campaign vibe.” （名字替换成“”）, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Ultra-realistic cinematic motorsport fashion editorial poster of a masculine male model, wearing luxury dark aviator sunglasses and a full black-and-orange Formula 1 racing suit inspired by McLaren F1 Team aesthetics, covered with realistic sponsor patches and technical detailing, standing confidently in front of a futuristic Formula 1 race car at a modern racing circuit paddock during golden hour. Triple-composition layout: one large close-up side portrait on the left showing detailed facial tattoos and textured beard, one centered full-body hero pose with hands in pockets, and one side-profile portrait on the right. Hyper-detailed tattoos on neck and face, luxury masculine appearance, athletic body proportions, calm dominant expression.Cinematic motorsport atmosphere, dramatic cloudy sky, premium racing campaign aesthetic, high contrast lighting, shallow depth of field, realistic reflections on visor and sunglasses, glossy carbon fiber textures, orange and black color palette, ultra-detailed racing helmet placed beside the model, high-end sponsor branding, editorial typography and motivational quotes integrated into the composition. Text elements: ‘McLaren Formula 1 Team’ at the top, ‘You don’t become a Legend by playing safe’ on the left, ‘Pressure? That’s where I perform best.’ on the right, large typography at bottom center reading ‘Live Fast. RACE FASTER.’ and smaller tagline ‘Beyond Speed. Beyond Limits.’ Luxury fashion magazine poster design, photorealistic, ultra-detailed skin texture, cinematic shadows, sharp focus, 85mm lens, premium motorsport advertisement style, symmetrical balanced composition, 8K resolution, realistic racetrack environment, elite Formula 1 campaign vibe.” （名字替换成“”）"
+    },
+    {
+      "id": "1027-人像手绘",
+      "title": "人像手绘",
+      "category": "portrait",
+      "source_ratio": "9:16",
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Convierte a la persona en la foto en un boceto de cómic de moda humorístico, solo conserva un primer plano de la cabeza de la persona, como si fuera una creación improvisada de un dibujante callejero, con estructuras anatómicas fuertemente exageradas, proporciones alargadas, expresiones faciales dramáticas, poses torpemente elegantes, en estilo de cuaderno de bocetos\". ., absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Convierte a la persona en la foto en un boceto de cómic de moda humorístico, solo conserva un primer plano de la cabeza de la persona, como si fuera una creación improvisada de un dibujante callejero, con estructuras anatómicas fuertemente exageradas, proporciones alargadas, expresiones faciales dramáticas, poses torpemente elegantes, en estilo de cuaderno de bocetos\". Ar. 9:16."
+    },
+    {
+      "id": "1028-黑手党帅哥",
+      "title": "黑手党帅哥",
+      "category": "portrait",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Ultra-realistic cinematic portrait of a 1930s gangster, standing beside a vintage armored vehicle, wearing a black fedora hat, oversized black wool overcoat, white dress shirt, dark textured tie, and tailored three-piece suit. Holding a Thompson submachine gun with drum magazine over his shoulder, pale skin, subtle neck tattoo, silver rings on fingers, intense melancholic expression, moody noir atmosphere, soft overcast lighting, muted gray-black color palette, vintage mafia aesthetic, Peaky Blinders and Godfather inspired style, shallow depth of field, ultra-detailed fabric textures, photorealistic, 8k editorial photography, dramatic cinematic composition., absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Ultra-realistic cinematic portrait of a 1930s gangster, standing beside a vintage armored vehicle, wearing a black fedora hat, oversized black wool overcoat, white dress shirt, dark textured tie, and tailored three-piece suit. Holding a Thompson submachine gun with drum magazine over his shoulder, pale skin, subtle neck tattoo, silver rings on fingers, intense melancholic expression, moody noir atmosphere, soft overcast lighting, muted gray-black color palette, vintage mafia aesthetic, Peaky Blinders and Godfather inspired style, shallow depth of field, ultra-detailed fabric textures, photorealistic, 8k editorial photography, dramatic cinematic composition."
+    },
+    {
+      "id": "2001",
+      "title": "夏季柑橘汽水 PET 广告",
+      "category": "commercial",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": true,
+      "agnes_prompt": "Premium commercial beverage advertisement for a fictional summer carbonated drink named SummerCitrus SODA in a 500ml PET bottle. Hero bottle centered, label crisp and readable, coldcondensation beads, citrus slices and sparkling water arcs suspended mid-air, bright summerenergy, high-CTA commercial clarity. Use a vibrant citrus color system with cleansunlight-inspired highlights, controlled reflections on the bottle, bold but elegant backgroundgradient, believable splash physics, sharp cap and bottle shape, premium studio lighting with acool rim and warm frontal sparkle. High-end product photography realism, strong negative space forfuture layout use, no warped packaging, no extra bottles unless intentionally composed, no randomtext, no logo errors, no watermark., high resolution, professional photography, ultra sharp, no watermark, no signature stamp",
+      "gpt_image_prompt": "Premium commercial beverage advertisement for a fictional summer carbonated drink named SummerCitrus SODA in a 500ml PET bottle. Hero bottle centered, label crisp and readable, coldcondensation beads, citrus slices and sparkling water arcs suspended mid-air, bright summerenergy, high-CTA commercial clarity. Use a vibrant citrus color system with cleansunlight-inspired highlights, controlled reflections on the bottle, bold but elegant backgroundgradient, believable splash physics, sharp cap and bottle shape, premium studio lighting with acool rim and warm frontal sparkle. High-end product photography realism, strong negative space forfuture layout use, no warped packaging, no extra bottles unless intentionally composed, no randomtext, no logo errors, no watermark."
+    },
+    {
+      "id": "2002",
+      "title": "武则天香水妆广告",
+      "category": "commercial",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "复制 Empress perfume advertisement, same style as Wu Zetian, golden bottle with dragon patterns, dark palace vibe cinematic shot, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "复制\nEmpress perfume advertisement, same style as Wu Zetian, golden bottle with dragon patterns, dark palace vibe cinematic shot"
+    },
+    {
+      "id": "2003",
+      "title": "粉色少女风珍珠奶茶特写广告",
+      "category": "commercial",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Milk tea advertisement image, pink girly style, close-up of bubble tea, summer cool feeling, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Milk tea advertisement image, pink girly style, close-up of bubble tea, summer cool feeling"
+    },
+    {
+      "id": "2004",
+      "title": "四连幅日系虚构商品广告",
+      "category": "commercial",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": true,
+      "agnes_prompt": "Square four-panel layout showing four fictional Japanese-style ad concepts side by side, eachpanel representing a different product type while preserving a unified design language. Usepremium poster composition, crisp visual hierarchy, refined lighting logic, strong productreadability, elegant background treatment, and varied color systems for each panel. Panels shouldfeel designed by a professional art director, trendy yet restrained, clean separation betweenpanels, no text glitches, no warped packaging, no clutter, no watermark., high resolution, professional photography, ultra sharp, no watermark, no signature stamp",
+      "gpt_image_prompt": "Square four-panel layout showing four fictional Japanese-style ad concepts side by side, eachpanel representing a different product type while preserving a unified design language. Usepremium poster composition, crisp visual hierarchy, refined lighting logic, strong productreadability, elegant background treatment, and varied color systems for each panel. Panels shouldfeel designed by a professional art director, trendy yet restrained, clean separation betweenpanels, no text glitches, no warped packaging, no clutter, no watermark."
+    },
+    {
+      "id": "2005",
+      "title": "ins风护肤品清新摆拍",
+      "category": "commercial",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Xiaohongshu recommendation cover, Instagram-style still life photography of skincare products, Japanese fresh filter, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Xiaohongshu recommendation cover, Instagram-style still life photography of skincare products, Japanese fresh filter"
+    },
+    {
+      "id": "2006",
+      "title": "老干妈星巴克高端联名运营图",
+      "category": "commercial",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Generate a complete high-end brand operation image, the product is a co-branded item of Lao Gan Ma and Starbucks: Lao Gan Ma Americano, the main image is in the center, below are some co-branded designs, packaging bags, cup sleeves, and mascots., absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Generate a complete high-end brand operation image, the product is a co-branded item of Lao Gan Ma and Starbucks: Lao Gan Ma Americano, the main image is in the center, below are some co-branded designs, packaging bags, cup sleeves, and mascots."
+    },
+    {
+      "id": "2007",
+      "title": "潮流视角重塑精致商品广告",
+      "category": "commercial",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Please redesign this product advertisement from the perspective of a professional designer. Adopt current fashion trends, exquisite design targeting the target audience., absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Please redesign this product advertisement from the perspective of a professional designer. Adopt current fashion trends, exquisite design targeting the target audience."
+    },
+    {
+      "id": "2008",
+      "title": "鲜艳霓虹光影下的动感苏打水飞溅商业",
+      "category": "commercial",
+      "source_ratio": "3:4",
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Three ultra-dynamic soda cans in one vibrant high-end advertising composition — a can of TROPICAL RUSH exploding with dramatic water and tropical fruit splash, vibrant orange and pink background lighting; a can of LEMON ICED splashed with cold water against a glowing green dynamic light background; both cans covered in realistic condensation and motion-blurred droplets, bursting with fruity, refreshing energy. Deep orange, pink, and neon green lighting blend together in a bold studio setup. Captured by a professional photographer using a Canon 50mm lens, hyper-realistic textures, crisp details, ultra high resolution, bright commercial poster aesthetic, rich color vibrancy, cinematic splash effects, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Three ultra-dynamic soda cans in one vibrant high-end advertising composition — a can of TROPICAL RUSH exploding with dramatic water and tropical fruit splash, vibrant orange and pink background lighting; a can of LEMON ICED splashed with cold water against a glowing green dynamic light background; both cans covered in realistic condensation and motion-blurred droplets, bursting with fruity, refreshing energy. Deep orange, pink, and neon green lighting blend together in a bold studio setup. Captured by a professional photographer using a Canon 50mm lens, hyper-realistic textures, crisp details, ultra high resolution, bright commercial poster aesthetic, rich color vibrancy, cinematic splash effects --ar 3:4"
+    },
+    {
+      "id": "2009",
+      "title": "极简几何装置风产品广告",
+      "category": "commercial",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": true,
+      "agnes_prompt": "复制 请为【主题产品】创作一张“极简几何装置风产品海报”。 如果我提供了产品图片，请以该图片为主要参考，保留产品的核心外观特征、包装形态、颜色、材质、品牌识别和整体气质，并优先沿用产品图中的主色调与配色关系进行设计。 如果我没有提供产品图片，请根据【主题产品】自动生成符合该产品定位的产品外观与包装设计，并根据产品属性、品类特征和气质，自动匹配自然合理的主色、辅助色、道具造型与展示方式。 海报整体风格要求： 画面采用高键白色或暖白色摄影棚背景，整体干净、通透、柔和、明亮，具有高级商业感与现代品牌视觉气质。构图不是普通电商棚拍，而是像品牌视觉提案、艺术静物摄影与3D产品陈列结合的概念海报。 画面主体应包含： 1. 【主题产品】本体 2. 产品包装 3. 与产品相关的原料、切片、部件、功能元素或材质细节 三者共同构成完整的视觉链路，使观者一眼就能理解“这是什么产品、内容是什么、卖点或来源是什么”。 场景中加入简洁且具有设计感的几何装置道具，例如：圆柱、方块、长条块、圆环、球体、半圆、平台、堆叠积木、亚克力支架、玩具感结构体等，用于承托、悬置、围绕或衬托产品主体，形成富有秩序感、节奏感和层次感的艺术陈列构图。, high resolution, professional photography, ultra sharp, no watermark, no signature stamp",
+      "gpt_image_prompt": "复制\n请为【主题产品】创作一张“极简几何装置风产品海报”。\n\n如果我提供了产品图片，请以该图片为主要参考，保留产品的核心外观特征、包装形态、颜色、材质、品牌识别和整体气质，并优先沿用产品图中的主色调与配色关系进行设计。\n如果我没有提供产品图片，请根据【主题产品】自动生成符合该产品定位的产品外观与包装设计，并根据产品属性、品类特征和气质，自动匹配自然合理的主色、辅助色、道具造型与展示方式。\n\n海报整体风格要求：\n画面采用高键白色或暖白色摄影棚背景，整体干净、通透、柔和、明亮，具有高级商业感与现代品牌视觉气质。构图不是普通电商棚拍，而是像品牌视觉提案、艺术静物摄影与3D产品陈列结合的概念海报。\n\n画面主体应包含：\n1. 【主题产品】本体\n2. 产品包装\n3. 与产品相关的原料、切片、部件、功能元素或材质细节\n\n三者共同构成完整的视觉链路，使观者一眼就能理解“这是什么产品、内容是什么、卖点或来源是什么”。\n\n场景中加入简洁且具有设计感的几何装置道具，例如：圆柱、方块、长条块、圆环、球体、半圆、平台、堆叠积木、亚克力支架、玩具感结构体等，用于承托、悬置、围绕或衬托产品主体，形成富有秩序感、节奏感和层次感的艺术陈列构图。"
+    },
+    {
+      "id": "2010",
+      "title": "瞬间包装创意板风格广告",
+      "category": "commercial",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": true,
+      "agnes_prompt": "复制 请为【产品名称】生成一个“瞬间包装创意板风格”的产品介绍海报。如果我提供了产品图片，请以该图片为主要，保留产品的核心外观特征、包装形态、颜色、材质、品牌识别和整体质感，并优先沿用产品的主色调与色调关系进行设计。如果我没有提供产品图片，请根据【产品名称】自动生成符合该产品定位的产品外观与包装设计，并根据产品属性、品类特征和质感，自动搭配自然合理的主色、辅助色和背景色。 海报整体风格要求：这不是普通电商详情页，也不是单纯的棚拍海报，而是一张融合的“产品产品图+包装设计草图+” 整体呈现为高审美、高完成度的品牌设计展示图，像设计师正在展示一个包装概念方案。画面要求： - 整齐版构图 - 使用统一且有品牌感的主色调背景，背景颜色根据产品本身决定，不固定为某种颜色 - 应与产品属性协调：如果有参考图，优先继承参考图的主色和品牌颜色；如果没有参考图，则根据产品名称自动生成合理的色彩方案 -画面中央放置一个最完整、最吸睛的产品主视觉，具有真实的曲面、立体光影和商业成品效果 - 产品周边加入多个辅助视觉元素：不同角度的包装草图、结构草图、局部造型探索、手持展示小稿、包装展开思路、品牌字样排版试验 - 加入自然随性的黑色或交互线稿、箭头、圈画、符号、手写中文批注，让画面具有强烈的“设计过程感”和“创意创意感” -形成成品图要相对精致真实，草图部分要相对随性灵动，“完成品+设计草图”的对比 - 版型外观松弛自由，但整体协调秩序、有节奏、有视觉中心，体现高级平面设计感 - 可以适应加入与产品相关的小图形、小符号或具有趣味元素，增强品牌记忆点 - 最终效果应品牌感、创意感、过程感和视觉冲击力 原则结论： - 不固定背景 - 要根据产品类型、材质、用途、消费感受和品牌质感自动选择主色调 - 背景色、产品色、文字色、草图线色应相互协调 -可以使用高水渠背景，也可以使用柔和统一色系背景，只要整体有品牌感和视觉冲击力 - 色彩应自然服务于产品，而不是喧宾夺主风格关键词：包装设计方案板、品牌概念开发、介入草图、设计过程感、情绪板、创意评审稿、产品成品渲染、视觉实验、商业设计海报请特别注意： - 如果有参考产品图，优先跟随参考图，不要产品本身 -如果没有参考图，则根据产品名称自动生成合理的产品外观、包装和方案，并保持整体风格统一 - 画面重点是“产品介绍 + 创意设计流程展示” - 不要导入普通电商详情页，不要导入促销海报，不要过度恰好呆板，不要缺少草图和手写批注，不要廉价感，不要低幼卡通感, high resolution, professional photography, ultra sharp, no watermark, no signature stamp",
+      "gpt_image_prompt": "复制\n请为【产品名称】生成一个“瞬间包装创意板风格”的产品介绍海报。如果我提供了产品图片，请以该图片为主要，保留产品的核心外观特征、包装形态、颜色、材质、品牌识别和整体质感，并优先沿用产品的主色调与色调关系进行设计。如果我没有提供产品图片，请根据【产品名称】自动生成符合该产品定位的产品外观与包装设计，并根据产品属性、品类特征和质感，自动搭配自然合理的主色、辅助色和背景色。 海报整体风格要求：这不是普通电商详情页，也不是单纯的棚拍海报，而是一张融合的“产品产品图+包装设计草图+” 整体呈现为高审美、高完成度的品牌设计展示图，像设计师正在展示一个包装概念方案。画面要求： - 整齐版构图 - 使用统一且有品牌感的主色调背景，背景颜色根据产品本身决定，不固定为某种颜色 - 应与产品属性协调：如果有参考图，优先继承参考图的主色和品牌颜色；如果没有参考图，则根据产品名称自动生成合理的色彩方案 -画面中央放置一个最完整、最吸睛的产品主视觉，具有真实的曲面、立体光影和商业成品效果 - 产品周边加入多个辅助视觉元素：不同角度的包装草图、结构草图、局部造型探索、手持展示小稿、包装展开思路、品牌字样排版试验 - 加入自然随性的黑色或交互线稿、箭头、圈画、符号、手写中文批注，让画面具有强烈的“设计过程感”和“创意创意感” -形成成品图要相对精致真实，草图部分要相对随性灵动，“完成品+设计草图”的对比 - 版型外观松弛自由，但整体协调秩序、有节奏、有视觉中心，体现高级平面设计感 - 可以适应加入与产品相关的小图形、小符号或具有趣味元素，增强品牌记忆点 - 最终效果应品牌感、创意感、过程感和视觉冲击力 原则结论： - 不固定背景 - 要根据产品类型、材质、用途、消费感受和品牌质感自动选择主色调 - 背景色、产品色、文字色、草图线色应相互协调 -可以使用高水渠背景，也可以使用柔和统一色系背景，只要整体有品牌感和视觉冲击力 - 色彩应自然服务于产品，而不是喧宾夺主风格关键词：包装设计方案板、品牌概念开发、介入草图、设计过程感、情绪板、创意评审稿、产品成品渲染、视觉实验、商业设计海报请特别注意： - 如果有参考产品图，优先跟随参考图，不要产品本身 -如果没有参考图，则根据产品名称自动生成合理的产品外观、包装和方案，并保持整体风格统一 - 画面重点是“产品介绍 + 创意设计流程展示” - 不要导入普通电商详情页，不要导入促销海报，不要过度恰好呆板，不要缺少草图和手写批注，不要廉价感，不要低幼卡通感"
+    },
+    {
+      "id": "2011",
+      "title": "精致商品俯拍 Flat Lay",
+      "category": "commercial",
+      "source_ratio": "1:1",
+      "agnes_size": "1088x1088",
+      "keep_text": false,
+      "agnes_prompt": "Flat lay product photography from 90 degree angle, premium skincare set arranged on marble surface, soft shadows, white and gold color scheme, e-commerce main image style, clean composition, 1:1, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Flat lay product photography from 90 degree angle, premium skincare set arranged on marble surface, soft shadows, white and gold color scheme, e-commerce main image style, clean composition, 1:1"
+    },
+    {
+      "id": "2012",
+      "title": "高端护肤品广告",
+      "category": "commercial",
+      "source_ratio": "1:1",
+      "agnes_size": "1088x1088",
+      "keep_text": false,
+      "agnes_prompt": "Luxury serum bottle with frosted glass finish, pale golden liquid inside, minimalist white marble surface, soft studio lighting from above, clean aesthetic, premium skincare brand photography, subtle reflection underneath, 1:1\", absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Luxury serum bottle with frosted glass finish, pale golden liquid inside, minimalist white marble surface, soft studio lighting from above, clean aesthetic, premium skincare brand photography, subtle reflection underneath, 1:1\""
+    },
+    {
+      "id": "2013",
+      "title": "霓虹苏打水",
+      "category": "commercial",
+      "source_ratio": "16:9",
+      "agnes_size": "2352x1008",
+      "keep_text": false,
+      "agnes_prompt": "Neon-lit craft soda, cyberpunk aesthetic, glowing pink and blue reflections on glass bottle, dark urban background with bokeh lights, wet surface reflection, energy drink photography, 16:9, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Neon-lit craft soda, cyberpunk aesthetic, glowing pink and blue reflections on glass bottle, dark urban background with bokeh lights, wet surface reflection, energy drink photography, 16:9"
+    },
+    {
+      "id": "2014",
+      "title": "中秋礼盒包装",
+      "category": "commercial",
+      "source_ratio": "9:16",
+      "agnes_size": "1088x1456",
+      "keep_text": false,
+      "agnes_prompt": "Primary colors: rouge pink, gilded gold Secondary colors: cool cyan-blue-gray Overall low saturation and high texture, avoiding vulgarity Lens parameters: 85mm portrait lens, f1.4–f2, shallow depth of field, cinematic framing Image quality: ultra detailed, 8K–16K, extreme detail, high resolution, cinematic lighting Aspect ratio: 9:16, absolutely clean frame, no text, no letters, no captions, no logo, no watermark, no signature, no timestamp, no UI overlay, no badge, no small print, no corner stamp, no floating sticker, no glitch block, no rectangular artifact, seamless background, ultra sharp",
+      "gpt_image_prompt": "Primary colors: rouge pink, gilded gold\nSecondary colors: cool cyan-blue-gray\nOverall low saturation and high texture, avoiding vulgarity\n\nLens parameters:\n85mm portrait lens, f1.4–f2, shallow depth of field, cinematic framing\n\nImage quality:\nultra detailed, 8K–16K, extreme detail, high resolution, cinematic lighting\n\nAspect ratio:\n9:16"
+    },
+    {
+      "id": "3002",
+      "title": "东方奇幻城市流光海报",
+      "category": "poster",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": true,
+      "agnes_prompt": "mood: intimate, romantic, subtly seductive, “caught in a private moment” feeling quality: ultra-realistic, fine film grain, slight motion blur, imperfect framing, dreamy cinematic softness, high resolution, professional photography, ultra sharp, no watermark, no signature stamp",
+      "gpt_image_prompt": "mood: intimate, romantic, subtly seductive, “caught in a private moment” feeling\n\nquality: ultra-realistic, fine film grain, slight motion blur, imperfect framing, dreamy cinematic softness"
+    },
+    {
+      "id": "3008",
+      "title": "双重曝光未来城市电影海报",
+      "category": "poster",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": true,
+      "agnes_prompt": "禁止要求：- 不要画得写实- 不要刻画得太过精致细腻- 不要做出专业规整的绘画效果。, high resolution, professional photography, ultra sharp, no watermark, no signature stamp",
+      "gpt_image_prompt": "禁止要求：- 不要画得写实- 不要刻画得太过精致细腻- 不要做出专业规整的绘画效果。"
+    },
+    {
+      "id": "4016",
+      "title": "绘制金瓶梅知识图谱",
+      "category": "infographic",
+      "source_ratio": null,
+      "agnes_size": "1088x1456",
+      "keep_text": true,
+      "agnes_prompt": "禁止：改变人物脸部、脸部变形、瘦脸、美肌过度、卡通化、Q版化、动漫化、插画化、过多贴图、过度鲜艳滤镜、UI介面、平面设计排版、海报风、电脑字型文字、摄影器材、改变服装。3:4画幅的身分」，整体采用跟提供图片一致的真实风格，保留人物五官特色与辨识度。 贴图需具备： • 表情丰富、情绪明确（开心、思考、惊讶、专注、加油等） • 动作自然生动 • 搭配生活日常情境元素 整体风格要求： • 色彩干净、柔和且具设计感 • 风格统一、角色比例一致 • 适用于简报、社群贴文与数位内容创作 • 具有个人品牌识别度与专业形象 贴图内容可包含简短文字（中英皆可），提升实用性与互动感。 最终呈现需： 一整套9张贴图完整排列 每张独立可用，亦可整体输出 高解析度、适合数位应用与分享￼, high resolution, professional photography, ultra sharp, no watermark, no signature stamp",
+      "gpt_image_prompt": "禁止：改变人物脸部、脸部变形、瘦脸、美肌过度、卡通化、Q版化、动漫化、插画化、过多贴图、过度鲜艳滤镜、UI介面、平面设计排版、海报风、电脑字型文字、摄影器材、改变服装。3:4画幅的身分」，整体采用跟提供图片一致的真实风格，保留人物五官特色与辨识度。 贴图需具备： • 表情丰富、情绪明确（开心、思考、惊讶、专注、加油等） • 动作自然生动 • 搭配生活日常情境元素 整体风格要求： • 色彩干净、柔和且具设计感 • 风格统一、角色比例一致 • 适用于简报、社群贴文与数位内容创作 • 具有个人品牌识别度与专业形象 贴图内容可包含简短文字（中英皆可），提升实用性与互动感。 最终呈现需： 一整套9张贴图完整排列 每张独立可用，亦可整体输出 高解析度、适合数位应用与分享￼"
+    }
+  ],
+  "clean_notes": [
+    "合并同条被滚动拆开的 prompt 切片（1018/1020 等）",
+    "修正错挂标题（如 2014 尾巴混入 1018 内容）",
+    "按 id+prompt 去重，修正 category"
+  ],
+  "dedup_notes": "merged 1018 slices, fixed 2014 mis-tag to 1018b, dropped title dups"
+}
