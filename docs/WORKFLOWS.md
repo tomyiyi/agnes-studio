@@ -48,6 +48,22 @@ python3 scripts/agnes_gateway.py --brief data/briefs/xhs_fresh_ctr.json --out /t
 
 目录：`data/style_catalog.json`、`data/briefs/*.json`、`scripts/cover_style.py`。
 
+### 0.6 GPT Image Prompt → Agnes 转换（2026-09-24 学习沉淀）
+
+外部 GPT Image / MJ 词库（如飞书《100组Prompt合集》）入库前必须转换：
+
+| 步骤 | 动作 | 示例 |
+| :--- | :--- | :--- |
+| 1 | 剥 MJ 参数 | `--ar 3:4 --v 6.0` → 不进 prompt |
+| 2 | 画幅进 `agnes_size` | `3:4→1088x1456` `1:1→1088x1088` `16:9→2352x1008` |
+| 3 | 净框后缀 | `no text, no watermark, no signature, no corner stamp, no glitch block…` |
+| 4 | 需字模板例外 | 表情包/签名/多宫格 → `keep_text:true`，保留文字指令 |
+| 5 | 去重合并 | 同条被滚动切开的 prompt 切片合并；错挂标题改正 |
+
+产物：`data/gpt_image_agnes_prompts.json`  
+样张：`outputs/agnes_samples/`（每条 1 张，文件名 `{id}_{slug}.png`）  
+调用：`scripts/agnes_gateway.py`（New API 轮换池，**禁止 MiMo `image_gen`**）。
+
 ---
 
 ## 1. 平台规格（锁定）
