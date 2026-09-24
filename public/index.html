@@ -1240,6 +1240,30 @@
       renderGallery();
     }
 
+    function gallerySrc(img) {
+      if (!img) return '';
+      const name = img.split('/').pop().replace(/\.(png|jpe?g)$/i, '');
+      if (img.indexOf('agnes_samples/') === 0) return 'assets/agnes_samples_thumbs/' + name + '.jpg';
+      return 'assets/thumbs/' + name + '.jpg';
+    }
+    function fullSrc(img) {
+      if (!img) return '';
+      if (img.indexOf('agnes_samples/') === 0) return 'assets/' + img;
+      return 'assets/' + img.split('/').pop();
+    }
+
+
+    function galleryThumb(img) {
+      if (!img) return '';
+      const name = (img.split('/').pop() || '').replace(/\.(png|jpe?g)$/i, '');
+      if (img.indexOf('agnes_samples/') === 0) return 'assets/agnes_samples_thumbs/' + name + '.jpg';
+      return 'assets/thumbs/' + name + '.jpg';
+    }
+    function galleryFull(img) {
+      if (!img) return '';
+      if (img.indexOf('agnes_samples/') === 0) return 'assets/' + img;
+      return 'assets/' + (img.split('/').pop() || img);
+    }
     function renderGallery() {
       const container = document.getElementById('gallery-container');
       const filtered = ALL_GALLERY.filter(item => {
@@ -1267,7 +1291,7 @@
       container.innerHTML = filtered.map(item => `
         <div class="${currentLayout === 'masonry' ? 'masonry-item' : ''} bg-white dark:bg-obsidian-card border border-paper-border dark:border-obsidian-border rounded-2xl overflow-hidden editorial-shadow editorial-hover-shadow transition-all duration-300 group cursor-pointer flex flex-col" onclick="openDetailModalById('${item.id}')">
           <div class="relative overflow-hidden bg-gray-100 dark:bg-black/50 image-placeholder ${currentLayout === 'grid' ? 'aspect-[4/5]' : 'min-h-[200px]'}">
-            <img src="assets/${item.img}" loading="lazy" alt="${item.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 block" onload="this.parentElement.classList.remove('image-placeholder')">
+            <img src="${gallerySrc(item.img)}" loading="lazy" decoding="async" loading="lazy" alt="${item.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 block" onload="this.parentElement.classList.remove('image-placeholder')">
             <div class="absolute top-3 left-3 bg-white/80 dark:bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold text-gray-800 dark:text-cyan-300 border border-gray-200 dark:border-white/10 shadow-sm">
               ${item.style_tag}
             </div>
@@ -1294,7 +1318,7 @@
       if (!item) return;
       activeModalItem = item;
 
-      document.getElementById('modal-img').src = 'assets/' + item.img;
+      document.getElementById('modal-img').src = fullSrc(item.img);
       document.getElementById('modal-tag').innerText = item.style_tag;
       document.getElementById('modal-aspect').innerText = '画幅: ' + item.aspect_ratio;
       document.getElementById('modal-title').innerText = item.title;
@@ -1303,7 +1327,7 @@
       document.getElementById('modal-model').innerText = item.model;
       document.getElementById('modal-duration').innerText = item.duration + ' 秒';
       document.getElementById('modal-series').innerText = item.series;
-      document.getElementById('modal-raw-link').href = 'assets/' + item.img;
+      document.getElementById('modal-raw-link').href = galleryFull(item.img) + ';
 
       document.getElementById('detail-modal').classList.remove('hidden');
     }
