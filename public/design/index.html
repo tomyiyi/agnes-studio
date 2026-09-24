@@ -1,0 +1,631 @@
+<!-- AI生成 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Agnes Studio · 全域视觉设计与新媒体包装规范 2026</title>
+  <meta name="description" content="微信公众号 / 小红书 / 项目落地页统一视觉规格手册：安全区、抗压缩、色卡、字阶、开源工具链与交付清单。" />
+  <link rel="stylesheet" href="design-guide.css" />
+</head>
+<body>
+<p data-aigc-mark="1" style="margin:0 0 8px;font-size:10px;line-height:1.3;color:#6b6560;font-weight:400;">AI生成</p>
+
+  <a class="skip-link" href="#main">跳到正文</a>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-mark">AS</span>
+        <div class="brand-text">
+          <strong>Agnes Studio</strong>
+          <span>全域视觉设计规范 · 2026</span>
+        </div>
+      </div>
+      <nav class="nav" aria-label="章节导航">
+        <a href="#principles">原则</a>
+        <a href="#specs">规格</a>
+        <a href="#wechat">微信</a>
+        <a href="#xhs">小红书</a>
+        <a href="#landing">落地页</a>
+        <a href="#system">色卡字阶</a>
+        <a href="#opensource">工具链</a>
+        <a href="#checklist">交付</a>
+      </nav>
+      <button class="nav-toggle" id="navToggle" aria-label="打开菜单" aria-expanded="false">☰</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">VISUAL SPEC · v1.0 · sRGB</p>
+          <h1>高转化封面与跨平台<br />视觉包装<span class="accent-dot">.</span></h1>
+          <p class="lede">
+            面向微信公众号、小红书与项目落地页的<strong>像素级规格手册</strong>。
+            所有参数按 2× / 3× 超采样交付，核心信息严格落在绝对安全区，
+            全站共用同一套色卡与字阶，保证 3 秒内完成视觉转化。
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#specs">查看尺寸总表</a>
+            <a class="btn btn-ghost" href="#checklist">交付检查清单</a>
+          </div>
+          <dl class="hero-meta">
+            <div><dt>主封面</dt><dd>2350×1000 · 2.35:1</dd></div>
+            <div><dt>小红书主图</dt><dd>1080×1440 · 3:4</dd></div>
+            <div><dt>色域</dt><dd>sRGB · PNG-24</dd></div>
+            <div><dt>字体上限</dt><dd>≤ 3 套 / 画面</dd></div>
+          </dl>
+        </div>
+        <div class="hero-stage" aria-hidden="true">
+          <div class="stage-card stage-wechat">
+            <div class="stage-label">WECHAT 2.35:1</div>
+            <div class="mini-cover mini-wechat">
+              <div class="mini-safe"></div>
+              <div class="mini-title">苏黎世秩序</div>
+            </div>
+          </div>
+          <div class="stage-card stage-xhs">
+            <div class="stage-label">XHS 3:4</div>
+            <div class="mini-cover mini-xhs">
+              <div class="mini-safe"></div>
+              <div class="mini-title">爆款卡片</div>
+            </div>
+          </div>
+          <div class="stage-card stage-sq">
+            <div class="stage-label">1:1</div>
+            <div class="mini-cover mini-sq">
+              <div class="mini-safe"></div>
+              <div class="mini-title">次条</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRINCIPLES -->
+    <section class="section" id="principles">
+      <div class="section-head">
+        <span class="sec-num">01</span>
+        <div>
+          <h2>基础设计原则</h2>
+          <p>不可妥协的四条铁律，覆盖安全区、转化、画质与品牌一致性。</p>
+        </div>
+      </div>
+      <div class="principle-grid">
+        <article class="principle">
+          <span class="p-index">A</span>
+          <h3>安全展示区铁律</h3>
+          <p>核心文案、主体人物、关键图标必须置于<strong>绝对安全区</strong>。列表遮罩、状态栏、标题条、点赞区均按实机坐标预留，杜绝截断。</p>
+          <ul class="param-list">
+            <li>微信标题遮挡带：底部 <code>25%</code> 高</li>
+            <li>小红书信息遮挡带：底部 <code>28%</code> 高</li>
+            <li>左右最小安全边距：<code>≥ 6%</code> 画宽</li>
+          </ul>
+        </article>
+        <article class="principle">
+          <span class="p-index">B</span>
+          <h3>3 秒视觉转化</h3>
+          <p>焦点层级固定为：<strong>第一视觉冲击</strong>（场景/主物料）→ <strong>第二主标</strong>（痛点/利益点）→ <strong>第三副标</strong>（证据/时间/人物）。</p>
+          <ul class="param-list">
+            <li>主标占画面宽度 <code>55–75%</code></li>
+            <li>主标与背景对比度 <code>≥ 4.5:1</code></li>
+            <li>单屏信息块 ≤ <code>3</code> 组</li>
+          </ul>
+        </article>
+        <article class="principle">
+          <span class="p-index">C</span>
+          <h3>画质高保真交付</h3>
+          <p>禁止低分辨率拉伸。统一 <strong>2× / 3× 超采样</strong>出图，导出前轻锐化（USM 0.3–0.5px），抵抗微信/小红书有损压缩。</p>
+          <ul class="param-list">
+            <li>色彩空间：<code>sRGB IEC61966-2.1</code></li>
+            <li>格式：<code>PNG-24</code>（保留锐度）</li>
+            <li>字缘：亚像素抗锯齿开启</li>
+          </ul>
+        </article>
+        <article class="principle">
+          <span class="p-index">D</span>
+          <h3>全局视觉一致性</h3>
+          <p>微信封面、小红书卡片、项目 Landing 共用<strong>同一色卡、同一字阶、同一圆角与描边语言</strong>，形成可识别品牌资产。</p>
+          <ul class="param-list">
+            <li>品牌主强调色：<code>#E11D48</code></li>
+            <li>正文墨色：<code>#111827</code></li>
+            <li>字体家族 ≤ <code>3</code> 套/画面</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- SPECS TABLE -->
+    <section class="section" id="specs">
+      <div class="section-head">
+        <span class="sec-num">02</span>
+        <div>
+          <h2>多端尺寸与导出参数总表</h2>
+          <p>高清标准以 2× 像素为准；括号内为逻辑稿尺寸。点击参数可复制。</p>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>平台 / 用途</th>
+              <th>比例</th>
+              <th>高清交付 (px)</th>
+              <th>逻辑稿 (px)</th>
+              <th>安全区（核心信息）</th>
+              <th>导出</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="chip chip-wx">微信</span> 头条封面</td>
+              <td><button class="copy" data-copy="2.35:1">2.35:1</button></td>
+              <td><button class="copy" data-copy="2350×1000">2350×1000</button></td>
+              <td>900×383</td>
+              <td>上 70% · 中央 88% 宽</td>
+              <td>PNG-24 sRGB</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-wx">微信</span> 次条 / 分享方图</td>
+              <td><button class="copy" data-copy="1:1">1:1</button></td>
+              <td><button class="copy" data-copy="1080×1080">1080×1080</button></td>
+              <td>200×200 min</td>
+              <td>中央 80%×80%</td>
+              <td>PNG-24 sRGB</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-xhs">小红书</span> 竖版主图</td>
+              <td><button class="copy" data-copy="3:4">3:4</button></td>
+              <td><button class="copy" data-copy="1080×1440">1080×1440</button></td>
+              <td>1242×1660 @3x 稿</td>
+              <td>上 12% 至下 28% 之间</td>
+              <td>PNG-24 sRGB</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-xhs">小红书</span> 方图备选</td>
+              <td><button class="copy" data-copy="1:1">1:1</button></td>
+              <td><button class="copy" data-copy="1080×1080">1080×1080</button></td>
+              <td>—</td>
+              <td>中央 84%×84%</td>
+              <td>PNG-24 sRGB</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-web">站点</span> Hero 首屏插画</td>
+              <td><button class="copy" data-copy="16:9">16:9</button></td>
+              <td><button class="copy" data-copy="2560×1440">2560×1440</button></td>
+              <td>1440×810</td>
+              <td>左右 8% · 底 12% 避标题</td>
+              <td>WebP/PNG q90+</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-web">站点</span> 社交分享 OG</td>
+              <td><button class="copy" data-copy="1.91:1">1.91:1</button></td>
+              <td><button class="copy" data-copy="1200×630">1200×630</button></td>
+              <td>—</td>
+              <td>中央 80%×75%</td>
+              <td>JPEG q85 / PNG</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <strong>抗压缩策略：</strong>
+        终稿前先输出 <code>2×</code>（封面）或 <code>3×</code>（竖版卡片）中间稿，再使用 Lanczos 缩小到交付像素；
+        仅对字缘与发丝线做 USM <code>Amount 60–80%</code> / <code>Radius 0.3–0.5px</code>。
+        禁止对已压缩 JPEG 二次锐化。
+      </div>
+    </section>
+
+    <!-- WECHAT -->
+    <section class="section" id="wechat">
+      <div class="section-head">
+        <span class="sec-num">03</span>
+        <div>
+          <h2>微信公众号封面工程</h2>
+          <p>头条 2.35:1 + 次条 1:1。重点规避常读列表标题遮挡与分享卡片裁切。</p>
+        </div>
+      </div>
+
+      <div class="platform-toolbar">
+        <label class="toggle">
+          <input type="checkbox" id="toggleWxZones" checked />
+          <span>显示安全区 / 遮挡区</span>
+        </label>
+        <span class="hint">比例框按真实裁切逻辑绘制，可直接对照构图</span>
+      </div>
+
+      <div class="frame-row">
+        <figure class="frame-card" data-zones="wx">
+          <figcaption>
+            <strong>头条封面 · 2.35:1</strong>
+            <button class="copy sm" data-copy="2350×1000">2350×1000</button>
+          </figcaption>
+          <div class="ratio-frame ratio-235" id="frameWxMain">
+            <div class="art art-wechat-main">
+              <div class="art-kicker">AGNES STUDIO · 2026</div>
+              <div class="art-title">苏黎世秩序</div>
+              <div class="art-sub">STRUCTURE &amp; ESSENCE</div>
+              <div class="art-block">END</div>
+            </div>
+            <div class="zone zone-safe" title="绝对安全区"></div>
+            <div class="zone zone-danger-bottom" title="标题/列表遮挡带 25%"></div>
+            <div class="zone zone-crop-side" title="极端列表裁切风险 6%"></div>
+            <div class="zone-label zone-label-safe">安全区 88%×70%</div>
+            <div class="zone-label zone-label-bottom">标题遮挡 25%</div>
+          </div>
+          <ul class="frame-notes">
+            <li>核心文案锚定在高度 <code>8%–70%</code> 区间</li>
+            <li>左右各留 <code>6%</code>，防列表缩略裁切</li>
+            <li>右下角放小色块/期号，允许被遮挡</li>
+          </ul>
+        </figure>
+
+        <figure class="frame-card" data-zones="wx">
+          <figcaption>
+            <strong>次条 / 方图 · 1:1</strong>
+            <button class="copy sm" data-copy="1080×1080">1080×1080</button>
+          </figcaption>
+          <div class="ratio-frame ratio-11" id="frameWxSq">
+            <div class="art art-wechat-sq">
+              <div class="art-title">次条</div>
+              <div class="art-sub">1080 × 1080</div>
+            </div>
+            <div class="zone zone-safe" title="绝对安全区"></div>
+            <div class="zone zone-margin" title="外圈 10% 风险区"></div>
+            <div class="zone-label zone-label-safe">安全 80%</div>
+          </div>
+          <ul class="frame-notes">
+            <li>中央 <code>80%×80%</code> 放主标题 + 一个视觉锚点</li>
+            <li>外圈 10% 仅放纹理、色条、非关键元素</li>
+          </ul>
+        </figure>
+      </div>
+
+      <div class="split">
+        <div>
+          <h3>版面骨架（可复用模板）</h3>
+          <ol class="steps">
+            <li><strong>上带 8–18%：</strong>品牌眉标 / 栏目 / 日期，字高 <code>28–36px</code>（@2x）</li>
+            <li><strong>中带 18–62%：</strong>主视觉或人像，人物面部避开垂直中线 ±12% 的文字叠压区</li>
+            <li><strong>标题锚点：</strong>左对齐或居中，主标字高 <code>72–96px</code>（@2x），字重 Bold/Black</li>
+            <li><strong>底带 75–100%：</strong>只放期号、色块、条码式装饰——允许被标题条覆盖</li>
+          </ol>
+        </div>
+        <div>
+          <h3>微信场景裁切备忘</h3>
+          <table class="mini-table">
+            <tr><th>场景</th><th>风险</th><th>对策</th></tr>
+            <tr><td>常读 / 订阅列表</td><td>底部标题条遮挡约 20–25%</td><td>主标上移，禁放底边</td></tr>
+            <tr><td>聊天分享卡片</td><td>左右轻微裁切</td><td>关键字左右留 6%</td></tr>
+            <tr><td>搜一搜 / 历史</td><td>缩略放大糊化</td><td>笔画最细 ≥ 6px @2x</td></tr>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- XHS -->
+    <section class="section" id="xhs">
+      <div class="section-head">
+        <span class="sec-num">04</span>
+        <div>
+          <h2>小红书卡片爆款工程</h2>
+          <p>主推 3:4 竖版 1080×1440。信息流缩略强对比，底部信息区严格避让。</p>
+        </div>
+      </div>
+
+      <div class="platform-toolbar">
+        <label class="toggle">
+          <input type="checkbox" id="toggleXhsZones" checked />
+          <span>显示安全区 / 遮挡区</span>
+        </label>
+        <span class="hint">底部 28% 对应标题 + 作者 + 互动栏叠压</span>
+      </div>
+
+      <div class="frame-row frame-row-xhs">
+        <figure class="frame-card" data-zones="xhs">
+          <figcaption>
+            <strong>竖版主图 · 3:4</strong>
+            <button class="copy sm" data-copy="1080×1440">1080×1440</button>
+          </figcaption>
+          <div class="ratio-frame ratio-34" id="frameXhsMain">
+            <div class="art art-xhs">
+              <div class="art-kicker">攻略 · 2026</div>
+              <div class="art-title">3 秒抓住<br />点击率</div>
+              <div class="art-sub">大字报标题 + 强对比色块</div>
+            </div>
+            <div class="zone zone-safe" title="绝对安全区"></div>
+            <div class="zone zone-danger-bottom" title="标题/互动遮挡 28%"></div>
+            <div class="zone zone-danger-top" title="状态栏/导航风险 10%"></div>
+            <div class="zone-label zone-label-safe">安全带 12%–72%</div>
+            <div class="zone-label zone-label-bottom">信息遮挡 28%</div>
+            <div class="zone-label zone-label-top">顶栏 10%</div>
+          </div>
+          <ul class="frame-notes">
+            <li>主标放在高度 <code>15%–55%</code>，字高 <code>96–120px</code>（@2x）</li>
+            <li>底部 28% 只放辅助文案/纹理，禁放核心利益点</li>
+            <li>左右安全边距 <code>≥ 8%</code></li>
+          </ul>
+        </figure>
+
+        <figure class="frame-card" data-zones="xhs">
+          <figcaption>
+            <strong>方图备选 · 1:1</strong>
+            <button class="copy sm" data-copy="1080×1080">1080×1080</button>
+          </figcaption>
+          <div class="ratio-frame ratio-11" id="frameXhsSq">
+            <div class="art art-xhs-sq">
+              <div class="art-title">方图封面</div>
+              <div class="art-sub">1080 × 1080</div>
+            </div>
+            <div class="zone zone-safe" title="绝对安全区"></div>
+            <div class="zone zone-danger-bottom" title="底部遮挡 22%"></div>
+            <div class="zone-label zone-label-safe">安全 84%</div>
+            <div class="zone-label zone-label-bottom">遮挡 22%</div>
+          </div>
+          <ul class="frame-notes">
+            <li>安全区 <code>84%×84%</code>，中心偏上 <code>4%</code> 放主标</li>
+            <li>四角可放平台角标式装饰，非关键</li>
+          </ul>
+        </figure>
+
+        <div class="xhs-system">
+          <h3>卡片信息层级（3 秒法则）</h3>
+          <div class="hierarchy">
+            <div class="h-row"><span class="h-tag">L1</span><div><strong>场景 / 物料</strong><span>占版 40%+，一眼可辨的主视觉</span></div></div>
+            <div class="h-row"><span class="h-tag">L2</span><div><strong>主标题</strong><span>6–14 字，痛点或数字利益点，字高 96px+</span></div></div>
+            <div class="h-row"><span class="h-tag">L3</span><div><strong>副标 / 证据</strong><span>20 字内，字号约主标 35–40%</span></div></div>
+          </div>
+          <h3 class="mt">网格与构图</h3>
+          <ul class="param-list">
+            <li>安全区内再分 <code>3×3</code> 九宫，主标占中上行两格</li>
+            <li>色块分割线用 <code>4–6px</code> 硬边（@2x），忌柔和渐变堆叠</li>
+            <li>单套字体家族 ≤ <code>3</code>：显示体 / 正文体 / 等宽数字</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- LANDING -->
+    <section class="section" id="landing">
+      <div class="section-head">
+        <span class="sec-num">05</span>
+        <div>
+          <h2>项目落地页 / 品牌包装</h2>
+          <p>Landing、文档头图、README 横幅与封面卡片共用同一设计语言。</p>
+        </div>
+      </div>
+
+      <div class="landing-grid">
+        <article class="land-card">
+          <h3>Hero 首屏</h3>
+          <ul class="param-list">
+            <li>视口基准 <code>1440×810</code> 逻辑稿，导出 <code>2560×1440</code></li>
+            <li>标题字阶：H1 <code>56–72px</code> / H2 <code>28–36px</code> / Body <code>16–18px</code></li>
+            <li>左右留白 <code>8%</code>，底 <code>12%</code> 避免与 CTA 抢焦点</li>
+            <li>CTA 按钮高 <code>44–48px</code>，主色填充 <code>#E11D48</code></li>
+          </ul>
+        </article>
+        <article class="land-card">
+          <h3>OG 社交分享卡</h3>
+          <ul class="param-list">
+            <li>固定 <code>1200×630</code>（1.91:1）</li>
+            <li>Logo 左上，标题左中，避免两端 <code>10%</code> 边缘</li>
+            <li>与头条封面同一摄影/材质语言，只换排版</li>
+          </ul>
+        </article>
+        <article class="land-card">
+          <h3>README / GitHub 横幅</h3>
+          <ul class="param-list">
+            <li>建议 <code>1280×640</code> 或 <code>1920×640</code></li>
+            <li>暗底用 <code>#0A0B10</code>，文字 <code>#F9FAFB</code>，对比 ≥ 4.5:1</li>
+            <li>与 Agnes Studio 瑞士网格 / 赛博 HUD 流派共用色标</li>
+          </ul>
+        </article>
+      </div>
+
+      <figure class="wireframe">
+        <figcaption>项目页骨架网格（12 栏 · 最大内容宽 1120px）</figcaption>
+        <svg viewBox="0 0 1120 280" class="wire-svg" role="img" aria-label="落地页十二栏网格骨架">
+          <rect x="0" y="0" width="1120" height="280" fill="#fff" stroke="#D4D2CC"/>
+          <!-- 12 columns -->
+          <g fill="#F4F4F0" stroke="#E5E5EA">
+            <rect x="24" y="56" width="64" height="140"/>
+            <rect x="114" y="56" width="64" height="140"/>
+            <rect x="204" y="56" width="64" height="140"/>
+            <rect x="294" y="56" width="64" height="140"/>
+            <rect x="384" y="56" width="64" height="140"/>
+            <rect x="474" y="56" width="64" height="140"/>
+            <rect x="564" y="56" width="64" height="140"/>
+            <rect x="654" y="56" width="64" height="140"/>
+            <rect x="744" y="56" width="64" height="140"/>
+            <rect x="834" y="56" width="64" height="140"/>
+            <rect x="924" y="56" width="64" height="140"/>
+            <rect x="1014" y="56" width="64" height="140"/>
+          </g>
+          <g stroke="#D4D2CC" stroke-width="1">
+            <line x1="0" y1="56" x2="1120" y2="56"/>
+            <line x1="0" y1="196" x2="1120" y2="196"/>
+          </g>
+          <rect x="24" y="16" width="160" height="24" fill="#111827" rx="2"/>
+          <text x="24" y="33" fill="#fff" font-size="12" font-family="ui-monospace,monospace">LOGO</text>
+          <rect x="720" y="18" width="80" height="20" fill="#E5E5EA" rx="2"/>
+          <rect x="812" y="18" width="80" height="20" fill="#E5E5EA" rx="2"/>
+          <rect x="904" y="14" width="120" height="28" fill="#E11D48" rx="4"/>
+          <text x="928" y="33" fill="#fff" font-size="12" font-family="ui-monospace,monospace">CTA</text>
+          <rect x="24" y="80" width="520" height="36" fill="#111827" rx="2"/>
+          <rect x="24" y="128" width="380" height="16" fill="#6B7280" rx="2"/>
+          <rect x="24" y="156" width="300" height="12" fill="#D4D2CC" rx="2"/>
+          <rect x="640" y="72" width="440" height="112" fill="#F4F4F0" stroke="#E11D48" stroke-width="2" rx="4"/>
+          <text x="800" y="134" fill="#E11D48" font-size="14" font-family="ui-monospace,monospace" text-anchor="middle">HERO 16:9</text>
+          <text x="24" y="230" fill="#6B7280" font-size="12" font-family="ui-monospace,monospace">8px baseline · margin 8% · max-width 1120px · 12-col grid</text>
+          <g stroke="#D4D2CC" stroke-dasharray="4 4" fill="none">
+            <line x1="24" y1="0" x2="24" y2="280"/>
+            <line x1="1096" y1="0" x2="1096" y2="280"/>
+          </g>
+        </svg>
+      </figure>
+    </section>
+
+    <!-- COLOR + TYPE -->
+    <section class="section" id="system">
+      <div class="section-head">
+        <span class="sec-num">06</span>
+        <div>
+          <h2>色卡 · 字阶 · 材质</h2>
+          <p>与 Agnes Studio 生成海报、官网、封面共用的全局 Token。点击色值可复制。</p>
+        </div>
+      </div>
+
+      <h3 class="sub-h">Color Tokens</h3>
+      <div class="swatches">
+        <button class="swatch copy-swatch" data-copy="#0A0B10" style="--c:#0A0B10;--t:#F9FAFB">
+          <span class="sw-name">Background Void</span><span class="sw-hex">#0A0B10</span>
+        </button>
+        <button class="swatch copy-swatch" data-copy="#111827" style="--c:#111827;--t:#F9FAFB">
+          <span class="sw-name">Ink Primary</span><span class="sw-hex">#111827</span>
+        </button>
+        <button class="swatch copy-swatch" data-copy="#F4F4F0" style="--c:#F4F4F0;--t:#111827">
+          <span class="sw-name">Paper Canvas</span><span class="sw-hex">#F4F4F0</span>
+        </button>
+        <button class="swatch copy-swatch" data-copy="#E11D48" style="--c:#E11D48;--t:#FFFFFF">
+          <span class="sw-name">Swiss Red</span><span class="sw-hex">#E11D48</span>
+        </button>
+        <button class="swatch copy-swatch" data-copy="#00F0FF" style="--c:#00F0FF;--t:#0A0B10">
+          <span class="sw-name">Cyber Cyan</span><span class="sw-hex">#00F0FF</span>
+        </button>
+        <button class="swatch copy-swatch" data-copy="#F5A623" style="--c:#F5A623;--t:#111827">
+          <span class="sw-name">Steam Gold</span><span class="sw-hex">#F5A623</span>
+        </button>
+        <button class="swatch copy-swatch" data-copy="#10B981" style="--c:#10B981;--t:#FFFFFF">
+          <span class="sw-name">Success</span><span class="sw-hex">#10B981</span>
+        </button>
+        <button class="swatch copy-swatch" data-copy="#6B7280" style="--c:#6B7280;--t:#FFFFFF">
+          <span class="sw-name">Muted</span><span class="sw-hex">#6B7280</span>
+        </button>
+      </div>
+
+      <h3 class="sub-h">Typography Scale（显示体：Smiley Sans · 正文：PingFang SC · 数字：Mono）</h3>
+      <div class="type-scale">
+        <div class="type-row"><span class="t-meta">Display · 96px / 1.05</span><div class="t-sample t-display">苏黎世秩序</div></div>
+        <div class="type-row"><span class="t-meta">H1 · 56px / 1.15</span><div class="t-sample t-h1">全域视觉设计规范</div></div>
+        <div class="type-row"><span class="t-meta">H2 · 32px / 1.25</span><div class="t-sample t-h2">安全区与转化层级</div></div>
+        <div class="type-row"><span class="t-meta">Body · 16px / 1.65</span><div class="t-sample t-body">正文使用系统黑体，保证微信与小红书压缩后仍清晰可读；数字与参数一律等宽。</div></div>
+        <div class="type-row"><span class="t-meta">Caption · 12px / 1.4</span><div class="t-sample t-cap">2350×1000 · 2.35:1 · sRGB · PNG-24</div></div>
+      </div>
+
+      <div class="callout">
+        <strong>字体数量铁律：</strong>单套画面最多 3 套字体家族。
+        推荐组合：<em>Smiley Sans（显示）+ PingFang SC / LXGW WenKai（正文）+ JetBrains Mono / SF Mono（参数）</em>。
+        标题可用 2–3 字重，禁止再引入第 4 套装饰字体。
+      </div>
+    </section>
+
+    <!-- OPEN SOURCE -->
+    <section class="section" id="opensource">
+      <div class="section-head">
+        <span class="sec-num">07</span>
+        <div>
+          <h2>开源工具链与生成式资产</h2>
+          <p>以下仓库 / 模型均真实可用，可直接进入设计与出图工作流。</p>
+        </div>
+      </div>
+
+      <div class="os-grid">
+        <article class="os-card">
+          <span class="os-tag">GitHub · 设计系统</span>
+          <h3>Tailwind CSS</h3>
+          <p>落地页与文档站原子化样式基准，配合 8px 节奏与 Token 色板。</p>
+          <a href="https://github.com/tailwindlabs/tailwindcss" target="_blank" rel="noopener">github.com/tailwindlabs/tailwindcss</a>
+        </article>
+        <article class="os-card">
+          <span class="os-tag">GitHub · 组件库</span>
+          <h3>shadcn/ui</h3>
+          <p>项目页表单、弹窗、按钮的可复制组件范本，保持克制的中性 UI 皮。</p>
+          <a href="https://ui.shadcn.com/" target="_blank" rel="noopener">ui.shadcn.com</a>
+        </article>
+        <article class="os-card">
+          <span class="os-tag">GitHub · 海报骨架</span>
+          <h3>ResponsiveMullerBrockmann</h3>
+          <p>瑞士网格封面构图参考，Agnes Studio 五大流派之一的技术源头。</p>
+          <a href="https://github.com/laurasandoval/ResponsiveMullerBrockmann" target="_blank" rel="noopener">laurasandoval/ResponsiveMullerBrockmann</a>
+        </article>
+        <article class="os-card">
+          <span class="os-tag">GitHub · 字体</span>
+          <h3>Smiley Sans / 霞鹜文楷</h3>
+          <p>显示体与东方正文体，已在 Agnes Studio 渲染管线内嵌。</p>
+          <a href="https://github.com/atelier-anchor/smiley-sans" target="_blank" rel="noopener">atelier-anchor/smiley-sans</a>
+        </article>
+        <article class="os-card">
+          <span class="os-tag">Hugging Face · 文生图</span>
+          <h3>FLUX.1-schnell</h3>
+          <p>快速高审美负空间底图生成；汉字排版交由 HTML/CSS 矢量合成，避免乱码。</p>
+          <a href="https://huggingface.co/black-forest-labs/FLUX.1-schnell" target="_blank" rel="noopener">black-forest-labs/FLUX.1-schnell</a>
+        </article>
+        <article class="os-card">
+          <span class="os-tag">本项目管线</span>
+          <h3>Agnes Studio Pro Poster Engine</h3>
+          <p>HTML/CSS + Headless Chrome 亚像素光栅化；封面模板可直接在 <code>public/index.html</code> 工坊迭代。</p>
+          <a href="https://github.com/tomyiyi/agnes-studio" target="_blank" rel="noopener">github.com/tomyiyi/agnes-studio</a>
+        </article>
+      </div>
+
+      <h3 class="sub-h">推荐生成式提示词骨架（底图 / 负空间）</h3>
+      <pre class="code-block">minimal aesthetic negative space composition, editorial poster ground,
+soft gradient studio lighting, 85mm product photography, high micro-contrast,
+leave 60% calm empty area for typography, no text, no letters, no watermark,
+color palette: #0A0B10 #E11D48 #F4F4F0, ultra sharp, 2x supersample</pre>
+    </section>
+
+    <!-- CHECKLIST -->
+    <section class="section" id="checklist">
+      <div class="section-head">
+        <span class="sec-num">08</span>
+        <div>
+          <h2>交付检查清单</h2>
+          <p>出图前逐条勾选。任一未通过不得发布。</p>
+        </div>
+      </div>
+
+      <div class="check-grid">
+        <label class="check"><input type="checkbox" /> 画布尺寸与比例符合上表高清标准</label>
+        <label class="check"><input type="checkbox" /> 主标 / 主体完整落在绝对安全区</label>
+        <label class="check"><input type="checkbox" /> 底部遮挡带无核心信息</label>
+        <label class="check"><input type="checkbox" /> 文字与背景对比度 ≥ 4.5:1</label>
+        <label class="check"><input type="checkbox" /> 单套画面字体家族 ≤ 3</label>
+        <label class="check"><input type="checkbox" /> 已按 2×/3× 超采样并 Lanczos 缩小</label>
+        <label class="check"><input type="checkbox" /> 色彩空间 sRGB，格式 PNG-24</label>
+        <label class="check"><input type="checkbox" /> 200% 缩放字缘无毛刺、最细笔画 ≥ 6px @2x</label>
+        <label class="check"><input type="checkbox" /> 移动端 375pt 宽预览主标仍完整可读</label>
+        <label class="check"><input type="checkbox" /> 与官网 / 上一篇封面色卡一致</label>
+        <label class="check"><input type="checkbox" /> 无第三方版权素材与水印</label>
+        <label class="check"><input type="checkbox" /> 文件命名：平台_用途_尺寸_日期.png</label>
+      </div>
+
+      <div class="file-naming">
+        <h3>命名规范示例</h3>
+        <p><code>wx_head_2350x1000_20260923.png</code></p>
+        <p><code>xhs_main_1080x1440_20260923.png</code></p>
+        <p><code>og_site_1200x630_20260923.png</code></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div>
+        <strong>Agnes Studio Visual Spec</strong>
+        <p>与生成海报、项目封面、社交卡片共用同一套设计语言 · sRGB · 2026</p>
+      </div>
+      <p class="footer-meta">Crafted for @tomyiyi · Swiss Grid × Generative Studio</p>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="design-guide.js"></script>
+</body>
+</html>
