@@ -19,6 +19,11 @@ import time
 import base64
 import argparse
 from pathlib import Path
+
+SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
 from playwright.sync_api import sync_playwright
 from env_config import resolve_chrome_path, ASSETS_DIR, FONTS_DIR
 

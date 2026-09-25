@@ -17,6 +17,7 @@ import os
 import sys
 import json
 import time
+import base64
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -25,17 +26,53 @@ from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 DIR = Path(__file__).resolve().parent.parent
+
+# 自动自提至项目 .venv 环境（如存在且当前非虚拟环境）
+VENV_PY = DIR / ".venv" / "bin" / "python"
+if VENV_PY.exists() and sys.executable != str(VENV_PY) and os.environ.get("AGNES_VENV_SWITCHED") != "1":
+    os.environ["AGNES_VENV_SWITCHED"] = "1"
+    os.execv(str(VENV_PY), [str(VENV_PY)] + sys.argv)
+
 PUBLIC_DIR = DIR / "public"
 ASSETS_DIR = PUBLIC_DIR / "assets"
 GENERATED_DIR = ASSETS_DIR / "generated"
 GENERATED_DIR.mkdir(parents=True, exist_ok=True)
 
-# 尝试引入海报排版引擎
+FONTS_DIR = DIR / "public" / "fonts"
+render_html_to_poster = None
+
+def get_base64_image(image_path):
+    """读取本地图片并转为 base64 data URI，确保无头浏览器 100% 离线秒级加载"""
+    try:
+        with open(image_path, "rb") as f:
+            data = f.read()
+        ext = os.path.splitext(str(image_path))[1].lower().replace(".", "")
+        mime = "image/png" if ext == "png" else "image/jpeg"
+        return f"data:{mime};base64,{base64.b64encode(data).decode('utf-8')}"
+    except Exception as e:
+        print(f"⚠️ [Base64 Error] 读取图片失败 {image_path}: {e}")
+        return ""
+
+# 尝试引入海报排版引擎与 Gemini 智能引擎
 sys.path.insert(0, str(DIR / "scripts"))
 try:
-    from pro_poster_renderer import render_html_to_poster, get_base64_image, FONTS_DIR
+    from pro_poster_renderer import render_html_to_poster as _renderer, FONTS_DIR as _FONTS_DIR
+    render_html_to_poster = _renderer
+    FONTS_DIR = _FONTS_DIR
 except Exception as e:
     print(f"⚠️ [Warning] 排版引擎导入提示: {e}")
+
+try:
+    from gemini_engine import (
+        generate_creative_brief,
+        refine_prompt_for_agnes,
+        vision_inspect_artwork,
+    )
+except Exception as e:
+    print(f"⚠️ [Warning] Gemini 引擎导入提示: {e}")
+    generate_creative_brief = None
+    refine_prompt_for_agnes = None
+    vision_inspect_artwork = None
 
 LOCAL_KEY_PATH = Path.home() / ".new-api" / "local_key.json"
 
@@ -55,6 +92,11 @@ def get_local_newapi_config():
                     "agnes-image-2.5-flash",
                     "agnes-image-2.1-flash",
                     "dall-e-3"
+                ]),
+                "chat_models": data.get("models", {}).get("chat", [
+                    "agnes-2.5-flash",
+                    "agnes-2.5-pro",
+                    "agnes-3.0-flash"
                 ])
             }
         except Exception as e:
@@ -69,6 +111,11 @@ def get_local_newapi_config():
             "agnes-image-2.5-flash",
             "agnes-image-2.1-flash",
             "dall-e-3"
+        ],
+        "chat_models": [
+            "agnes-2.5-flash",
+            "agnes-2.5-pro",
+            "agnes-3.0-flash"
         ]
     }
 
@@ -103,6 +150,18 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 key = cfg["api_key"]
                 masked_key = key[:6] + "..." + key[-4:] if len(key) > 10 else "***"
             
+            preset_endpoints = []
+            if cfg["detected"] and cfg.get("base_url"):
+                preset_endpoints.append({
+                    "name": f"探测到的网关 ({cfg['base_url']}) [推荐]",
+                    "url": cfg["base_url"]
+                })
+            preset_endpoints.extend([
+                {"name": "本地 New API 负载均衡 (127.0.0.1:3000)", "url": "http://127.0.0.1:3000/v1"},
+                {"name": "Agnes AI 官方端点", "url": "https://apihub.agnes-ai.com/v1"},
+                {"name": "自定义 / OneAPI 聚合网关", "url": ""}
+            ])
+            
             resp = {
                 "success": True,
                 "detected": cfg["detected"],
@@ -114,11 +173,8 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 "api_key": "",
                 "default_model": cfg["default_model"],
                 "available_models": cfg["models"],
-                "preset_endpoints": [
-                    {"name": "本地 New API 负载均衡 (推荐)", "url": "http://127.0.0.1:3000/v1"},
-                    {"name": "Agnes AI 官方端点", "url": "https://apihub.agnes-ai.com/v1"},
-                    {"name": "自定义 / OneAPI 聚合网关", "url": ""}
-                ]
+                "chat_models": cfg.get("chat_models", []),
+                "preset_endpoints": preset_endpoints
             }
             self._send_json(resp)
             return
@@ -139,8 +195,13 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             api_key = req_body.get("api_key", "").strip()
             if not api_key:
                 local_cfg = get_local_newapi_config()
-                if local_cfg["detected"] and base_url.startswith("http://127.0.0.1"):
-                    api_key = local_cfg["api_key"]
+                if local_cfg["detected"]:
+                    configured_base = local_cfg["base_url"].rstrip("/")
+                    if (base_url == configured_base 
+                        or base_url.startswith("http://127.0.0.1") 
+                        or base_url.startswith("http://localhost") 
+                        or "192.168." in base_url):
+                        api_key = local_cfg["api_key"]
 
             if not base_url:
                 self._send_json({"success": False, "error": "请提供有效的 Base URL"}, status=400)
@@ -189,17 +250,13 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         # 2. 调用 Agnes 生成留白底图
         if self.path == "/api/generate-image":
-            base_url = req_body.get("base_url", "http://127.0.0.1:3000/v1").strip().rstrip("/")
-            api_key = req_body.get("api_key", "").strip()
+            local_cfg = get_local_newapi_config()
+            default_base = local_cfg.get("base_url", "http://192.168.1.164:3000/v1") if local_cfg.get("detected") else "http://192.168.1.164:3000/v1"
+            base_url = (req_body.get("base_url") or default_base).strip().rstrip("/")
+            api_key = req_body.get("api_key", "").strip() or local_cfg.get("api_key", "")
             model = req_body.get("model", "agnes-image-2.5-flash").strip()
             prompt = req_body.get("prompt", "").strip()
             size = req_body.get("size", "1024x1024")
-
-            # 如果未提供 key，尝试从本地读取
-            if not api_key:
-                local_cfg = get_local_newapi_config()
-                if local_cfg["detected"]:
-                    api_key = local_cfg["api_key"]
 
             if not prompt:
                 self._send_json({"success": False, "error": "提示词不能为空"}, status=400)
@@ -263,6 +320,10 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         # 3. 动态渲染自定义商业海报 (Render Poster)
         if self.path == "/api/render-poster":
+            if not render_html_to_poster:
+                self._send_json({"success": False, "error": "排版引擎不可用，请确保已安装 playwright 及其浏览器依赖"}, status=500)
+                return
+
             style = req_body.get("style", "swiss_01")
             title = req_body.get("title", "苏黎世秩序")
             subtitle = req_body.get("subtitle", "STRUCTURE & ESSENCE")
@@ -301,6 +362,100 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 })
             except Exception as e:
                 self._send_json({"success": False, "error": f"渲染失败: {str(e)}"}, status=500)
+            return
+
+        # 4. Gemini 智能简报与文案生成
+        if self.path == "/api/gemini/generate-brief":
+            topic = req_body.get("topic", "").strip()
+            platform = req_body.get("platform", "wechat")
+            tone = req_body.get("tone", "luxury")
+            goal = req_body.get("goal", "editorial")
+            base_url = req_body.get("base_url")
+            api_key = req_body.get("api_key")
+
+            if not topic:
+                self._send_json({"success": False, "error": "请输入创意主题"}, status=400)
+                return
+
+            if not generate_creative_brief:
+                self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
+                return
+
+            if not api_key:
+                local_cfg = get_local_newapi_config()
+                if local_cfg["detected"]:
+                    api_key = local_cfg["api_key"]
+                    if not base_url:
+                        base_url = local_cfg["base_url"]
+
+            res = generate_creative_brief(topic, platform=platform, tone=tone, goal=goal, base_url=base_url, api_key=api_key)
+            if res.get("ok"):
+                self._send_json({"success": True, "brief": res["brief"], "cost_s": res.get("cost_s")})
+            else:
+                self._send_json({"success": False, "error": res.get("error")}, status=500)
+            return
+
+        # 5. Gemini 物理光学 Prompt 编译与增强
+        if self.path == "/api/gemini/refine-prompt":
+            raw_prompt = req_body.get("prompt", "").strip()
+            aspect_ratio = req_body.get("aspect_ratio", "1:1")
+            negative_space_zone = req_body.get("negative_space", "top-left")
+            base_url = req_body.get("base_url")
+            api_key = req_body.get("api_key")
+
+            if not raw_prompt:
+                self._send_json({"success": False, "error": "请输入原始提示词"}, status=400)
+                return
+
+            if not refine_prompt_for_agnes:
+                self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
+                return
+
+            if not api_key:
+                local_cfg = get_local_newapi_config()
+                if local_cfg["detected"]:
+                    api_key = local_cfg["api_key"]
+                    if not base_url:
+                        base_url = local_cfg["base_url"]
+
+            res = refine_prompt_for_agnes(raw_prompt, aspect_ratio=aspect_ratio, negative_space_zone=negative_space_zone, base_url=base_url, api_key=api_key)
+            if res.get("ok"):
+                self._send_json({"success": True, "prompt": res["prompt"], "cost_s": res.get("cost_s")})
+            else:
+                self._send_json({"success": False, "error": res.get("error")}, status=500)
+            return
+
+        # 6. Gemini 视觉多模态审美与排版审查
+        if self.path == "/api/gemini/vision-inspect":
+            image_rel = req_body.get("image_path", "").strip()
+            title = req_body.get("title", "")
+            base_url = req_body.get("base_url")
+            api_key = req_body.get("api_key")
+
+            if not image_rel:
+                self._send_json({"success": False, "error": "请提供待质检图片路径"}, status=400)
+                return
+
+            img_abs = (PUBLIC_DIR / image_rel.lstrip("/")).resolve()
+            if not img_abs.exists():
+                img_abs = (DIR / image_rel.lstrip("/")).resolve()
+
+            if not img_abs.exists() or not img_abs.is_file():
+                self._send_json({"success": False, "error": f"找不到图片文件: {image_rel}"}, status=404)
+                return
+
+            if not api_key:
+                local_cfg = get_local_newapi_config()
+                if local_cfg["detected"]:
+                    api_key = local_cfg["api_key"]
+                    if not base_url:
+                        base_url = local_cfg["base_url"]
+
+            res = vision_inspect_artwork(str(img_abs), title=title, base_url=base_url, api_key=api_key)
+            if res.get("ok"):
+                self._send_json({"success": True, "inspection": res["inspection"], "cost_s": res.get("cost_s")})
+            else:
+                self._send_json({"success": False, "error": res.get("error")}, status=500)
             return
 
         super().do_POST()
@@ -384,10 +539,7 @@ def generate_custom_poster_html(style, title, subtitle, body, author, bg_uri):
     text-shadow: 0 2px 10px rgba(0,0,0,0.8); z-index: 10;
   }}
   .seal-red {{
-    width: 44px; height: 44px; background: #b91c1c; border: 2px solid #ef4444; border-radius: 4px;
-    display: flex; align-items: center; justify-content: center; color: #ffffff;
-    font-size: 13px; font-weight: bold; writing-mode: vertical-rl; letter-spacing: 2px;
-    position: absolute; top: 380px; left: 120px; z-index: 10;
+    display: none;
   }}
   .footer-caption {{
     position: absolute; bottom: 50px; left: 100px; font-size: 12px;
@@ -396,7 +548,6 @@ def generate_custom_poster_html(style, title, subtitle, body, author, bg_uri):
 </style></head><body>
   <div class="bg-layer"></div>
   <div class="title-left">{title}</div>
-  <div class="seal-red">雅集</div>
   <div class="poem-block">{body}</div>
   <div class="footer-caption">{subtitle} // {author}</div>
 </body></html>"""
