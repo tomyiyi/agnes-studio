@@ -1,0 +1,41 @@
+{
+  "id": "poster-layout-system-v1",
+  "updated": "2026-09-25",
+  "focus": "设计排版（不是换字）：网格、重心、层级、主题落位",
+  "layouts": [
+    {
+      "id": "swiss_asym",
+      "name": "瑞士非对称",
+      "use": "品牌/人物/编辑",
+      "rule": "左 38% 字塔（kick→主标→slogan→编号），右 52% 图窗；两栏不居中，重心偏左",
+      "grid": "12列意识 · 外边距 6–7%"
+    },
+    {
+      "id": "type_band",
+      "name": "上字带下图场",
+      "use": "电影/叙事/发布",
+      "rule": "上 38% 实色字带放 kick+巨标+行末信息，下 62% 图场；带与图交界用渐变软切",
+      "hierarchy": "带内字阶 8:1，图上不叠主标"
+    },
+    {
+      "id": "axis_tension",
+      "name": "对角张力",
+      "use": "潮流/运动/冲击",
+      "rule": "右上西文+年份拉线，左下巨标+短句压角；中间 40% 留给主体",
+      "energy": "对角形成视线折线"
+    },
+    {
+      "id": "window_editorial",
+      "name": "杂志开窗",
+      "use": "画册/展览/文艺",
+      "rule": "纸面大留白，中部开窗看图；左侧竖排书脊标题；窗下 caption 一行"
+    }
+  ],
+  "micro_rules": {
+    "outer_margin": "≥7%",
+    "alignment": "一页一系统：全左齐或中轴，禁止混",
+    "spacing_rhythm": "8px 倍数；标题上距 > 下距",
+    "theme_slot": "主题只出现在 1 个主槽位（字带 / 字塔 / 压角 / 书脊）",
+    "decoration_max": "细线 1px + 小编号 + 至多 1 个印章"
+  }
+}

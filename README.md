@@ -27,6 +27,25 @@
 
 ---
 
+## 📦 项目总览（Project Summary）
+
+> **完整文档**：[`docs/PROJECT.md`](docs/PROJECT.md) · 更新 2026-09-26
+
+| 资产 | 规模 |
+|------|------|
+| 图像产出 | **1500+**（`outputs/`） |
+| 字在人后迭代 | 946 张 / v1–v159 |
+| 版式系统 | L1 十二构图 + L2 中文精修 6 |
+| 画廊 | 1000+ 条（工作台「资产画廊」） |
+| 脚本 / 规则 | 31 Python / 18 JSON |
+| 生图入口 | `scripts/agnes_gateway.py` → New API |
+| 中文排版 | 真字体叠字（思源宋 Black 等） |
+
+**硬关系**：`BACKGROUND → TYPE → PERSON`（字在人后）。  
+**版式路径**：`outputs/layout_variants/L1|L2/` · 编号板报号验收 · 只增不删。
+
+---
+
 ## ⚡ 为什么选择 Agnes Studio？
 
 传统 AI 海报制作通常面临两个死穴：

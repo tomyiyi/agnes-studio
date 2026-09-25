@@ -26,6 +26,10 @@
 `scripts/agnes_gateway.py` → `http://127.0.0.1:3000/v1/images/generations`  
 渠道池 `Agnes-Hub-01..06` 权重分流 + 熔断 + 探活；Token 在 `~/.new-api/local_key.json`。
 
+**风格 Skill（71 项合集，2026-09-24 全局安装）**：简报加 `style_skill: "S05"`（或 `cover_style.py --style-skill S05`）。
+调用名/许可见 `docs/SKILLS_71_INSTALL_RECEIPT.md`；机器可读索引 `data/skills_71_index.json`；映射在 `data/style_catalog.json` → `skill_styles`。
+生图仍走 New API，Skill 只提供视觉约束摘要。ST09–13 / S28 非商业。
+
 ```bash
 # 按简报出变量样式
 python3 scripts/cover_style.py data/briefs/xhs_fresh_ctr.json
@@ -35,6 +39,20 @@ python3 scripts/agnes_gateway.py --brief data/briefs/xhs_fresh_ctr.json --out /t
 ```
 
 ---
+
+### 0.4 大气海报规则（2026-09-25）
+
+- 真相源：`data/poster_grand_rules.json`
+- **负空间 ≥35%**（电影/品牌甜点 45–60%）；装饰 ≤10%；色角色 ≤3；字阶 8–10:1
+- 构图优先：独主体大空场 / 对角张力 / 中轴庄严 / 图文分区 / 巨字极简
+- 读图门禁：**0.5s 抓主视觉、3s 读主信息**
+- tone 可用 `epic`（`style_catalog.json`）
+
+## 0.45 Poster Atelier Skill（2026-09-25）
+
+全局 Skill：`~/.config/mimocode/skills/poster-atelier/`（项目内 `.mimocode/skills/poster-atelier/`）
+融合 swiss-poster-skill + raster + layout-atlas 350 版式。硬门禁：`data/poster_gate.json`。
+简报可写 `lineage` / `move`。渲染：`render_drama_poster.py` / `render_cinema_poster.py` / `cover_pipeline.py`。
 
 ## 0.5 简报变量（流程是骨架，变量是血肉）
 
