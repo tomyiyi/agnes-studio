@@ -384,3 +384,38 @@ if __name__ == "__main__":
         print(f"    - 元素 [{el['role']}]: {el['text']} (x:{el['x']}, y:{el['y']}, font_size:{el['font_size']}pt)")
         
     print("\n🎉 全部排印学自检与断言测试通过！")
+
+
+class PosterTypeSystem:
+    """主题呈现与字排规格（data/poster_type_system.json）。"""
+
+    def __init__(self, path=None):
+        import json
+        from pathlib import Path
+        p = Path(path or (Path(__file__).resolve().parent.parent / "data" / "poster_type_system.json"))
+        self.spec = json.loads(p.read_text(encoding="utf-8"))
+
+    def sizes(self, canvas_w: int = 1080):
+        scale = canvas_w / 1080.0
+        out = self.spec.get("render_defaults_1080x1440", {})
+        return {k: {**v, "size": int(v["size"] * scale)} for k, v in out.items() if isinstance(v, dict) and "size" in v}
+
+    def theme_mode(self, goal: str) -> str:
+        mapping = {
+            "ctr": "压图巨字",
+            "editorial": "负空间一角",
+            "brand": "中轴竖排或负空间一角",
+            "story": "对角拆字",
+            "vertical": "中轴竖排",
+        }
+        return mapping.get(goal, "负空间一角")
+
+    def validate_copy_pair(self, title: str, latin: str, slogan: str) -> list:
+        issues = []
+        if len(title.replace(" ", "")) > 8:
+            issues.append("主标过长，大气海报宜 ≤8 字")
+        if latin and not latin.isupper():
+            issues.append("西文副标建议全大写 + 宽字距")
+        if len(slogan.replace(" ", "")) > 18:
+            issues.append("slogan >18 字，建议砍半")
+        return issues

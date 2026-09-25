@@ -1,0 +1,97 @@
+{
+  "gallery_total": 166,
+  "skill71": 71,
+  "categories": [
+    {
+      "id": "all",
+      "name": "全部作品全景",
+      "count": 166
+    },
+    {
+      "id": "asian-portraits",
+      "name": "亚洲美人写真",
+      "count": 26
+    },
+    {
+      "id": "character-consistency",
+      "name": "角色一致性 (同一人跨场景)",
+      "count": 4
+    },
+    {
+      "id": "fullbody-fashion",
+      "name": "全身站姿与高级时装",
+      "count": 4
+    },
+    {
+      "id": "commercial-posters",
+      "name": "动漫概念海报 (中文矢量排版)",
+      "count": 13
+    },
+    {
+      "id": "infographics",
+      "name": "Bento 便当格信息图",
+      "count": 1
+    },
+    {
+      "id": "product-commercial",
+      "name": "商业静物与产品摄影",
+      "count": 1
+    },
+    {
+      "id": "3d-assets",
+      "name": "3D 黏土资产与盲盒",
+      "count": 1
+    },
+    {
+      "id": "gpt-portrait",
+      "name": "GPT 人像写真",
+      "count": 28
+    },
+    {
+      "id": "gpt-commercial",
+      "name": "GPT 商业广告",
+      "count": 14
+    },
+    {
+      "id": "gpt-poster",
+      "name": "GPT 海报",
+      "count": 2
+    },
+    {
+      "id": "gpt-infographic",
+      "name": "GPT 信息图",
+      "count": 1
+    },
+    {
+      "id": "skill-surreal",
+      "name": "照片转超现实叙事",
+      "count": 4
+    },
+    {
+      "id": "skill-atmosphere",
+      "name": "光色与氛围改造",
+      "count": 6
+    },
+    {
+      "id": "skill-illustration",
+      "name": "照片转插画与材质",
+      "count": 14
+    },
+    {
+      "id": "skill-poster",
+      "name": "照片转编辑海报",
+      "count": 23
+    },
+    {
+      "id": "skill-memory",
+      "name": "照片转明信片与记忆档案",
+      "count": 14
+    },
+    {
+      "id": "skill-abstract",
+      "name": "照片抽象转译",
+      "count": 10
+    }
+  ],
+  "copied": 71
+}

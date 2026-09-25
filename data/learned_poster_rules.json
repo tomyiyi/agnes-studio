@@ -175,5 +175,20 @@
       "比：主标题与微标 10:1 极端字阶对比",
       "空：对角避让保留人物视觉焦点"
     ]
+  },
+  {
+    "id": "grand-space-2026-09-25",
+    "source": "web+docs distillation",
+    "rule": "大气=留白≥35%（甜点45–60%）+ 字阶8–10:1 + 装饰≤10% + 色角色≤3",
+    "recommended_modes": [
+      "bignews",
+      "diag",
+      "vertical"
+    ],
+    "palette_bias": [
+      "mono+accent",
+      "ink+gold",
+      "low-sat-field+one-pop"
+    ]
   }
 ]

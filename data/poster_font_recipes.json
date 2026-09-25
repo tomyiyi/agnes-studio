@@ -1,0 +1,137 @@
+{
+  "id": "poster-font-recipes-v1",
+  "updated": "2026-09-25",
+  "insight": "高级感 = 字体性格匹配 + 极端字阶 + 光学留白 + 克制装饰。得意黑斜体不是万能高级，宋体/楷体才是气质向。",
+  "recipes": [
+    {
+      "id": "elegant_song",
+      "name": "典雅宋 · 高定/品牌",
+      "when": "奢侈品、画册、人物大片、东方美学",
+      "cn_display": {
+        "font": "Songti.ttc / STSong / 思源宋体",
+        "weight": "Bold/Heavy",
+        "tracking": "0.08–0.14em",
+        "size": "88–120px @1080",
+        "note": "中文大标宜端正少斜；字距略开显贵"
+      },
+      "cn_body": {
+        "font": "LXGWWenKai / PingFang Light",
+        "size": "20–24px",
+        "leading": 1.7,
+        "tracking": "0.12em"
+      },
+      "latin_display": {
+        "font": "Bodoni 72 / Didot / Baskerville",
+        "case": "uppercase or title",
+        "tracking": "0.35–0.5em",
+        "size": "16–22px",
+        "weight": "Regular"
+      },
+      "latin_micro": {
+        "font": "Baskerville Italic or Didot",
+        "size": "11–13px",
+        "tracking": "0.2em",
+        "use": "series / edition / place"
+      },
+      "layout": "负空间一角或中轴竖排；主标独占视觉；细规线 1px；印章小而偏",
+      "avoid": [
+        "得意黑斜体当唯一主标",
+        "多彩字",
+        "阴影描边",
+        "大圆角装饰框"
+      ]
+    },
+    {
+      "id": "monument_sans",
+      "name": "势能黑 · 大气/电影",
+      "when": "电影海报、发布会、潮流、大字报",
+      "cn_display": {
+        "font": "SmileySans-Oblique / 思源黑 Heavy",
+        "tracking": "0–0.04em",
+        "size": "110–160px",
+        "note": "更紧、更大、更少字"
+      },
+      "cn_body": {
+        "font": "PingFang / 思源黑 Regular",
+        "size": "18–22px",
+        "tracking": "0.08em"
+      },
+      "latin_display": {
+        "font": "Futura / Helvetica Neue",
+        "case": "uppercase",
+        "tracking": "0.4em+",
+        "size": "14–18px",
+        "weight": "Light/Regular"
+      },
+      "latin_micro": {
+        "font": "ui-monospace",
+        "size": "10–12px",
+        "tracking": "0.25em"
+      },
+      "layout": "压图巨字或对角拆字；scrim 只压字侧；装饰=细线/极小编号",
+      "avoid": [
+        "字挤在一起",
+        "英文与中文同号",
+        "花边/色块框"
+      ]
+    },
+    {
+      "id": "poetic_kai",
+      "name": "诗意楷 · 文艺/治愈",
+      "when": "旅行、生活、小志、人文摄影",
+      "cn_display": {
+        "font": "LXGWWenKai",
+        "tracking": "0.12–0.2em",
+        "size": "64–88px",
+        "note": "不要过粗；靠留白撑"
+      },
+      "cn_body": {
+        "font": "LXGWWenKai Light",
+        "size": "18–22px",
+        "leading": 1.8
+      },
+      "latin_display": {
+        "font": "Baskerville Italic / Georgia Italic",
+        "case": "sentence or small caps",
+        "tracking": "0.15em",
+        "size": "14–18px"
+      },
+      "latin_micro": {
+        "font": "Baskerville",
+        "size": "11px",
+        "tracking": "0.18em"
+      },
+      "layout": "负空间一角；主标可两行诗行；细线分隔；无印章或极小印章",
+      "avoid": [
+        "卡通手写乱用",
+        "拥挤信息",
+        "高饱和撞色"
+      ]
+    }
+  ],
+  "composition_micro": {
+    "optical_margin": "文本块左边距 ≥7% 画幅；主标基线与图像重心成张力",
+    "hairline": "1px 规线长度 40–64px，弱于字",
+    "seal": "≤48px，色 #B4232A 或金 #C4A57C，位置右下/主标侧",
+    "vertical_title": "writing-mode: vertical-rl；字距 0.15em；适合中式",
+    "pangu": "0.25em；中文大标通常不夹英文",
+    "contrast": "亮图→墨字+浅帘；暗图→米白字；禁止亮底浅黄字"
+  },
+  "premium_fonts_loaded": {
+    "NotoSerifCJKsc-Black.otf": "思源宋 Black — 电影纪念碑",
+    "NotoSansCJKsc-Black.otf": "思源黑 Black",
+    "Alibaba-PuHuiTi-Heavy.ttf": "阿里普惠 Heavy — 巨字建筑",
+    "Alibaba-PuHuiTi-Bold.ttf": "阿里普惠 Bold",
+    "Bodoni/Didot/Futura/Baskerville": "西文高定"
+  },
+  "monument_composition": {
+    "title_size": "148–168px @864w（几乎顶满）",
+    "cn_tracking": "0.06em 或 -0.02em（紧排更建筑）",
+    "latin_tracking": "0.5em+",
+    "patterns": [
+      "顶天巨字+底栏细注",
+      "下半屏字当地基",
+      "中轴竖排+印章"
+    ]
+  }
+}

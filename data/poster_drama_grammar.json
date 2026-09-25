@@ -1,0 +1,49 @@
+{
+  "id": "poster-drama-grammar-v1",
+  "sources": [
+    "github.com/adewale/swiss-poster-skill",
+    "github.com/Tresnanda/raster (swiss-industrial-poster-rules)",
+    "github.com/nardinmarcus/layout-atlas (350 layouts, CJK, Chinese composition)",
+    "impeccable.style/slop (anti-slop)"
+  ],
+  "hard_rules": {
+    "titleCount": 1,
+    "typeSizes": "only macro / supporting / micro (2–3 sizes)",
+    "scaleRatio": "≥10x macro:micro",
+    "expressiveMoveCount": "≤1 named move",
+    "textOverlapCount": 0,
+    "accent": "exactly one, used boldly",
+    "grid": "12-col as launchpad; allow one escape (bleed/crop/overlap)",
+    "smallTextZone": "calm field only — never busy photo detail",
+    "semantic": "giant type must still communicate the subject; title stays readable"
+  },
+  "named_moves": [
+    "mega-title-bleed",
+    "controlled-occlusion (≤35% headline)",
+    "hard-field-inversion",
+    "edge-crop-glyph",
+    "vertical-spine",
+    "计白当黑",
+    "边角式",
+    "虚实相生"
+  ],
+  "anti_slop": [
+    "no two giant titles",
+    "no decorative boxes/frames",
+    "no grid overlay as default decoration",
+    "no accidental centering mush",
+    "no competing gestures",
+    "no web CTA leakage (View Documentation etc.)"
+  ],
+  "chinese_composition_anchors": [
+    "计白当黑",
+    "疏密",
+    "主宾",
+    "开合",
+    "藏露",
+    "欹正",
+    "边角式",
+    "折枝式",
+    "直排右起"
+  ]
+}
