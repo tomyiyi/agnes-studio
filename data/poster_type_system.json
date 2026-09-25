@@ -1,0 +1,126 @@
+{
+  "id": "poster-type-system-v1",
+  "updated": "2026-09-25",
+  "problem": "文字排版与主题呈现不够专业/高级",
+  "principles": {
+    "one_idea": "一图一主题；标题只服务一个主张",
+    "hierarchy_0_5s_3s": "0.5s 主视觉+主标，3s 内 slogan/关键信息可读",
+    "type_scale": {
+      "ratio": "golden 1.618 or fifth 1.5",
+      "hero_to_micro": "8–16:1",
+      "sizes_1080w": {
+        "T1": [
+          96,
+          160
+        ],
+        "T2": [
+          28,
+          48
+        ],
+        "T3": [
+          18,
+          28
+        ],
+        "T4": [
+          11,
+          14
+        ]
+      }
+    },
+    "tracking": {
+      "chinese_display": "0.04–0.12em（大标可更紧 0，小标略开）",
+      "latin_allcaps": "0.28–0.45em",
+      "latin_sub_as_label": "0.35em+",
+      "forbid": "中文大标字距过开导致散；西文全挤在一起"
+    },
+    "weight_contrast": "同族至少 2 档：Black/Heavy 主标 + Regular/Light 副文；禁同粗细糊成一片",
+    "color_text": "主标取 1 个强调色或墨色；副文降一级；禁多彩标题",
+    "alignment": "一种对齐体系走到底（左齐最稳/中轴最庄严）；禁左中右混用"
+  },
+  "theme_presentation_playbook": [
+    {
+      "name": "压图巨字",
+      "when": "冲击/大字报/CTR",
+      "how": "主标占宽 70–95%，字底压半透明 scrim 或压在负空间；西文细带字距拉开"
+    },
+    {
+      "name": "对角拆字",
+      "when": "电影感/潮流",
+      "how": "两组字拆到对角（如左上主标 + 右下副标），中间留给主体"
+    },
+    {
+      "name": "负空间一角",
+      "when": "品牌/极简/大气",
+      "how": "主标缩在 1/3 区，其余空；靠字重和留白撑场"
+    },
+    {
+      "name": "中轴竖排",
+      "when": "新中式/庄严",
+      "how": "vertical-rl 大标居中或偏侧；两侧微信息对称"
+    },
+    {
+      "name": "标题框入横带",
+      "when": "资讯/杂志",
+      "how": "色带或 scrim 切出标题带；带内 T1+T2，带下图"
+    },
+    {
+      "name": "字图互锁",
+      "when": "艺术海报",
+      "how": "字压主体局部（不压五官），形成前后关系；要可控遮挡"
+    }
+  ],
+  "theme_text_formulas": {
+    "beauty": {
+      "t1": "2+2 断句或 4 字成语感",
+      "t2": "英文全大写 2–4 词",
+      "slogan": "一句感受，≤12 字更有力"
+    },
+    "product": {
+      "t1": "产品名/核心利益 2–6 字",
+      "t2": "品类英文",
+      "slogan": "一个利益点 + 一个场景"
+    },
+    "story": {
+      "t1": "故事钩子短句",
+      "t2": "系列/章节英文",
+      "slogan": "情绪或反差"
+    },
+    "grand_epic": {
+      "t1": "极少字（2–4）或一个词",
+      "t2": "细西文 tracking 大",
+      "slogan": "无或一行极短"
+    }
+  },
+  "common_mistakes": [
+    "标题又多又长，没有唯一主张",
+    "中英大小接近，没有字阶对比",
+    "英文 tracking 不足，显得廉价",
+    "标题压在人脸/产品主体上",
+    "装饰线框、角标小字抢戏",
+    "字色和背景对比不足（亮底浅字）"
+  ],
+  "render_defaults_1080x1440": {
+    "T1": {
+      "size": 120,
+      "weight": 800,
+      "tracking": 0.02
+    },
+    "T2": {
+      "size": 32,
+      "weight": 500,
+      "tracking": 0.38,
+      "transform": "uppercase"
+    },
+    "T3": {
+      "size": 22,
+      "weight": 400,
+      "tracking": 0.04
+    },
+    "T4": {
+      "size": 12,
+      "weight": 400,
+      "tracking": 0.12
+    },
+    "min_contrast_ratio": 4.5
+  }
+}

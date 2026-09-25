@@ -1,0 +1,109 @@
+{
+  "id": "poster-grand-v1",
+  "updated": "2026-09-24",
+  "goal": "大气 / 高级感 / 电影海报级",
+  "research_refs": [
+    "https://www.secaiyun.com/docs/layout-white-space-design-guide-2026-05-16.html",
+    "https://www.secaiyun.com/docs/graphic-design-composition-layout-principles-guide-2026-07-07.html",
+    "docs/WORKFLOWS.md",
+    "docs/TYPOGRAPHY_AND_POSTER_DESIGN.md"
+  ],
+  "hard_targets": {
+    "negative_space_ratio": {
+      "min": 0.35,
+      "sweet": 0.45,
+      "max": 0.6,
+      "note": "大气海报留白应高于普通电商；产品海报 30–45%，品牌/电影感可到 50–60%"
+    },
+    "split_60_30_10": {
+      "whitespace": 0.6,
+      "content": 0.3,
+      "decoration": 0.1
+    },
+    "type_scale_hero_to_micro": {
+      "min": 8,
+      "sweet": 10,
+      "max": 16
+    },
+    "compose_grid": [
+      "rule_of_thirds",
+      "golden_ratio_1_1_618",
+      "12col_or_6col",
+      "asymmetric_center_of_gravity"
+    ],
+    "reading_path_seconds": {
+      "first_impression": 0.5,
+      "core_message": 3.0
+    },
+    "spacing_rhythm_px": [
+      8,
+      16,
+      24,
+      32,
+      48,
+      64,
+      96
+    ],
+    "corners_clear": true,
+    "no_dirty_gaussian_black_shadow": true
+  },
+  "composition_playbook": [
+    {
+      "name": "独主体 + 大空场",
+      "use": "品牌 / 人物主视觉",
+      "rule": "主体占 20–35% 视觉重量，四周留呼吸；对角线或三分点落位"
+    },
+    {
+      "name": "对角张力",
+      "use": "运动 / 速度 / 潮流",
+      "rule": "标题与主体成对角；标题字重最高，西文 tracking +200–400%"
+    },
+    {
+      "name": "中轴庄严",
+      "use": "新中式 / 宫廷 / 发布会",
+      "rule": "竖排或居中大标；两侧对称微信息；色彩少、材质重"
+    },
+    {
+      "name": "上文下图 / 上图下文",
+      "use": "叙事 / 电影感",
+      "rule": "图文带明确分区，用 scrim 或色带切开，禁止字压五官"
+    },
+    {
+      "name": "巨字极简",
+      "use": "海报冲击 / 大字报",
+      "rule": "只留 1 个巨型词 + 1 行细西文 + 极少微信息"
+    }
+  ],
+  "color_for_grand": {
+    "max_roles": 3,
+    "prefer": [
+      "单主色 + 中性",
+      "双墨套印",
+      "低饱和大面积 + 一点高饱和强调"
+    ],
+    "avoid": [
+      "多色平均分布",
+      "渐变滥用",
+      "装饰色块框"
+    ]
+  },
+  "type_for_grand": {
+    "families_max": 3,
+    "pairing": "显示体配无衬线西文；宋体配衬线西文",
+    "pangu_em": 0.25,
+    "forbid": [
+      "弯引号",
+      "角标规格小字",
+      "尺寸徽标框"
+    ]
+  },
+  "checklist_extra": [
+    "0.5 秒能否抓住主视觉？",
+    "3 秒能否读完主信息？",
+    "是否有 ≥35% 可呼吸负空间？",
+    "装饰是否 ≤10%？",
+    "是否只用 ≤3 色角色？",
+    "是否只用 ≤3 字体族？",
+    "角落是否干净（无规格小字）？"
+  ]
+}

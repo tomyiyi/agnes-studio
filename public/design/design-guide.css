@@ -1,6 +1,7 @@
-/* Agnes Studio · 全域视觉设计规范 2026
-   Style: Swiss print spec manual × digital design-system docs
-   Tokens: Paper #F4F4F0 · Ink #111827 · Accent #E11D48 · Muted #6B7280 · Hairline #D4D2CC
+/* Agnes Studio · 全域视觉设计规范 2026-09-25
+   Style anchor: Krea × Linear dark atelier · media-first creative studio
+   Tokens: Void #09090B · Card #17171C · Ink #F4F2ED · Muted #8E8E9A
+           Accent champagne #D4B896 · Status mint #6EE7B7 · Hairline rgba(255,255,255,.06)
 */
 
 @font-face {
@@ -10,16 +11,16 @@
 }
 
 :root {
-  --paper: #f4f4f0;
-  --ink: #111827;
-  --ink-2: #374151;
-  --muted: #6b7280;
-  --hairline: #d4d2cc;
-  --card: #ffffff;
+  --paper: #09090b;
+  --ink: #f4f2ed;
+  --ink-2: #c9c6bf;
+  --muted: #8e8e9a;
+  --hairline: rgba(255, 255, 255, 0.06);
+  --card: #17171c;
   --red: #e11d48;
-  --cyan: #00f0ff;
-  --gold: #f5a623;
-  --void: #0a0b10;
+  --cyan: #6ee7b7;
+  --gold: #d4b896;
+  --void: #09090b;
   --wx: #07c160;
   --xhs: #ff2442;
   --web: #0e7490;
