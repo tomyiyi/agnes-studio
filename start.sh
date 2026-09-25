@@ -14,8 +14,10 @@ echo "📂 根目录: $DIR"
 echo "🌐 访问入口: http://localhost:$PORT/#poster-studio"
 echo "=============================================================================="
 
-# 检查 Python 环境
-if command -v python3 >/dev/null 2>&1; then
+# 检查 Python 环境 (优先使用虚拟环境)
+if [ -f "$DIR/.venv/bin/python" ]; then
+    PYTHON_CMD="$DIR/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
     PYTHON_CMD="python3"
 elif command -v python >/dev/null 2>&1; then
     PYTHON_CMD="python"

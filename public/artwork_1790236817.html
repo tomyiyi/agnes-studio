@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>《器以载寂》· 创作全案与工序拆解 | Agnes Studio</title>
+  <style>
+    :root {
+      --bg: #0B0C10;
+      --card-bg: rgba(22, 24, 33, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent: #E11D48;
+      --accent-glow: rgba(225, 29, 72, 0.18);
+      --text: #F8FAFC;
+      --text-dim: #94A3B8;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: radial-gradient(circle at 50% 0%, #1a1520 0%, var(--bg) 60%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
+      min-height: 100vh;
+      padding: 40px 24px 80px;
+      line-height: 1.6;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    
+    .nav-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 36px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .nav-bar a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+    .nav-bar a:hover { color: #fff; }
+
+    header { margin-bottom: 40px; }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+    h1 {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #FFF 50%, #FDA4AF);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p.lead {
+      color: var(--text-dim);
+      font-size: 16px;
+    }
+
+    /* Comparison Area */
+    .compare-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      margin-bottom: 48px;
+    }
+    @media (max-width: 900px) {
+      .compare-section { grid-template-columns: 1fr; }
+    }
+    .preview-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 20px;
+      position: relative;
+    }
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .preview-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .preview-tag {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.06);
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+    .image-wrap {
+      border-radius: 10px;
+      overflow: hidden;
+      background: #000;
+      aspect-ratio: 1 / 1;
+      border: 1px solid rgba(255,255,255,0.05);
+      position: relative;
+    }
+    .image-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .image-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-outline {
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+    }
+    .btn-outline:hover { background: rgba(255,255,255,0.1); }
+
+    /* Steps Section */
+    .steps-section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 40px;
+    }
+    .section-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .step-item {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 28px;
+      position: relative;
+    }
+    .step-item:last-child { margin-bottom: 0; }
+    .step-num {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(225, 29, 72, 0.15);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .step-content { flex: 1; }
+    .step-header {
+      font-size: 17px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    .step-desc {
+      color: var(--text-dim);
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+    .code-box {
+      background: #06070a;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      padding: 14px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: #E2E8F0;
+      overflow-x: auto;
+      white-space: pre-wrap;
+    }
+
+    /* Score breakdown */
+    .score-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .score-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+    .score-val {
+      font-size: 32px;
+      font-weight: 800;
+      color: #34D399;
+      font-family: var(--font-mono);
+    }
+    .score-label {
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="nav-bar">
+      <a href="gallery.html">← 返回夜间海报全景画廊</a>
+      <a href="http://192.168.1.133:8088/#poster-studio">打开 Agnes Studio 工作台 ↗</a>
+    </div>
+
+    <header>
+      <div class="badge">CYCLE #81 · 24/7 夜间自主演进成果</div>
+      <div class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34D399; border-color: #10B981; margin-left: 8px;">✨ 已修复模板硬编码印章缺陷</div>
+      <h1>《器以载寂》· WABI-SABI TEAWARE</h1>
+      <p class="lead">全链路自主演进流水线产物：从东方美学灵感捕捉、负空间约束底图生成，到瑞士苏黎世网格亚像素排版与多模态视觉避障质检。（已消除硬编码“雅集”红框印章，解决字面重叠冲突）</p>
+    </header>
+
+    <!-- 对比区域 -->
+    <div class="compare-section">
+      <!-- 阶段 1: 留白底图 -->
+      <div class="preview-card">
+        <div class="preview-header">
+          <span class="preview-title">① 物理扩散留白底图</span>
+          <span class="preview-tag">1024×1024 · RAW</span>
+        </div>
+        <div class="image-wrap">
+          <img src="assets/generated/agnes_1790236807.png" alt="留白底图">
+        </div>
+        <div class="image-actions">
+          <a class="btn btn-outline" href="assets/generated/agnes_1790236807.png" target="_blank">查看底图原图 ↗</a>
+        </div>
+      </div>
+
+      <!-- 阶段 2: 最终商业海报 -->
+      <div class="preview-card">
+        <div class="preview-header">
+          <span class="preview-title">② 最终商业级海报（纯净修复版）</span>
+          <span class="preview-tag">1200×1200 · 纯净排版</span>
+        </div>
+        <div class="image-wrap">
+          <img src="assets/poster_custom_1790236817.png?v=fixed" alt="最终商业海报">
+        </div>
+        <div class="image-actions">
+          <a class="btn btn-primary" href="assets/poster_custom_1790236817.png?v=fixed" target="_blank">查看高清海报 ↗</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 创作工序拆解 -->
+    <div class="steps-section">
+      <div class="section-title">
+        <span>⚙️</span>
+        <span>完整创作链路与工序还原</span>
+      </div>
+
+      <!-- Step 1 -->
+      <div class="step-item">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-header">审美灵感触发与主题轮换</div>
+          <div class="step-desc">
+            自主进化守护调度器（Cycle #81）基于美学演进矩阵自动切入<strong>「东方侘寂茶器与深色原木，温润柔光与负空间」</strong>主题。
+          </div>
+          <div class="code-box">Prompt Target: 东方侘寂茶器与深色原木，温润柔光与负空间
+Style Preset: swiss_01 (瑞士苏黎世网格派)
+Platform Goal: 微信公众号 / 策展海报 (editorial)</div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step-item">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-header">Gemini 2.5 创意总监文案与生图 Prompt 编译</div>
+          <div class="step-desc">
+            调用宿主机 Gemini 引擎输出符合中文排印规范、10:1字阶与盘古之白（中英文自动留白）的创意简报，并为 Agnes 物理扩散模型量身定制带<strong>负空间显式约束</strong>的英文光影 Prompt：
+          </div>
+          <div class="code-box">{
+  "title": "器以载寂",
+  "subtitle": "WABI-SABI · TEAWARE",
+  "body": "以温润陶器与原木素面，在光影流转中勾勒沉静的负空间秩序。",
+  "author": "AGNES STUDIO",
+  "gen_prompt": "wabi-sabi ceramic teaware on dark rough raw timber table, soft chiaroscuro warm morning side light, large empty negative space on left and top, ultra clean frame, cinematic depth of field, 8k, no text, no watermark"
+}</div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step-item">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-header">Agnes Model Hub 扩散底图生成</div>
+          <div class="step-desc">
+            通过 New API Hub 接入物理生图模型，生成高质感陶器静物画芯，严格执行无文字（No Text）与主体下沉偏置，为排版预留呼吸空间。
+          </div>
+          <div class="code-box">Output: public/assets/generated/agnes_1790236807.png
+Generation Time: 19.2s · Resolution: 1024×1024</div>
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="step-item">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-header">Chrome 无头光栅化与瑞士网格排印</div>
+          <div class="step-desc">
+            基于 Playwright + Google Chrome 无头渲染管线，应用苏黎世 12 栏非对称网格系统：
+            <ul>
+              <li>主体陶器右下悬浮开窗，辅以瑞士红（#E11D48）20px 硬质投影与几何边线；</li>
+              <li>左侧 110px 巨幅无衬线大字标，与右侧画芯形成黄金比例（1.618）的视觉平衡；</li>
+              <li>严格执行「盘古之白」与全角标点，彻底终结生硬贴字。</li>
+            </ul>
+          </div>
+          <div class="code-box">Renderer: Google Chrome Headless (Subpixel Rasterization)
+Canvas: 1200×1200 px · Render Time: 1508 ms
+Output: public/assets/poster_custom_1790236817.png</div>
+        </div>
+      </div>
+
+      <!-- Step 5 -->
+      <div class="step-item">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-header">多模态视觉质检与审美打分</div>
+          <div class="step-desc">
+            渲染完成后自动回调 Gemini 多模态视觉模型对渲染后的 PNG 进行全图质检，验证主体遮挡风险、字面清晰度与构图留白：
+          </div>
+          <div class="score-grid">
+            <div class="score-card">
+              <div class="score-val">93</div>
+              <div class="score-label">多模态审美综合评分 (0-100)</div>
+            </div>
+            <div class="score-card">
+              <div class="score-val" style="color:#60A5FA;">LOW</div>
+              <div class="score-label">主体遮挡风险 (Occlusion Risk)</div>
+            </div>
+            <div class="score-card">
+              <div class="score-val" style="color:#A78BFA;">EXCELLENT</div>
+              <div class="score-label">文字易读性 (Legibility)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

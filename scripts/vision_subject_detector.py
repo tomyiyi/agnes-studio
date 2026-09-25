@@ -53,22 +53,32 @@ def detect_faces(image_path):
         return []
 
     import shutil
-    if not shutil.which("swift"):
-        # 非 macOS 环境或无 swift 编译器时跳过原生视觉避障检测
-        return []
+    # 1. 优先使用 macOS 原生 Vision 框架 (极低延迟无网络开销)
+    if shutil.which("swift"):
+        safe_swift = Path("/tmp/detect_faces.swift").resolve()
+        if not (str(safe_swift).startswith("/tmp") or str(safe_swift).startswith("/private/tmp")) or ".." in str(safe_swift):
+            raise ValueError("Invalid swift script path")
 
-    safe_swift = Path("/tmp/detect_faces.swift").resolve()
-    if not (str(safe_swift).startswith("/tmp") or str(safe_swift).startswith("/private/tmp")) or ".." in str(safe_swift):
-        raise ValueError("Invalid swift script path")
+        safe_swift.write_text(SWIFT_DETECTOR, encoding="utf-8")
+            
+        res = subprocess.run(["swift", str(safe_swift), str(safe_img)], capture_output=True, text=True)
+        try:
+            faces = json.loads(res.stdout.strip())
+            if isinstance(faces, list) and faces:
+                return faces
+        except Exception:
+            pass
 
-    safe_swift.write_text(SWIFT_DETECTOR, encoding="utf-8")
-        
-    res = subprocess.run(["swift", str(safe_swift), str(safe_img)], capture_output=True, text=True)
+    # 2. Linux / 虚拟机环境：无缝调用稳定的 Gemini 2.5 Flash 多模态视觉引擎
     try:
-        faces = json.loads(res.stdout.strip())
-        return faces
-    except Exception:
-        return []
+        from gemini_engine import detect_visual_subjects_gemini
+        gemini_faces = detect_visual_subjects_gemini(str(safe_img))
+        if gemini_faces:
+            return gemini_faces
+    except Exception as e:
+        print(f"⚠️ [Vision Subject Detector] Gemini 回退探测提示: {e}")
+
+    return []
 
 def check_occlusion(text_box, exclusion_zones):
     """
@@ -90,6 +100,10 @@ def check_occlusion(text_box, exclusion_zones):
     return False, None
 
 if __name__ == "__main__":
-    test_img = "/Users/tom/Desktop/agnes-studio/public/assets/agnes_1789998061_5508.png"
+    current_dir = Path(__file__).resolve().parent.parent
+    test_img = current_dir / "public" / "assets" / "agnes_1789998061_5508.png"
+    if not test_img.exists():
+        candidates = list((current_dir / "public" / "assets").glob("*.png"))
+        test_img = candidates[0] if candidates else test_img
     faces = detect_faces(test_img)
-    print("✓ 检测到人脸保护区:", faces)
+    print("✓ 检测到人脸/主体保护区:", faces)

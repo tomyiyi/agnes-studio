@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+.venv/
 .pnp
 .pnp.js
 
@@ -9,6 +10,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+graphify-out/
 
 # Next.js build
 .next/
@@ -20,7 +22,9 @@ dist/
 open_source_posters/
 
 # Temporary outputs
+outputs/
 public/assets/poster_custom_*.png
+public/assets/poster_test_*.png
 public/assets/generated/
 
 # Misc
@@ -33,6 +37,7 @@ public/assets/generated/
 .env.production.local
 
 # Logs
+logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
