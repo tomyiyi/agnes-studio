@@ -1,10 +1,31 @@
 {
   "themes": {
     "beauty": {
-      "title_a": ["东方", "肌密", "生图", "镜像", "封面"],
-      "title_b": ["神颜", "高光", "定式", "工法", "秩序"],
-      "accent_chars": ["颜", "光", "式", "序"],
-      "latin": ["ORIENTAL BEAUTY", "SKIN RITUAL", "COVER ENGINE"],
+      "title_a": [
+        "东方",
+        "肌密",
+        "生图",
+        "镜像",
+        "封面"
+      ],
+      "title_b": [
+        "神颜",
+        "高光",
+        "定式",
+        "工法",
+        "秩序"
+      ],
+      "accent_chars": [
+        "颜",
+        "光",
+        "式",
+        "序"
+      ],
+      "latin": [
+        "ORIENTAL BEAUTY",
+        "SKIN RITUAL",
+        "COVER ENGINE"
+      ],
       "slogan": [
         "她以骨相写诗，以眉眼成章",
         "三秒定胜负，留白见高级",
@@ -12,20 +33,115 @@
       ]
     },
     "tech": {
-      "title_a": ["生成", "工场", "夜航", "矢量"],
-      "title_b": ["光栅", "引擎", "协议", "网格"],
-      "accent_chars": ["光", "擎", "约", "网"],
-      "latin": ["RASTER ENGINE", "SWISS GRID PROTOCOL"],
-      "slogan": ["像素服从秩序", "1 秒交付 4A 质感"]
+      "title_a": [
+        "生成",
+        "工场",
+        "夜航",
+        "矢量"
+      ],
+      "title_b": [
+        "光栅",
+        "引擎",
+        "协议",
+        "网格"
+      ],
+      "accent_chars": [
+        "光",
+        "擎",
+        "约",
+        "网"
+      ],
+      "latin": [
+        "RASTER ENGINE",
+        "SWISS GRID PROTOCOL"
+      ],
+      "slogan": [
+        "像素服从秩序",
+        "1 秒交付 4A 质感"
+      ]
+    },
+    "cinematic": {
+      "title_a": [
+        "夜航",
+        "无声",
+        "盛夏",
+        "落幕"
+      ],
+      "title_b": [
+        "之诗",
+        "之城",
+        "之光",
+        "之名"
+      ],
+      "accent_chars": [
+        "光",
+        "夜",
+        "夏",
+        "名"
+      ],
+      "latin": [
+        "A FILM STILL",
+        "SILENT CITY",
+        "THE LAST LIGHT"
+      ],
+      "slogan": [
+        "把城市调成静音",
+        "她从光里走来",
+        "一部还没写完的电影"
+      ]
+    },
+    "grand": {
+      "title_a": [
+        "山河",
+        "长夜",
+        "东方",
+        "远方"
+      ],
+      "title_b": [
+        "序章",
+        "告白",
+        "回响",
+        "年轮"
+      ],
+      "accent_chars": [
+        "河",
+        "夜",
+        "方",
+        "响"
+      ],
+      "latin": [
+        "MONUMENTAL",
+        "EASTERN EPIC",
+        "LANDSCAPE"
+      ],
+      "slogan": [
+        "大气，是留出来的",
+        "少即是重",
+        "一帧即是一生"
+      ]
     }
   },
   "rules": {
-    "title_a_chars": [2, 4],
-    "title_b_chars": [2, 4],
+    "title_a_chars": [
+      2,
+      4
+    ],
+    "title_b_chars": [
+      2,
+      4
+    ],
     "slogan_max_chars": 18,
     "pangu_required": true,
-    "forbid_chars": ["“", "”", "‘", "’"],
-    "prefer_quotes": ["「", "」"]
+    "forbid_chars": [
+      "“",
+      "”",
+      "‘",
+      "’"
+    ],
+    "prefer_quotes": [
+      "「",
+      "」"
+    ]
   },
   "naming": {
     "pattern": "{platform}_{mode}_{WxH}_{YYYYMMDD}_{slug}",
@@ -39,5 +155,39 @@
       "xhs": "xhs_main",
       "xhs-sq": "xhs_sq"
     }
+  },
+  "theme_presentation": {
+    "modes": [
+      "压图巨字",
+      "对角拆字",
+      "负空间一角",
+      "中轴竖排",
+      "标题横带",
+      "字图互锁"
+    ],
+    "default_by_goal": {
+      "ctr": "压图巨字",
+      "editorial": "负空间一角",
+      "brand": "中轴竖排或负空间一角",
+      "story": "对角拆字",
+      "vertical": "中轴竖排"
+    }
+  },
+  "hooks": {
+    "ctr": [
+      "3 秒看懂",
+      "别再用错的 X",
+      "一张图讲完"
+    ],
+    "numbers": [
+      "10:1 字阶",
+      "45% 留白",
+      "3 色角色"
+    ],
+    "benefit": [
+      "看起来更贵",
+      "像电影海报",
+      "杂志封面感"
+    ]
   }
 }

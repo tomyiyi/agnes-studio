@@ -1,0 +1,48 @@
+{
+  "hard_gates": {
+    "titleCount": 1,
+    "typeSizeLevels": 3,
+    "macro_to_micro_ratio_min": 10,
+    "expressiveMoveCount_max": 1,
+    "textOverlapCount_max": 0,
+    "accentHues_max": 1,
+    "microtypeClusters": [
+      2,
+      4
+    ],
+    "criticalReadableSeconds": 3
+  },
+  "moves": [
+    "mega-title-bleed",
+    "giant-numeral",
+    "hard-field",
+    "split-field",
+    "geometric-anchor",
+    "masked-photo",
+    "rhythm-layer",
+    "chinese-corner",
+    "计白当黑",
+    "边角式"
+  ],
+  "lineages": [
+    "sachplakat",
+    "travel-lithographic",
+    "zurich-public",
+    "basel-figure-ground",
+    "geigy-scientific",
+    "matter-photomontage",
+    "weingart-disruption",
+    "troxler-rhythm",
+    "chinese-composition"
+  ],
+  "forbidden": [
+    "purple-gradient",
+    "gradient-text",
+    "glow",
+    "rounded-card-grid",
+    "ui-cta-module",
+    "fake-data-microtype",
+    "two-mega-titles",
+    "centered-mush"
+  ]
+}
