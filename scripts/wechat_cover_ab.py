@@ -14,29 +14,39 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 from PIL import Image
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from env_config import FONTS_DIR, ASSETS_DIR, resolve_chrome_path
+
 OUT = ROOT / "experiments"
-FONTS = ROOT / "public" / "fonts"
-ASSETS = ROOT / "public" / "assets"
-CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+FONTS = FONTS_DIR
+ASSETS = ASSETS_DIR
+CHROME = resolve_chrome_path()
 W, H = 2350, 1000
 RATIO = 2.35
 
 BG_SRC = ASSETS / "agnes_1789995698_9987.png"
 
 
-def make_subject_crop(src: Path, dst: Path) -> Path:
+def make_subject_crop(src: Path | str, dst: Path | str) -> Path:
     """1:1 人像 → 2.35:1，顶对齐裁切保住完整头部；人像为画面主体。"""
+    src = Path(src)
+    dst = Path(dst)
+    if not src.is_file():
+        raise FileNotFoundError(f"Source background image not found: {src}")
     im = Image.open(src).convert("RGB")
     w, h = im.size
     crop_h = int(round(w / RATIO))
     # 头部在上 1/3：从 y=0 起裁，保证发顶完整
     y0 = 0
+    dst.parent.mkdir(parents=True, exist_ok=True)
     im.crop((0, y0, w, y0 + crop_h)).save(dst, "PNG")
     return dst
 

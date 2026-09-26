@@ -14,8 +14,10 @@ Automated regression tests covering:
 
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -44,7 +46,12 @@ from cover_pipeline import (
     resolve_text_box,
     compose_html,
     PLATFORMS,
+    export_pair,
+    render_wechat_list_sim,
+    build_contact_sheet,
+    qa_thumbnail_ok,
 )
+import wechat_cover_ab
 from expert_poster_designer import analyze_safe_zone
 
 
@@ -499,6 +506,113 @@ class TestCoverPipeline(unittest.TestCase):
         self.assertNotIn("<script>alert('xss')</script>", html_xss)
         self.assertIn("%3Cscript%3E", html_xss)
         self.assertIn("<em>片</em>", html_xss)
+
+    def test_export_pair_and_validation(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            png_file = tmp_path / "test_cover.png"
+            Image.new("RGB", (200, 100), color=(20, 30, 40)).save(png_file, "PNG")
+
+            # 1. 传 Path 对象调用
+            res_path = export_pair(png_file)
+            self.assertEqual(res_path["png"], str(png_file))
+            self.assertTrue(Path(res_path["jpg"]).exists())
+            self.assertEqual(res_path["jpg"], str(tmp_path / "test_cover.jpg"))
+            self.assertIn("png_kb", res_path)
+            self.assertIn("jpg_kb", res_path)
+
+            # 2. 传 str 字符串路径调用
+            res_str = export_pair(str(png_file))
+            self.assertEqual(res_str["png"], str(png_file))
+            self.assertEqual(res_str["jpg"], str(tmp_path / "test_cover.jpg"))
+
+            # 3. 不存在文件抛出 FileNotFoundError
+            with self.assertRaises(FileNotFoundError):
+                export_pair(tmp_path / "non_existent.png")
+
+    def test_render_wechat_list_sim(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_png = tmp_path / "wx_head.png"
+            Image.new("RGB", (400, 200), color=(100, 120, 150)).save(src_png, "PNG")
+            out_sim = tmp_path / "sim" / "wx_sim.jpg"
+
+            # 1. 正常模拟微信遮挡带输出
+            ret = render_wechat_list_sim(src_png, out_sim)
+            self.assertEqual(ret, out_sim)
+            self.assertTrue(out_sim.exists())
+            with Image.open(out_sim) as sim_im:
+                self.assertEqual(sim_im.size, (400, 200))
+
+            # 2. 字符串入参兼容
+            out_sim_str = tmp_path / "sim" / "wx_sim_2.jpg"
+            render_wechat_list_sim(str(src_png), str(out_sim_str))
+            self.assertTrue(out_sim_str.exists())
+
+            # 3. 源文件不存在抛出 FileNotFoundError
+            with self.assertRaises(FileNotFoundError):
+                render_wechat_list_sim(tmp_path / "not_found.png", out_sim)
+
+    def test_build_contact_sheet_and_edge_cases(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            img1 = tmp_path / "img1.png"
+            img2 = tmp_path / "img2.png"
+            Image.new("RGB", (200, 300), color=(255, 0, 0)).save(img1, "PNG")
+            Image.new("RGB", (200, 300), color=(0, 255, 0)).save(img2, "PNG")
+            out_sheet = tmp_path / "contact_sheet.jpg"
+
+            # 1. 混合 Path 与 str 列表生成接触印相图
+            build_contact_sheet([img1, str(img2)], out_sheet)
+            self.assertTrue(out_sheet.exists())
+            with Image.open(out_sheet) as sheet_im:
+                self.assertEqual(sheet_im.height, 420 + 24)
+                self.assertGreater(sheet_im.width, 200)
+
+            # 2. 空列表边界防护：抛出 ValueError
+            with self.assertRaises(ValueError):
+                build_contact_sheet([], tmp_path / "empty.jpg")
+
+            # 3. 包含不存在文件抛出 FileNotFoundError
+            with self.assertRaises(FileNotFoundError):
+                build_contact_sheet([img1, tmp_path / "missing.png"], tmp_path / "sheet.jpg")
+
+    def test_qa_thumbnail_ok(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            # 1. 纯色背景无对比度：pstdev 接近 0，不达标
+            plain_img = tmp_path / "plain.png"
+            Image.new("RGB", (400, 400), color=(128, 128, 128)).save(plain_img, "PNG")
+            self.assertFalse(qa_thumbnail_ok(plain_img))
+
+            # 2. 高对比黑白图：方差显著，达标
+            high_contrast = tmp_path / "high_contrast.png"
+            hc_im = Image.new("RGB", (400, 400), color=(0, 0, 0))
+            for x in range(10, 200):
+                for y in range(10, 200):
+                    hc_im.putpixel((x, y), (255, 255, 255))
+            hc_im.save(high_contrast, "PNG")
+            self.assertTrue(qa_thumbnail_ok(str(high_contrast)))
+
+            # 3. 不存在文件抛出 FileNotFoundError
+            with self.assertRaises(FileNotFoundError):
+                qa_thumbnail_ok(tmp_path / "not_found.png")
+
+    def test_wechat_cover_ab_env_resolution(self):
+        # 验证 wechat_cover_ab 已对齐 cross-platform 环境，杜绝 hardcoded macOS 路径
+        self.assertEqual(wechat_cover_ab.CHROME, resolve_chrome_path())
+        self.assertEqual(wechat_cover_ab.FONTS, FONTS_DIR)
+        self.assertEqual(wechat_cover_ab.ASSETS, ASSETS_DIR)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            dummy_src = tmp_path / "dummy_bg.png"
+            dummy_dst = tmp_path / "dummy_crop.png"
+            Image.new("RGB", (1000, 1000), color=(50, 50, 50)).save(dummy_src, "PNG")
+            wechat_cover_ab.make_subject_crop(str(dummy_src), str(dummy_dst))
+            self.assertTrue(dummy_dst.exists())
+            with Image.open(dummy_dst) as im:
+                self.assertEqual(im.size[0], 1000)
+                self.assertEqual(im.size[1], int(round(1000 / 2.35)))
 
 
 if __name__ == "__main__":

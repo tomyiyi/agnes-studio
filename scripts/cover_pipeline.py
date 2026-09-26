@@ -461,8 +461,11 @@ def face_occlusion_gate(image_path: Path, title_zone: str = "safe", platform: st
     return resolve_text_box(faces, platform, title_zone, mode)
 
 
-def qa_thumbnail_ok(path: Path) -> bool:
+def qa_thumbnail_ok(path: Path | str) -> bool:
     """375pt 宽缩略下主标区仍有足够对比（粗检亮部方差）。"""
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Image not found: {path}")
     im = Image.open(path).convert("L")
     thumb = im.resize((375, max(1, int(375 * im.height / im.width))), Image.Resampling.LANCZOS)
     # 左上标题窗
@@ -471,8 +474,12 @@ def qa_thumbnail_ok(path: Path) -> bool:
     return statistics.pstdev(list(box.getdata())) > 18
 
 
-def render_wechat_list_sim(png_path: Path, out_path: Path) -> Path:
+def render_wechat_list_sim(png_path: Path | str, out_path: Path | str) -> Path:
     """微信列表标题条遮挡模拟：底部叠 25% 半透明标题区，检查主标是否被切。"""
+    png_path = Path(png_path)
+    out_path = Path(out_path)
+    if not png_path.is_file():
+        raise FileNotFoundError(f"Source image not found: {png_path}")
     im = Image.open(png_path).convert("RGB")
     w, h = im.size
     overlay_h = int(h * 0.25)
@@ -487,10 +494,16 @@ def render_wechat_list_sim(png_path: Path, out_path: Path) -> Path:
     return out_path
 
 
-def build_contact_sheet(pngs: list[Path], out_path: Path) -> Path:
+def build_contact_sheet(pngs: list[Path | str], out_path: Path | str) -> Path:
+    out_path = Path(out_path)
+    if not pngs:
+        raise ValueError("Cannot build contact sheet from empty image list")
     thumbs = []
     H = 420
     for p in pngs:
+        p = Path(p)
+        if not p.is_file():
+            raise FileNotFoundError(f"Image not found: {p}")
         im = Image.open(p).convert("RGB")
         w = max(1, int(im.width * H / im.height))
         t = im.resize((w, H), Image.Resampling.LANCZOS)
@@ -752,8 +765,11 @@ def render_html(html: str, out_path: Path, w: int, h: int, fmt: str = "png") -> 
     return out_path
 
 
-def export_pair(png_path: Path) -> dict:
+def export_pair(png_path: Path | str) -> dict:
     """PNG-24 主稿 + JPEG q92 伴生。"""
+    png_path = Path(png_path)
+    if not png_path.is_file():
+        raise FileNotFoundError(f"PNG file not found: {png_path}")
     im = Image.open(png_path).convert("RGB")
     jpg = png_path.with_suffix(".jpg")
     im.save(jpg, "JPEG", quality=92, optimize=True)
