@@ -55,6 +55,13 @@ from cover_pipeline import (
     build_contact_sheet,
     qa_thumbnail_ok,
 )
+import check_upstream_updates
+from check_upstream_updates import (
+    get_local_auth_key,
+    check_new_api_health,
+    check_github_repo,
+    run_lifecycle_monitor,
+)
 import wechat_cover_ab
 import agnes_gateway
 from agnes_gateway import load_gateway, generate, save_image
@@ -1235,6 +1242,170 @@ class TestAgnesGateway(unittest.TestCase):
         saved_path = save_image(res_dict, out_file)
         self.assertEqual(saved_path, out_file)
         mock_urlretrieve.assert_called_once_with("https://cdn.example.com/asset.png", str(out_file))
+
+
+class TestUpstreamSentinel(unittest.TestCase):
+    """测试生命周期巡检与上游依赖健康监控 (scripts/check_upstream_updates.py)"""
+
+    def setUp(self):
+        self._temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self._temp_dir.name)
+
+    def tearDown(self):
+        self._temp_dir.cleanup()
+
+    def test_get_local_auth_key_from_env(self):
+        with patch.dict("os.environ", {"NEW_API_KEY": "sk-env-secret-123"}):
+            self.assertEqual(get_local_auth_key(), "sk-env-secret-123")
+        with patch.dict("os.environ", {"NEW_API_KEY": "", "AGNES_API_KEY": "sk-agnes-key-456"}):
+            self.assertEqual(get_local_auth_key(), "sk-agnes-key-456")
+
+    def test_get_local_auth_key_from_file(self):
+        key_file = self.tmp_path / "test_key.json"
+        key_file.write_text(json.dumps({"api_key": "sk-file-key-789"}), encoding="utf-8")
+        with patch.dict("os.environ", {"NEW_API_KEY": "", "AGNES_API_KEY": ""}, clear=True):
+            self.assertEqual(get_local_auth_key(key_path=key_file), "sk-file-key-789")
+
+    def test_get_local_auth_key_fallback(self):
+        invalid_file = self.tmp_path / "invalid.json"
+        invalid_file.write_text("invalid json content", encoding="utf-8")
+        with patch.dict("os.environ", {"NEW_API_KEY": "", "AGNES_API_KEY": ""}, clear=True):
+            self.assertEqual(get_local_auth_key(key_path=invalid_file), "")
+            self.assertEqual(get_local_auth_key(key_path=self.tmp_path / "missing.json"), "")
+
+    @patch("urllib.request.urlopen")
+    def test_check_new_api_health_success(self, mock_urlopen):
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = json.dumps({
+            "data": [
+                {"id": "agnes-image-2.5-flash"},
+                {"id": "dall-e-3"},
+                {"id": "gemini-2.5-flash"},
+                {"id": "text-embedding-3-small"},
+            ]
+        }).encode("utf-8")
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        res = check_new_api_health(base_url="http://mock.gateway/v1", api_key="sk-test", timeout=3.0)
+        self.assertEqual(res["status"], "healthy")
+        self.assertEqual(res["available_models_count"], 4)
+        self.assertIn("agnes-image-2.5-flash", res["image_models"])
+        self.assertIn("dall-e-3", res["image_models"])
+        self.assertNotIn("text-embedding-3-small", res["image_models"])
+        self.assertIn("latency_ms", res)
+
+    @patch("urllib.request.urlopen")
+    def test_check_new_api_health_non_200(self, mock_urlopen):
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.status = 503
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        res = check_new_api_health(base_url="http://mock.gateway/v1", timeout=1.0)
+        self.assertEqual(res["status"], "unhealthy")
+        self.assertIn("HTTP 503", res["error"])
+
+    @patch("urllib.request.urlopen")
+    def test_check_new_api_health_http_error(self, mock_urlopen):
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            url="http://mock.gateway/v1/models",
+            code=401,
+            msg="Unauthorized",
+            hdrs={},
+            fp=None,
+        )
+        res = check_new_api_health(base_url="http://mock.gateway/v1", timeout=1.0)
+        self.assertEqual(res["status"], "unhealthy")
+        self.assertIn("401", res["error"])
+
+    @patch("urllib.request.urlopen")
+    def test_check_new_api_health_invalid_json(self, mock_urlopen):
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = b"<html>502 Bad Gateway</html>"
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        res = check_new_api_health(base_url="http://mock.gateway/v1", timeout=1.0)
+        self.assertEqual(res["status"], "unhealthy")
+        self.assertIn("Invalid JSON", res["error"])
+
+    @patch("urllib.request.urlopen")
+    def test_check_github_repo_success(self, mock_urlopen):
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = json.dumps({
+            "sha": "123456789abcdef",
+            "commit": {
+                "message": "feat: harden sentinel monitoring\n\nDetailed body",
+                "author": {"date": "2026-09-26T21:00:00Z"},
+            }
+        }).encode("utf-8")
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        res = check_github_repo("owner/repo-name", timeout=3.0)
+        self.assertEqual(res["status"], "synchronized")
+        self.assertEqual(res["repo"], "owner/repo-name")
+        self.assertEqual(res["latest_commit"], "1234567")
+        self.assertEqual(res["message"], "feat: harden sentinel monitoring")
+        self.assertEqual(res["date"], "2026-09-26T21:00:00Z")
+
+    def test_check_github_repo_invalid_spec(self):
+        res = check_github_repo("")
+        self.assertEqual(res["status"], "invalid_repo")
+        res2 = check_github_repo("invalid-no-slash")
+        self.assertEqual(res2["status"], "invalid_repo")
+
+    @patch("urllib.request.urlopen")
+    def test_check_github_repo_fallback(self, mock_urlopen):
+        mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
+        res = check_github_repo("owner/repo")
+        self.assertEqual(res["status"], "cached")
+        self.assertIn("Connection refused", res["note"])
+
+    @patch("check_upstream_updates.check_new_api_health")
+    @patch("check_upstream_updates.check_github_repo")
+    def test_run_lifecycle_monitor_save_and_structure(self, mock_github, mock_gateway):
+        mock_gateway.return_value = {
+            "status": "healthy",
+            "latency_ms": 15,
+            "available_models_count": 12,
+            "image_models": ["agnes-image-2.5-flash"],
+        }
+        mock_github.return_value = {
+            "repo": "custom/repo",
+            "status": "synchronized",
+            "latest_commit": "abcdef1",
+        }
+
+        out_file = self.tmp_path / "updates_test.json"
+        summary = run_lifecycle_monitor(
+            output_path=out_file,
+            repos=["custom/repo"],
+            save=True,
+        )
+
+        self.assertIn("last_checked_at", summary)
+        self.assertEqual(summary["gateway"]["status"], "healthy")
+        self.assertEqual(summary["upstream_repositories"][0]["repo"], "custom/repo")
+        self.assertEqual(summary["upstream_repositories"][1]["repo"], "QuantumNous/new-api")
+        self.assertTrue(out_file.exists())
+
+        loaded = json.loads(out_file.read_text(encoding="utf-8"))
+        self.assertEqual(loaded["gateway"]["status"], "healthy")
+        self.assertEqual(len(loaded["cron_jobs"]), 1)
+        self.assertTrue(loaded["cron_jobs"][0]["target"].endswith(".new-api/backups"))
+
+    @patch("check_upstream_updates.check_new_api_health")
+    def test_run_lifecycle_monitor_no_save(self, mock_gateway):
+        mock_gateway.return_value = {"status": "unhealthy", "error": "mocked error"}
+        out_file = self.tmp_path / "should_not_exist.json"
+        summary = run_lifecycle_monitor(
+            output_path=out_file,
+            repos=[],
+            save=False,
+        )
+        self.assertFalse(out_file.exists())
+        self.assertEqual(summary["gateway"]["status"], "unhealthy")
 
 
 if __name__ == "__main__":
