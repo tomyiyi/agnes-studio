@@ -86,6 +86,17 @@ class TestEndpointContract(unittest.TestCase):
         self.assertIn("Line1 &amp; Line2", html_xss)
         self.assertIn("Author &lt;Admin&gt;", html_xss)
 
+        html_bg_xss = studio_server.generate_custom_poster_html(
+            "swiss_01",
+            "Title",
+            "Sub",
+            "Body",
+            "Author",
+            "https://example.com/a.png');}</style><script>alert('bg_xss')</script>",
+        )
+        self.assertNotIn("<script>", html_bg_xss)
+        self.assertIn("%3Cscript%3E", html_bg_xss)
+
     def test_api_config_endpoint_with_query_params(self):
         server = HTTPServer(("127.0.0.1", 0), studio_server.StudioHTTPRequestHandler)
         port = server.server_port
@@ -219,6 +230,77 @@ class TestEndpointContract(unittest.TestCase):
                         resp_data = json.loads(ctx.exception.read().decode("utf-8"))
                     self.assertFalse(resp_data.get("success"))
                     self.assertIn(expected_err, resp_data.get("error", ""))
+        finally:
+            server.shutdown()
+            server.server_close()
+
+
+    def test_post_render_poster_endpoint_contract(self):
+        server = HTTPServer(("127.0.0.1", 0), studio_server.StudioHTTPRequestHandler)
+        port = server.server_port
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        try:
+            rendered_payloads = []
+
+            def fake_renderer(html_content, out_path):
+                rendered_payloads.append((html_content, out_path))
+                return out_path
+
+            orig_renderer = studio_server.render_html_to_poster
+            studio_server.render_html_to_poster = fake_renderer
+            try:
+                # 1. 成功渲染，支持 data URI
+                data_uri = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+                req_data = json.dumps({
+                    "style": "cyber_01",
+                    "title": "赛博之夜",
+                    "subtitle": "CYBER NIGHT",
+                    "bg_image": data_uri,
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    f"http://127.0.0.1:{port}/api/render-poster",
+                    data=req_data,
+                    headers={"Content-Type": "application/json", "Content-Length": str(len(req_data))},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    self.assertEqual(resp.status, 200)
+                    res_json = json.loads(resp.read().decode("utf-8"))
+                    self.assertTrue(res_json.get("success"))
+                    self.assertTrue(res_json.get("poster_url", "").startswith("assets/poster_custom_"))
+                    self.assertEqual(res_json.get("style"), "cyber_01")
+                    self.assertIn("duration_ms", res_json)
+
+                self.assertEqual(len(rendered_payloads), 1)
+                html_passed, out_passed = rendered_payloads[0]
+                self.assertIn(data_uri, html_passed)
+                self.assertIn("赛博之夜", html_passed)
+
+                # 2. 渲染器异常时返回 500
+                def failing_renderer(html_content, out_path):
+                    raise RuntimeError("Chromium launch timeout")
+
+                studio_server.render_html_to_poster = failing_renderer
+                with self.assertRaises(urllib.error.HTTPError) as ctx:
+                    urllib.request.urlopen(req, timeout=5)
+                self.assertEqual(ctx.exception.code, 500)
+                with ctx.exception:
+                    err_resp = json.loads(ctx.exception.read().decode("utf-8"))
+                self.assertFalse(err_resp.get("success"))
+                self.assertIn("Chromium launch timeout", err_resp.get("error", ""))
+
+                # 3. 渲染器不可用时返回 500
+                studio_server.render_html_to_poster = None
+                with self.assertRaises(urllib.error.HTTPError) as ctx:
+                    urllib.request.urlopen(req, timeout=5)
+                self.assertEqual(ctx.exception.code, 500)
+                with ctx.exception:
+                    err_resp2 = json.loads(ctx.exception.read().decode("utf-8"))
+                self.assertFalse(err_resp2.get("success"))
+                self.assertIn("排版引擎不可用", err_resp2.get("error", ""))
+            finally:
+                studio_server.render_html_to_poster = orig_renderer
         finally:
             server.shutdown()
             server.server_close()

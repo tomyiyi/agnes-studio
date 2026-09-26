@@ -57,6 +57,7 @@ def get_base64_image(image_path):
 # 尝试引入海报排版引擎与 Gemini 智能引擎
 sys.path.insert(0, str(DIR / "scripts"))
 try:
+    import env_config
     from pro_poster_renderer import render_html_to_poster as _renderer, FONTS_DIR as _FONTS_DIR
     render_html_to_poster = _renderer
     FONTS_DIR = _FONTS_DIR
@@ -351,14 +352,17 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             author = str(req_body.get("author") or "TOM // AGNES STUDIO")
 
             # 兼容前端 background_img 与历史 bg_image 两种字段名
-            bg_image_rel = str(req_body.get("bg_image") or req_body.get("background_img") or "assets/poster_pro_swiss_01.png")
+            bg_image_rel = str(req_body.get("bg_image") or req_body.get("background_img") or "assets/poster_pro_swiss_01.png").strip()
 
-            # 定位底图绝对路径（限制在 public/ 内，防止路径穿越）
-            bg_abs_path = (PUBLIC_DIR / bg_image_rel.lstrip("/")).resolve()
-            if not str(bg_abs_path).startswith(str(PUBLIC_DIR.resolve())) or not bg_abs_path.exists():
-                bg_abs_path = ASSETS_DIR / "agnes_1789995698_9987.png"
+            if bg_image_rel.startswith("data:image/"):
+                bg_uri = bg_image_rel
+            else:
+                # 定位底图绝对路径（限制在 public/ 内，防止路径穿越）
+                bg_abs_path = (PUBLIC_DIR / bg_image_rel.lstrip("/")).resolve()
+                if not str(bg_abs_path).startswith(str(PUBLIC_DIR.resolve())) or not bg_abs_path.exists():
+                    bg_abs_path = ASSETS_DIR / "agnes_1789995698_9987.png"
+                bg_uri = get_base64_image(str(bg_abs_path))
 
-            bg_uri = get_base64_image(str(bg_abs_path))
             timestamp = int(time.time())
             out_filename = f"poster_custom_{timestamp}.png"
             out_abs_path = str(ASSETS_DIR / out_filename)
@@ -487,7 +491,15 @@ def generate_custom_poster_html(style, title, subtitle, body, author, bg_uri):
     subtitle = escape(str(subtitle or ""), quote=True)
     body = escape(str(body or ""), quote=True)
     author = escape(str(author or ""), quote=True)
-    bg_uri = str(bg_uri or "")
+    bg_uri = (
+        str(bg_uri or "")
+        .replace("\r", "")
+        .replace("\n", "")
+        .replace("'", "%27")
+        .replace('"', "%22")
+        .replace("<", "%3C")
+        .replace(">", "%3E")
+    )
 
     if "cyber" in s:
         return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
