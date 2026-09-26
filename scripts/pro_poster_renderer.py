@@ -35,6 +35,10 @@ CHROME_PATH = resolve_chrome_path()
 
 def get_base64_image(image_path):
     """读取本地图片并转为 base64 data URI，确保无头浏览器 100% 离线秒级加载"""
+    if not image_path:
+        return ""
+    if isinstance(image_path, str) and image_path.startswith("data:image/"):
+        return image_path
     try:
         with open(image_path, "rb") as f:
             data = f.read()
@@ -50,19 +54,23 @@ def get_base64_image(image_path):
         print(f"⚠️ [Base64 Error] 读取图片失败 {image_path}: {e}")
         return ""
 
-def render_html_to_poster(html_content, output_path):
+def render_html_to_poster(html_content, output_path, width=1200, height=1200, wait_timeout_ms=350):
     """通用无头 Chrome 渲染管线，1200x1200 亚像素级渲染"""
+    if not html_content:
+        raise ValueError("html_content cannot be empty")
+    if not output_path:
+        raise ValueError("output_path cannot be empty")
     output_dir = os.path.dirname(os.path.abspath(output_path))
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
     with sync_playwright() as p:
         launch_kwargs = {"headless": True}
-        if CHROME_PATH:
+        if CHROME_PATH and os.path.exists(CHROME_PATH):
             launch_kwargs["executable_path"] = CHROME_PATH
         browser = p.chromium.launch(**launch_kwargs)
-        page = browser.new_page(viewport={"width": 1200, "height": 1200})
+        page = browser.new_page(viewport={"width": width, "height": height})
         page.set_content(html_content)
-        page.wait_for_timeout(350)
+        page.wait_for_timeout(wait_timeout_ms)
         ext = os.path.splitext(output_path)[1].lower()
         if ext in (".jpg", ".jpeg"):
             page.screenshot(path=output_path, quality=95, type="jpeg")
@@ -77,20 +85,10 @@ def render_html_to_poster(html_content, output_path):
 # 一、瑞士国际主义网格流派 (Responsive Müller-Brockmann & Swiss Grid)
 # =============================================================================
 
-def render_swiss_01():
-    """
-    [架构1-示例A]《苏黎世秩序 · 12栏绝对非对称》 (poster_pro_swiss_01.png)
-    设计要点：
-    - 严谨 12 栏红黑辅助栅格与极简数学理性
-    - 140px 超大无衬线字标穿透版芯
-    - 瑞士红强调色块 (#E11D48) 与极细贯穿基线 (Hairline 1px)
-    - 右下画芯硬裁切，带 20px 实色阴影
-    """
-    bg_img = os.path.join(ASSETS_DIR, "agnes_1789995698_9987.png")
-    out_img = os.path.join(ASSETS_DIR, "poster_pro_swiss_01.png")
-    bg_uri = get_base64_image(bg_img)
-    
-    html = f"""<!DOCTYPE html>
+def build_swiss_01_html(bg_uri: str = "") -> str:
+    """生成瑞士网格01《苏黎世秩序》高保真 HTML 源码"""
+    bg_uri = bg_uri or ""
+    return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'SmileySans'; src: url('file://{FONTS_DIR}/SmileySans-Oblique.ttf') format('truetype'); }}
@@ -171,27 +169,32 @@ def render_swiss_01():
     GRID: 12-COLUMN // GUTTER: 16PX // RATIO: 1.618 // SYSTEM: HELVETICA ACCURACY
   </div>
 </body></html>"""
+
+def render_swiss_01(bg_img=None, out_img=None):
+    """
+    [架构1-示例A]《苏黎世秩序 · 12栏绝对非对称》 (poster_pro_swiss_01.png)
+    设计要点：
+    - 严谨 12 栏红黑辅助栅格与极简数学理性
+    - 140px 超大无衬线字标穿透版芯
+    - 瑞士红强调色块 (#E11D48) 与极细贯穿基线 (Hairline 1px)
+    - 右下画芯硬裁切，带 20px 实色阴影
+    """
+    is_default_out = out_img is None
+    bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1789995698_9987.png")
+    out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_swiss_01.png")
+    bg_uri = get_base64_image(bg_img)
+    html = build_swiss_01_html(bg_uri)
     render_html_to_poster(html, out_img)
     # 兼容旧命名
-    compat_img = os.path.join(ASSETS_DIR, "poster_pro_swiss_grid.png")
-    render_html_to_poster(html, compat_img)
+    if is_default_out:
+        compat_img = os.path.join(ASSETS_DIR, "poster_pro_swiss_grid.png")
+        render_html_to_poster(html, compat_img)
     return out_img
 
-def render_swiss_02():
-    """
-    [架构1-示例B]《Musica Viva · 空间对角律动》 (poster_pro_swiss_02.png)
-    致敬 1959/1961 年 Josef Müller-Brockmann 的经典同心圆/几何动势海报
-    设计要素：
-    - 45° 几何同心光环对角延伸
-    - 纯正包豪斯白象牙底衬 (#ECE7E1)
-    - 小写黑体排印 musica viva // 声音的几何学
-    - 严格纵向多栏音乐会排期微排版
-    """
-    bg_img = os.path.join(ASSETS_DIR, "agnes_1790005541_735b258d.png")
-    out_img = os.path.join(ASSETS_DIR, "poster_pro_swiss_02.png")
-    bg_uri = get_base64_image(bg_img)
-    
-    html = f"""<!DOCTYPE html>
+def build_swiss_02_html(bg_uri: str = "") -> str:
+    """生成瑞士网格02《Musica Viva》高保真 HTML 源码"""
+    bg_uri = bg_uri or ""
+    return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'SmileySans'; src: url('file://{FONTS_DIR}/SmileySans-Oblique.ttf') format('truetype'); }}
@@ -275,26 +278,32 @@ def render_swiss_02():
     </div>
   </div>
 </body></html>"""
-    return render_html_to_poster(html, out_img)
+
+def render_swiss_02(bg_img=None, out_img=None):
+    """
+    [架构1-示例B]《Musica Viva · 空间对角律动》 (poster_pro_swiss_02.png)
+    致敬 1959/1961 年 Josef Müller-Brockmann 的经典同心圆/几何动势海报
+    设计要素：
+    - 45° 几何同心光环对角延伸
+    - 纯正包豪斯白象牙底衬 (#ECE7E1)
+    - 小写黑体排印 musica viva // 声音的几何学
+    - 严格纵向多栏音乐会排期微排版
+    """
+    bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1790005541_735b258d.png")
+    out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_swiss_02.png")
+    bg_uri = get_base64_image(bg_img)
+    html = build_swiss_02_html(bg_uri)
+    render_html_to_poster(html, out_img)
+    return out_img
 
 # =============================================================================
 # 二、长文杂志与现代信息图流派 (Article Poster Generator)
 # =============================================================================
 
-def render_article_01():
-    """
-    [架构2-示例A]《深空洞察 · 暗夜科技 CNC 杂志特刊》 (poster_pro_article_01.png)
-    吸收 article-poster-generator 的 dark-tech 风格：
-    - CNC 金属冷调深色底 (#1A1A1A) + 猩红高光 (#CC4444)
-    - 杂志刊头 ISSUE 09 // TECH REVIEW
-    - 半透明毛玻璃核心观点卡片，带猩红强调边框
-    - 矢量条形码与阅读时长元数据
-    """
-    bg_img = os.path.join(ASSETS_DIR, "agnes_1790006749_b2b755da.png")
-    out_img = os.path.join(ASSETS_DIR, "poster_pro_article_01.png")
-    bg_uri = get_base64_image(bg_img)
-    
-    html = f"""<!DOCTYPE html>
+def build_article_01_html(bg_uri: str = "") -> str:
+    """生成长文信息图01《暗夜科技 CNC 杂志特刊》高保真 HTML 源码"""
+    bg_uri = bg_uri or ""
+    return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'SmileySans'; src: url('file://{FONTS_DIR}/SmileySans-Oblique.ttf') format('truetype'); }}
@@ -401,21 +410,27 @@ def render_article_01():
     <div class="barcode"></div>
   </div>
 </body></html>"""
-    return render_html_to_poster(html, out_img)
 
-def render_article_02():
+def render_article_01(bg_img=None, out_img=None):
     """
-    [架构2-示例B]《数字游民 · 极简生活志》 (poster_pro_article_02.png)
-    吸收 article-poster-generator 的 minimal-biz 风格：
-    - 浅青灰高奢底衬 (#F0F5F5) + 深松石绿 (#1A7D7D)
-    - 浮雕双层白卡片，弥散投影
-    - 双列网格数据对比 (2-column cells) 与名言引用
+    [架构2-示例A]《深空洞察 · 暗夜科技 CNC 杂志特刊》 (poster_pro_article_01.png)
+    吸收 article-poster-generator 的 dark-tech 风格：
+    - CNC 金属冷调深色底 (#1A1A1A) + 猩红高光 (#CC4444)
+    - 杂志刊头 ISSUE 09 // TECH REVIEW
+    - 半透明毛玻璃核心观点卡片，带猩红强调边框
+    - 矢量条形码与阅读时长元数据
     """
-    bg_img = os.path.join(ASSETS_DIR, "agnes_1789997811_3773.png")
-    out_img = os.path.join(ASSETS_DIR, "poster_pro_article_02.png")
+    bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1790006749_b2b755da.png")
+    out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_article_01.png")
     bg_uri = get_base64_image(bg_img)
-    
-    html = f"""<!DOCTYPE html>
+    html = build_article_01_html(bg_uri)
+    render_html_to_poster(html, out_img)
+    return out_img
+
+def build_article_02_html(bg_uri: str = "") -> str:
+    """生成长文信息图02《数字游民极简生活志》高保真 HTML 源码"""
+    bg_uri = bg_uri or ""
+    return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'SmileySans'; src: url('file://{FONTS_DIR}/SmileySans-Oblique.ttf') format('truetype'); }}
@@ -506,25 +521,30 @@ def render_article_02():
     </div>
   </div>
 </body></html>"""
-    return render_html_to_poster(html, out_img)
+
+def render_article_02(bg_img=None, out_img=None):
+    """
+    [架构2-示例B]《数字游民 · 极简生活志》 (poster_pro_article_02.png)
+    吸收 article-poster-generator 的 minimal-biz 风格：
+    - 浅青灰高奢底衬 (#F0F5F5) + 深松石绿 (#1A7D7D)
+    - 浮雕双层白卡片，弥散投影
+    - 双列网格数据对比 (2-column cells) 与名言引用
+    """
+    bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1789997811_3773.png")
+    out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_article_02.png")
+    bg_uri = get_base64_image(bg_img)
+    html = build_article_02_html(bg_uri)
+    render_html_to_poster(html, out_img)
+    return out_img
 
 # =============================================================================
 # 三、先锋酸性与赛博机能流派 (Cyber Acid & Brutalist Tech)
 # =============================================================================
 
-def render_cyber_01():
-    """
-    [架构3-示例A]《机能战术 · HUD 工业取景准心》 (poster_pro_cyber_01.png)
-    设计要点：
-    - 四角 L 型定位框与中央瞄准准心 (Crosshairs ✛)
-    - 得意黑 8° 窄斜体金箔流光文字渐变
-    - 矢量条形码、微型序列号与经纬度坐标
-    """
-    bg_img = os.path.join(ASSETS_DIR, "agnes_1789995703_1047.png")
-    out_img = os.path.join(ASSETS_DIR, "poster_pro_cyber_01.png")
-    bg_uri = get_base64_image(bg_img)
-    
-    html = f"""<!DOCTYPE html>
+def build_cyber_01_html(bg_uri: str = "") -> str:
+    """生成赛博机能01《HUD 工业取景准心》高保真 HTML 源码"""
+    bg_uri = bg_uri or ""
+    return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'SmileySans'; src: url('file://{FONTS_DIR}/SmileySans-Oblique.ttf') format('truetype'); }}
@@ -620,25 +640,30 @@ def render_cyber_01():
     <div class="serial-num">ID: AGNES-8891-SPEC // SYS: VERIFIED</div>
   </div>
 </body></html>"""
+
+def render_cyber_01(bg_img=None, out_img=None):
+    """
+    [架构3-示例A]《机能战术 · HUD 工业取景准心》 (poster_pro_cyber_01.png)
+    设计要点：
+    - 四角 L 型定位框与中央瞄准准心 (Crosshairs ✛)
+    - 得意黑 8° 窄斜体金箔流光文字渐变
+    - 矢量条形码、微型序列号与经纬度坐标
+    """
+    is_default_out = out_img is None
+    bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1789995703_1047.png")
+    out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_cyber_01.png")
+    bg_uri = get_base64_image(bg_img)
+    html = build_cyber_01_html(bg_uri)
     render_html_to_poster(html, out_img)
-    compat_img = os.path.join(ASSETS_DIR, "poster_pro_steampunk_tech.png")
-    render_html_to_poster(html, compat_img)
+    if is_default_out:
+        compat_img = os.path.join(ASSETS_DIR, "poster_pro_steampunk_tech.png")
+        render_html_to_poster(html, compat_img)
     return out_img
 
-def render_cyber_02():
-    """
-    [架构3-示例B]《酸性霓虹 · Y2K 新野兽主义先锋》 (poster_pro_cyber_02.png)
-    设计要点：
-    - Y2K 荧光绿 (#00FF66) 与霓虹品红 (#FF007C) 强冲撞
-    - 巨幅镂空大字标穿透视觉背景「重构视界 · RECONSTRUCT」
-    - 终端命令行黑色日志栏 (Terminal Logs)
-    - 4px 切角战术贴纸徽章
-    """
-    bg_img = os.path.join(ASSETS_DIR, "agnes_1790005169_f77bd79b.png")
-    out_img = os.path.join(ASSETS_DIR, "poster_pro_cyber_02.png")
-    bg_uri = get_base64_image(bg_img)
-    
-    html = f"""<!DOCTYPE html>
+def build_cyber_02_html(bg_uri: str = "") -> str:
+    """生成赛博机能02《酸性霓虹 · Y2K 新野兽主义先锋》高保真 HTML 源码"""
+    bg_uri = bg_uri or ""
+    return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'SmileySans'; src: url('file://{FONTS_DIR}/SmileySans-Oblique.ttf') format('truetype'); }}
@@ -702,25 +727,31 @@ def render_cyber_02():
     <div class="term-badge">STATUS: OVERDRIVE</div>
   </div>
 </body></html>"""
-    return render_html_to_poster(html, out_img)
+
+def render_cyber_02(bg_img=None, out_img=None):
+    """
+    [架构3-示例B]《酸性霓虹 · Y2K 新野兽主义先锋》 (poster_pro_cyber_02.png)
+    设计要点：
+    - Y2K 荧光绿 (#00FF66) 与霓虹品红 (#FF007C) 强冲撞
+    - 巨幅镂空大字标穿透视觉背景「重构视界 · RECONSTRUCT」
+    - 终端命令行黑色日志栏 (Terminal Logs)
+    - 4px 切角战术贴纸徽章
+    """
+    bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1790005169_f77bd79b.png")
+    out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_cyber_02.png")
+    bg_uri = get_base64_image(bg_img)
+    html = build_cyber_02_html(bg_uri)
+    render_html_to_poster(html, out_img)
+    return out_img
 
 # =============================================================================
 # 四、新中式当代金石意境流派 (Neo-Chinese Poetics)
 # =============================================================================
 
-def render_chinese_01():
-    """
-    [架构4-示例A]《苏园惊鸿 · 对角双列错位拆字》 (poster_pro_chinese_01.png)
-    设计要素：
-    - 原生 Vision 面部避障，中轴 40% 走廊彻底留白
-    - 刀刻思源大宋体竖排对角拆字（左「苏园」上浮、右「惊鸿」下沉）
-    - 霞鹜文楷七绝诗词、赫蹏标点挤压、古法朱砂红方印
-    """
-    bg_img = os.path.join(ASSETS_DIR, "agnes_1789997327_7424.png")
-    out_img = os.path.join(ASSETS_DIR, "poster_pro_chinese_01.png")
-    bg_uri = get_base64_image(bg_img)
-    
-    html = f"""<!DOCTYPE html>
+def build_chinese_01_html(bg_uri: str = "") -> str:
+    """生成新中式01《苏园惊鸿 · 对角双列错位拆字》高保真 HTML 源码"""
+    bg_uri = bg_uri or ""
+    return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'LXGWWenKai'; src: url('file://{FONTS_DIR}/LXGWWenKai-Regular.ttf') format('truetype'); }}
@@ -785,24 +816,30 @@ def render_chinese_01():
     AGNES ORIENTAL MASTERPIECE // 金石留白避障范式
   </div>
 </body></html>"""
+
+def render_chinese_01(bg_img=None, out_img=None):
+    """
+    [架构4-示例A]《苏园惊鸿 · 对角双列错位拆字》 (poster_pro_chinese_01.png)
+    设计要素：
+    - 原生 Vision 面部避障，中轴 40% 走廊彻底留白
+    - 刀刻思源大宋体竖排对角拆字（左「苏园」上浮、右「惊鸿」下沉）
+    - 霞鹜文楷七绝诗词、赫蹏标点挤压、古法朱砂红方印
+    """
+    is_default_out = out_img is None
+    bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1789997327_7424.png")
+    out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_chinese_01.png")
+    bg_uri = get_base64_image(bg_img)
+    html = build_chinese_01_html(bg_uri)
     render_html_to_poster(html, out_img)
-    compat_img = os.path.join(ASSETS_DIR, "poster_pro_neochinese_poetics.png")
-    render_html_to_poster(html, compat_img)
+    if is_default_out:
+        compat_img = os.path.join(ASSETS_DIR, "poster_pro_neochinese_poetics.png")
+        render_html_to_poster(html, compat_img)
     return out_img
 
-def render_chinese_02():
-    """
-    [架构4-示例B]《墨韵山海 · 东方极简空灵金石》 (poster_pro_chinese_02.png)
-    设计要点：
-    - 吸收南宋马远夏圭“边角之景”留白美学
-    - 极深水墨暗夜底，竖排大字距「山海微澜」
-    - 诗经题跋、长条引首章与中西文盘古之白
-    """
-    bg_img = os.path.join(ASSETS_DIR, "agnes_1789997343_5762.png")
-    out_img = os.path.join(ASSETS_DIR, "poster_pro_chinese_02.png")
-    bg_uri = get_base64_image(bg_img)
-    
-    html = f"""<!DOCTYPE html>
+def build_chinese_02_html(bg_uri: str = "") -> str:
+    """生成新中式02《墨韵山海 · 东方极简空灵金石》高保真 HTML 源码"""
+    bg_uri = bg_uri or ""
+    return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'LXGWWenKai'; src: url('file://{FONTS_DIR}/LXGWWenKai-Regular.ttf') format('truetype'); }}
@@ -866,26 +903,30 @@ def render_chinese_02():
     <div class="info-cn">南宋马远夏圭遗意 · 极简留白金石品格</div>
   </div>
 </body></html>"""
-    return render_html_to_poster(html, out_img)
+
+def render_chinese_02(bg_img=None, out_img=None):
+    """
+    [架构4-示例B]《墨韵山海 · 东方极简空灵金石》 (poster_pro_chinese_02.png)
+    设计要点：
+    - 吸收南宋马远夏圭“边角之景”留白美学
+    - 极深水墨暗夜底，竖排大字距「山海微澜」
+    - 诗经题跋、长条引首章与中西文盘古之白
+    """
+    bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1789997343_5762.png")
+    out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_chinese_02.png")
+    bg_uri = get_base64_image(bg_img)
+    html = build_chinese_02_html(bg_uri)
+    render_html_to_poster(html, out_img)
+    return out_img
 
 # =============================================================================
 # 五、院线 2.35:1 宽银幕大片流派 (Cinematic Billing Block)
 # =============================================================================
 
-def render_cinema_01():
-    """
-    [架构5-示例A]《最后的地平线 · 史诗科幻巨制》 (poster_pro_cinema_01.png)
-    设计要点：
-    - 上下 14% 极深纯黑遮幅 (Letterbox 2.35:1)
-    - 刀刻大宋体超宽字距 (28px)
-    - 国际合规电影演职员微排版 (Movie Billing Block)
-    - Dolby Cinema / IMAX 70MM 矢量标
-    """
-    bg_img = os.path.join(ASSETS_DIR, "agnes_1789995702_9250.png")
-    out_img = os.path.join(ASSETS_DIR, "poster_pro_cinema_01.png")
-    bg_uri = get_base64_image(bg_img)
-    
-    html = f"""<!DOCTYPE html>
+def build_cinema_01_html(bg_uri: str = "") -> str:
+    """生成电影大片01《最后的地平线 · 史诗科幻巨制》高保真 HTML 源码"""
+    bg_uri = bg_uri or ""
+    return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'SmileySans'; src: url('file://{FONTS_DIR}/SmileySans-Oblique.ttf') format('truetype'); }}
@@ -964,24 +1005,31 @@ def render_cinema_01():
     </div>
   </div>
 </body></html>"""
+
+def render_cinema_01(bg_img=None, out_img=None):
+    """
+    [架构5-示例A]《最后的地平线 · 史诗科幻巨制》 (poster_pro_cinema_01.png)
+    设计要点：
+    - 上下 14% 极深纯黑遮幅 (Letterbox 2.35:1)
+    - 刀刻大宋体超宽字距 (28px)
+    - 国际合规电影演职员微排版 (Movie Billing Block)
+    - Dolby Cinema / IMAX 70MM 矢量标
+    """
+    is_default_out = out_img is None
+    bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1789995702_9250.png")
+    out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_cinema_01.png")
+    bg_uri = get_base64_image(bg_img)
+    html = build_cinema_01_html(bg_uri)
     render_html_to_poster(html, out_img)
-    compat_img = os.path.join(ASSETS_DIR, "poster_pro_cinematic_letterbox.png")
-    render_html_to_poster(html, compat_img)
+    if is_default_out:
+        compat_img = os.path.join(ASSETS_DIR, "poster_pro_cinematic_letterbox.png")
+        render_html_to_poster(html, compat_img)
     return out_img
 
-def render_cinema_02():
-    """
-    [架构5-示例B]《深渊回响 · 黑色悬疑大片》 (poster_pro_cinema_02.png)
-    设计要点：
-    - 顶部左右对称双金冠标志 (Laurel Wreaths 🌿 电影节官方评审团提名)
-    - 悬疑冷调大宋体「深渊回响 // VOICES IN THE MIST」
-    - 电影摄影镜头参数、电影分级微排版 (R-RATED)
-    """
-    bg_img = os.path.join(ASSETS_DIR, "agnes_1790006257_2d6beb48.png")
-    out_img = os.path.join(ASSETS_DIR, "poster_pro_cinema_02.png")
-    bg_uri = get_base64_image(bg_img)
-    
-    html = f"""<!DOCTYPE html>
+def build_cinema_02_html(bg_uri: str = "") -> str:
+    """生成电影大片02《深渊回响 · 黑色悬疑大片》高保真 HTML 源码"""
+    bg_uri = bg_uri or ""
+    return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'SmileySans'; src: url('file://{FONTS_DIR}/SmileySans-Oblique.ttf') format('truetype'); }}
@@ -1070,7 +1118,21 @@ def render_cinema_02():
     <div class="rating-box">R-RATED</div>
   </div>
 </body></html>"""
-    return render_html_to_poster(html, out_img)
+
+def render_cinema_02(bg_img=None, out_img=None):
+    """
+    [架构5-示例B]《深渊回响 · 黑色悬疑大片》 (poster_pro_cinema_02.png)
+    设计要点：
+    - 顶部左右对称双金冠标志 (Laurel Wreaths 🌿 电影节官方评审团提名)
+    - 悬疑冷调大宋体「深渊回响 // VOICES IN THE MIST」
+    - 电影摄影镜头参数、电影分级微排版 (R-RATED)
+    """
+    bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1790006257_2d6beb48.png")
+    out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_cinema_02.png")
+    bg_uri = get_base64_image(bg_img)
+    html = build_cinema_02_html(bg_uri)
+    render_html_to_poster(html, out_img)
+    return out_img
 
 # =============================================================================
 # 全部 10 套顶级商业海报集合
@@ -1078,48 +1140,145 @@ def render_cinema_02():
 
 POSTER_REGISTRY = {
     # 架构 1: 瑞士国际主义网格
-    "swiss_01": {"name": "瑞士网格01 · 苏黎世秩序 (Josef Müller-Brockmann)", "func": render_swiss_01, "file": "poster_pro_swiss_01.png"},
-    "swiss_02": {"name": "瑞士网格02 · Musica Viva 对角律动 (1959 Classic)", "func": render_swiss_02, "file": "poster_pro_swiss_02.png"},
+    "swiss_01": {
+        "name": "瑞士网格01 · 苏黎世秩序 (Josef Müller-Brockmann)",
+        "func": render_swiss_01,
+        "html_func": build_swiss_01_html,
+        "file": "poster_pro_swiss_01.png",
+        "category": "swiss",
+    },
+    "swiss_02": {
+        "name": "瑞士网格02 · Musica Viva 对角律动 (1959 Classic)",
+        "func": render_swiss_02,
+        "html_func": build_swiss_02_html,
+        "file": "poster_pro_swiss_02.png",
+        "category": "swiss",
+    },
     # 架构 2: 长文杂志与现代信息图
-    "article_01": {"name": "长文信息图01 · 暗夜科技 CNC 杂志特刊 (Article Generator)", "func": render_article_01, "file": "poster_pro_article_01.png"},
-    "article_02": {"name": "长文信息图02 · 数字游民极简生活志 (Minimal Biz)", "func": render_article_02, "file": "poster_pro_article_02.png"},
+    "article_01": {
+        "name": "长文信息图01 · 暗夜科技 CNC 杂志特刊 (Article Generator)",
+        "func": render_article_01,
+        "html_func": build_article_01_html,
+        "file": "poster_pro_article_01.png",
+        "category": "article",
+    },
+    "article_02": {
+        "name": "长文信息图02 · 数字游民极简生活志 (Minimal Biz)",
+        "func": render_article_02,
+        "html_func": build_article_02_html,
+        "file": "poster_pro_article_02.png",
+        "category": "article",
+    },
     # 架构 3: 先锋酸性与赛博机能
-    "cyber_01": {"name": "赛博机能01 · HUD 战术瞄准对焦 (Tactical Acid)", "func": render_cyber_01, "file": "poster_pro_cyber_01.png"},
-    "cyber_02": {"name": "赛博机能02 · Y2K 酸性霓虹先锋 (Reconstruct)", "func": render_cyber_02, "file": "poster_pro_cyber_02.png"},
+    "cyber_01": {
+        "name": "赛博机能01 · HUD 战术瞄准对焦 (Tactical Acid)",
+        "func": render_cyber_01,
+        "html_func": build_cyber_01_html,
+        "file": "poster_pro_cyber_01.png",
+        "category": "cyber",
+    },
+    "cyber_02": {
+        "name": "赛博机能02 · Y2K 酸性霓虹先锋 (Reconstruct)",
+        "func": render_cyber_02,
+        "html_func": build_cyber_02_html,
+        "file": "poster_pro_cyber_02.png",
+        "category": "cyber",
+    },
     # 架构 4: 新中式当代金石意境
-    "chinese_01": {"name": "新中式01 · 苏园惊鸿对角避障拆字 (Poetics)", "func": render_chinese_01, "file": "poster_pro_chinese_01.png"},
-    "chinese_02": {"name": "新中式02 · 墨韵山海极简空灵金石 (Ink Landscape)", "func": render_chinese_02, "file": "poster_pro_chinese_02.png"},
+    "chinese_01": {
+        "name": "新中式01 · 苏园惊鸿对角避障拆字 (Poetics)",
+        "func": render_chinese_01,
+        "html_func": build_chinese_01_html,
+        "file": "poster_pro_chinese_01.png",
+        "category": "chinese",
+    },
+    "chinese_02": {
+        "name": "新中式02 · 墨韵山海极简空灵金石 (Ink Landscape)",
+        "func": render_chinese_02,
+        "html_func": build_chinese_02_html,
+        "file": "poster_pro_chinese_02.png",
+        "category": "chinese",
+    },
     # 架构 5: 院线 2.35:1 宽银幕大片
-    "cinema_01": {"name": "电影大片01 · 最后的地平线 (2.35:1 Billing Block)", "func": render_cinema_01, "file": "poster_pro_cinema_01.png"},
-    "cinema_02": {"name": "电影大片02 · 深渊回响黑色悬疑 (Festival Laurels)", "func": render_cinema_02, "file": "poster_pro_cinema_02.png"},
+    "cinema_01": {
+        "name": "电影大片01 · 最后的地平线 (2.35:1 Billing Block)",
+        "func": render_cinema_01,
+        "html_func": build_cinema_01_html,
+        "file": "poster_pro_cinema_01.png",
+        "category": "cinema",
+    },
+    "cinema_02": {
+        "name": "电影大片02 · 深渊回响黑色悬疑 (Festival Laurels)",
+        "func": render_cinema_02,
+        "html_func": build_cinema_02_html,
+        "file": "poster_pro_cinema_02.png",
+        "category": "cinema",
+    },
 }
 
-def run_all():
+def list_poster_presets():
+    """返回所有已注册的海报预设元数据列表"""
+    return [
+        {
+            "key": k,
+            "name": v["name"],
+            "file": v["file"],
+            "category": v.get("category", "custom"),
+        }
+        for k, v in POSTER_REGISTRY.items()
+    ]
+
+def get_poster_preset(key):
+    """根据 key 获取对应海报预设配置"""
+    if not key or not isinstance(key, str):
+        return None
+    return POSTER_REGISTRY.get(key.strip().lower())
+
+def render_preset(key, bg_img=None, out_img=None):
+    """根据 key 渲染指定海报预设"""
+    preset = get_poster_preset(key)
+    if not preset:
+        raise KeyError(f"Unknown poster preset key: {key}. Available: {list(POSTER_REGISTRY.keys())}")
+    return preset["func"](bg_img=bg_img, out_img=out_img)
+
+def run_all(output_dir=None):
     print("======================================================================")
     print("🚀 [Agnes Studio] 启动 5 大顶级设计架构 · 10 款商业大师级海报全量渲染管线")
     print("======================================================================")
     start_time = time.time()
     rendered_count = 0
+    results = {}
     
     for key, item in POSTER_REGISTRY.items():
         print(f"\n▶ 正在执行 [{key}]: {item['name']}...")
-        item["func"]()
+        out_f = os.path.join(output_dir, item["file"]) if output_dir else None
+        results[key] = item["func"](out_img=out_f)
         rendered_count += 1
         
     cost = round(time.time() - start_time, 2)
-    print(f"\n✨ [完成] 10 款商业大师级海报全部光栅化渲染成功！总耗时: {cost} 秒")
+    print(f"\n✨ [完成] {rendered_count} 款商业大师级海报全部光栅化渲染成功！总耗时: {cost} 秒")
+    return results
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Agnes Studio Professional Poster Renderer")
     parser.add_argument("--key", type=str, help="单个海报 key 执行")
-    parser.add_argument("--all", action="store_true", default=True, help="全部渲染")
+    parser.add_argument("--list", action="store_true", help="列出所有可用的海报流派预设")
+    parser.add_argument("--all", action="store_true", default=False, help="全量渲染所有预设")
+    parser.add_argument("--out-dir", type=str, default=None, help="自定义输出目录")
     args = parser.parse_args()
     
+    if args.list:
+        print("Agnes Studio 可用海报预设:")
+        for p in list_poster_presets():
+            print(f"  - [{p['key']}] {p['name']} -> {p['file']} ({p['category']})")
+        sys.exit(0)
+
     if args.key:
-        if args.key in POSTER_REGISTRY:
-            POSTER_REGISTRY[args.key]["func"]()
+        if get_poster_preset(args.key):
+            out_f = os.path.join(args.out_dir, get_poster_preset(args.key)["file"]) if args.out_dir else None
+            render_preset(args.key, out_img=out_f)
         else:
             print(f"❌ 未知海报 key: {args.key}，可选: {list(POSTER_REGISTRY.keys())}")
             sys.exit(1)
     else:
-        run_all()
+        run_all(output_dir=args.out_dir)

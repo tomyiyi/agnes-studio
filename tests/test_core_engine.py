@@ -95,6 +95,36 @@ from autonomous_followup import (
     run_creative_pipeline_cycle,
     generate_morning_report,
 )
+import pro_poster_renderer
+from pro_poster_renderer import (
+    get_base64_image,
+    render_html_to_poster,
+    build_swiss_01_html,
+    build_swiss_02_html,
+    build_article_01_html,
+    build_article_02_html,
+    build_cyber_01_html,
+    build_cyber_02_html,
+    build_chinese_01_html,
+    build_chinese_02_html,
+    build_cinema_01_html,
+    build_cinema_02_html,
+    render_swiss_01,
+    render_swiss_02,
+    render_article_01,
+    render_article_02,
+    render_cyber_01,
+    render_cyber_02,
+    render_chinese_01,
+    render_chinese_02,
+    render_cinema_01,
+    render_cinema_02,
+    POSTER_REGISTRY,
+    list_poster_presets,
+    get_poster_preset,
+    render_preset,
+    run_all as run_all_posters,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -1657,6 +1687,195 @@ class TestAutonomousFollowup(unittest.TestCase):
         mock_urlopen.side_effect = urllib.error.URLError("Network unreachable")
         result = run_creative_pipeline_cycle(2, server_base="http://127.0.0.1:8088", timeout=10)
         self.assertIsNone(result)
+
+
+class TestProPosterRenderer(unittest.TestCase):
+    """测试专业商业海报排版引擎 pro_poster_renderer"""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_get_base64_image_empty_and_passthrough(self):
+        self.assertEqual(get_base64_image(""), "")
+        self.assertEqual(get_base64_image(None), "")
+        data_uri = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        self.assertEqual(get_base64_image(data_uri), data_uri)
+        jpeg_data_uri = "data:image/jpeg;base64,/9j/4AAQSkZJRg=="
+        self.assertEqual(get_base64_image(jpeg_data_uri), jpeg_data_uri)
+
+    def test_get_base64_image_file_types_and_missing(self):
+        img_png = self.tmp_path / "test.png"
+        img_png.write_bytes(b"\x89PNG\r\n\x1a\nfake_png_data")
+        res_png = get_base64_image(str(img_png))
+        self.assertTrue(res_png.startswith("data:image/png;base64,"))
+
+        img_jpg = self.tmp_path / "test.jpg"
+        img_jpg.write_bytes(b"\xff\xd8\xfffake_jpg_data")
+        res_jpg = get_base64_image(str(img_jpg))
+        self.assertTrue(res_jpg.startswith("data:image/jpeg;base64,"))
+
+        img_webp = self.tmp_path / "test.webp"
+        img_webp.write_bytes(b"RIFFfake_webp_dataWEBP")
+        res_webp = get_base64_image(str(img_webp))
+        self.assertTrue(res_webp.startswith("data:image/webp;base64,"))
+
+        missing_res = get_base64_image(str(self.tmp_path / "missing_file.png"))
+        self.assertEqual(missing_res, "")
+
+    def test_html_builders_structure_and_interpolation(self):
+        test_bg = "data:image/png;base64,placeholder_bg_data"
+        builders = [
+            (build_swiss_01_html, ["ORDNUNG", "SWISS INTERNATIONAL STYLE"]),
+            (build_swiss_02_html, ["musica", "viva.", "tonhalle zürich"]),
+            (build_article_01_html, ["NEURAL REVIEW", "COVER STORY", "机械黄昏"]),
+            (build_article_02_html, ["极简生活志", "在喧嚣时代", "确定性"]),
+            (build_cyber_01_html, ["TACTICAL HUD", "零界觉醒", "CYBERPUNK"]),
+            (build_cyber_02_html, ["Y2K ACID BRUTALISM", "重构视界", "RECONSTRUCT"]),
+            (build_chinese_01_html, ["苏园", "惊鸿", "vertical-rl"]),
+            (build_chinese_02_html, ["山海微澜", "清怀", "南宋马远夏圭遗意"]),
+            (build_cinema_01_html, ["最后的地平线", "THE LAST HORIZON", "IMAX 70MM"]),
+            (build_cinema_02_html, ["深渊回响", "VOICES IN THE MIST", "CANNES FILM FESTIVAL"]),
+        ]
+        for builder_fn, expected_keywords in builders:
+            with self.subTest(builder=builder_fn.__name__):
+                html = builder_fn(test_bg)
+                self.assertIn("<!DOCTYPE html>", html)
+                self.assertIn("</html>", html)
+                self.assertIn(test_bg, html)
+                for kw in expected_keywords:
+                    self.assertIn(kw, html)
+
+    def test_poster_registry_integrity(self):
+        expected_keys = {
+            "swiss_01", "swiss_02", "article_01", "article_02",
+            "cyber_01", "cyber_02", "chinese_01", "chinese_02",
+            "cinema_01", "cinema_02"
+        }
+        self.assertEqual(set(POSTER_REGISTRY.keys()), expected_keys)
+        for key, item in POSTER_REGISTRY.items():
+            with self.subTest(preset=key):
+                self.assertIn("name", item)
+                self.assertIn("func", item)
+                self.assertIn("html_func", item)
+                self.assertIn("file", item)
+                self.assertIn("category", item)
+                self.assertTrue(callable(item["func"]))
+                self.assertTrue(callable(item["html_func"]))
+                self.assertTrue(item["file"].endswith(".png"))
+
+    def test_list_and_get_poster_preset(self):
+        presets = list_poster_presets()
+        self.assertEqual(len(presets), 10)
+        keys = [p["key"] for p in presets]
+        self.assertIn("swiss_01", keys)
+        self.assertIn("chinese_01", keys)
+
+        # get_poster_preset
+        preset = get_poster_preset("cyber_01")
+        self.assertIsNotNone(preset)
+        self.assertEqual(preset["category"], "cyber")
+
+        # case insensitivity
+        self.assertEqual(get_poster_preset("CYBER_01"), preset)
+        self.assertEqual(get_poster_preset("  cyber_01  "), preset)
+
+        # invalid / empty
+        self.assertIsNone(get_poster_preset("non_existent"))
+        self.assertIsNone(get_poster_preset(""))
+        self.assertIsNone(get_poster_preset(None))
+
+    def test_render_preset_invalid_key_raises(self):
+        with self.assertRaises(KeyError):
+            render_preset("invalid_preset_key")
+
+    def test_render_html_to_poster_validation(self):
+        with self.assertRaises(ValueError):
+            render_html_to_poster("", "/tmp/out.png")
+        with self.assertRaises(ValueError):
+            render_html_to_poster(None, "/tmp/out.png")
+        with self.assertRaises(ValueError):
+            render_html_to_poster("<html></html>", "")
+        with self.assertRaises(ValueError):
+            render_html_to_poster("<html></html>", None)
+
+    @patch("pro_poster_renderer.sync_playwright")
+    def test_render_html_to_poster_mocked_playwright(self, mock_playwright_cm):
+        mock_p = MagicMock()
+        mock_browser = MagicMock()
+        mock_page = MagicMock()
+
+        mock_playwright_cm.return_value.__enter__.return_value = mock_p
+        mock_p.chromium.launch.return_value = mock_browser
+        mock_browser.new_page.return_value = mock_page
+
+        out_png = self.tmp_path / "subdir" / "output.png"
+        def fake_screenshot(path, **kwargs):
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
+            Path(path).write_bytes(b"mock_png_bytes")
+        mock_page.screenshot.side_effect = fake_screenshot
+
+        res = render_html_to_poster("<html><body>Test</body></html>", str(out_png), width=1000, height=800, wait_timeout_ms=100)
+        self.assertEqual(res, str(out_png))
+        self.assertTrue(out_png.exists())
+        mock_browser.new_page.assert_called_with(viewport={"width": 1000, "height": 800})
+        mock_page.set_content.assert_called_with("<html><body>Test</body></html>")
+        mock_page.wait_for_timeout.assert_called_with(100)
+        mock_page.screenshot.assert_called_with(path=str(out_png), type="png")
+        mock_browser.close.assert_called_once()
+
+        # JPEG mode
+        out_jpg = self.tmp_path / "output.jpg"
+        render_html_to_poster("<html><body>Test JPG</body></html>", str(out_jpg))
+        mock_page.screenshot.assert_called_with(path=str(out_jpg), quality=95, type="jpeg")
+
+    @patch("pro_poster_renderer.render_html_to_poster")
+    def test_render_all_individual_presets_with_mock(self, mock_render):
+        fake_bg = str(self.tmp_path / "fake_bg.png")
+        Path(fake_bg).write_bytes(b"fake_bg")
+
+        renderers = [
+            render_swiss_01,
+            render_swiss_02,
+            render_article_01,
+            render_article_02,
+            render_cyber_01,
+            render_cyber_02,
+            render_chinese_01,
+            render_chinese_02,
+            render_cinema_01,
+            render_cinema_02,
+        ]
+
+        for r_fn in renderers:
+            with self.subTest(renderer=r_fn.__name__):
+                mock_render.reset_mock()
+                out_file = str(self.tmp_path / f"out_{r_fn.__name__}.png")
+                res = r_fn(bg_img=fake_bg, out_img=out_file)
+                self.assertEqual(res, out_file)
+                mock_render.assert_called()
+                call_args = mock_render.call_args[0]
+                self.assertIn("<!DOCTYPE html>", call_args[0])
+                self.assertEqual(call_args[1], out_file)
+
+    @patch("pro_poster_renderer.render_html_to_poster")
+    def test_render_preset_dispatch_and_run_all(self, mock_render):
+        fake_bg = str(self.tmp_path / "fake_bg.png")
+        Path(fake_bg).write_bytes(b"fake_bg")
+        out_file = str(self.tmp_path / "out_preset.png")
+
+        res = render_preset("swiss_01", bg_img=fake_bg, out_img=out_file)
+        self.assertEqual(res, out_file)
+
+        mock_render.reset_mock()
+        all_results = run_all_posters(output_dir=str(self.tmp_path / "batch_out"))
+        self.assertEqual(len(all_results), 10)
+        for k in POSTER_REGISTRY.keys():
+            self.assertIn(k, all_results)
+            self.assertTrue(all_results[k].endswith(".png"))
 
 
 if __name__ == "__main__":
