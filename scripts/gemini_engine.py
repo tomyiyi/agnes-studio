@@ -36,22 +36,35 @@ except Exception:
 
 ROOT = SCRIPTS_DIR.parent
 KEY_PATH = Path.home() / ".new-api" / "local_key.json"
-DEFAULT_BASE = "http://127.0.0.1:3000/v1"
-DEFAULT_CHAT_MODEL = "agnes-2.5-flash"
+DEFAULT_BASE = "http://127.0.0.1:18045/v1"
+DEFAULT_CHAT_MODEL = "gemini-3.8-flash-medium"
+CHAT_MODEL_ALLOWLIST = {
+    "gemini-3.1-pro",
+    "gemini-3.1-pro-high",
+    "gemini-3.8-flash-high",
+    "gemini-3.8-flash-medium",
+}
 
 
 def load_credentials() -> Tuple[str, str, str]:
     """读取网关配置，返回 (base_url, api_key, chat_model)"""
-    base, key, model = DEFAULT_BASE, "", DEFAULT_CHAT_MODEL
+    runtime_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY", "")
+    base, key, model = DEFAULT_BASE, runtime_key, DEFAULT_CHAT_MODEL
     if KEY_PATH.exists():
         try:
             with open(KEY_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            base = data.get("base_url") or base
-            key = data.get("api_key") or key
+            # 3000 is reserved for Agnes image generation. Chat/vision must use
+            # the DSH tunnel unless an explicit chat_base_url is supplied.
+            base = data.get("chat_base_url") or DEFAULT_BASE
+            # DSH's 18045 gateway uses its runtime OPENAI_API_KEY. Only fall
+            # back to the local New API key for standalone Agnes use.
+            if not key:
+                key = data.get("api_key") or key
             chat_models = (data.get("models") or {}).get("chat") or []
-            if chat_models:
-                model = chat_models[0]
+            allowed_models = [item for item in chat_models if item in CHAT_MODEL_ALLOWLIST]
+            if allowed_models:
+                model = allowed_models[0]
         except Exception:
             pass
     return base.rstrip("/"), key, model

@@ -2386,7 +2386,8 @@ function renderSkills() {
 
     // ==================== 模型网关与后台设置控制器 ====================
     let studioConfig = {
-      base_url: 'http://127.0.0.1:3000/v1',
+      base_url: 'http://192.168.1.164:3000/v1',
+      chat_base_url: 'http://127.0.0.1:18045/v1',
       api_key: '',
       model: 'agnes-image-2.5-flash',
       image_size: '1024x1024'
@@ -2476,7 +2477,8 @@ function renderSkills() {
           if (localSaved) {
             studioConfig = Object.assign({}, data, JSON.parse(localSaved));
           } else {
-            studioConfig.base_url = data.base_url || 'http://127.0.0.1:3000/v1';
+            studioConfig.base_url = data.image_base_url || data.base_url || 'http://192.168.1.164:3000/v1';
+            studioConfig.chat_base_url = data.chat_base_url || 'http://127.0.0.1:18045/v1';
             studioConfig.api_key = '';
             studioConfig.has_api_key = !!data.has_api_key;
             studioConfig.local_key_detected = !!data.local_key_detected;
@@ -2670,7 +2672,7 @@ function renderSkills() {
             platform: 'wechat',
             tone: 'luxury',
             goal: 'editorial',
-            base_url: studioConfig.base_url || '',
+            chat_base_url: studioConfig.chat_base_url || 'http://127.0.0.1:18045/v1',
             api_key: studioConfig.api_key || ''
           })
         });
@@ -2784,7 +2786,7 @@ function renderSkills() {
           body: JSON.stringify({
             image_path: latestRenderedPosterPath,
             title: title,
-            base_url: studioConfig.base_url || '',
+            chat_base_url: studioConfig.chat_base_url || 'http://127.0.0.1:18045/v1',
             api_key: studioConfig.api_key || ''
           })
         });

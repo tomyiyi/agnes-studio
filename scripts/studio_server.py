@@ -75,6 +75,8 @@ except Exception as e:
     vision_inspect_artwork = None
 
 LOCAL_KEY_PATH = Path.home() / ".new-api" / "local_key.json"
+IMAGE_BASE_DEFAULT = "http://192.168.1.164:3000/v1"
+CHAT_BASE_DEFAULT = "http://127.0.0.1:18045/v1"
 
 def get_local_newapi_config():
     """读取本地 New API 配置文件（如果存在）"""
@@ -85,7 +87,9 @@ def get_local_newapi_config():
             return {
                 "detected": True,
                 "type": "local_new_api",
-                "base_url": data.get("base_url", "http://127.0.0.1:3000/v1"),
+                "base_url": data.get("base_url", IMAGE_BASE_DEFAULT),
+                "image_base_url": data.get("image_base_url", data.get("base_url", IMAGE_BASE_DEFAULT)),
+                "chat_base_url": data.get("chat_base_url", CHAT_BASE_DEFAULT),
                 "api_key": data.get("api_key", ""),
                 "default_model": "agnes-image-2.5-flash",
                 "models": data.get("models", {}).get("image_generation", [
@@ -104,7 +108,9 @@ def get_local_newapi_config():
     return {
         "detected": False,
         "type": "none",
-        "base_url": "https://apihub.agnes-ai.com/v1",
+        "base_url": IMAGE_BASE_DEFAULT,
+        "image_base_url": IMAGE_BASE_DEFAULT,
+        "chat_base_url": CHAT_BASE_DEFAULT,
         "api_key": "",
         "default_model": "agnes-image-2.5-flash",
         "models": [
@@ -167,6 +173,8 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 "detected": cfg["detected"],
                 "local_key_detected": cfg["detected"],
                 "base_url": cfg["base_url"],
+                "image_base_url": cfg["image_base_url"],
+                "chat_base_url": cfg["chat_base_url"],
                 "masked_api_key": masked_key,
                 "has_api_key": bool(cfg["api_key"]),
                 # 不向前端回传明文密钥；调用时由服务端按需注入本地密钥
@@ -370,7 +378,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             platform = req_body.get("platform", "wechat")
             tone = req_body.get("tone", "luxury")
             goal = req_body.get("goal", "editorial")
-            base_url = req_body.get("base_url")
+            base_url = req_body.get("chat_base_url") or req_body.get("base_url")
             api_key = req_body.get("api_key")
 
             if not topic:
@@ -384,9 +392,9 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             if not api_key:
                 local_cfg = get_local_newapi_config()
                 if local_cfg["detected"]:
-                    api_key = local_cfg["api_key"]
+                    api_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY") or local_cfg["api_key"]
                     if not base_url:
-                        base_url = local_cfg["base_url"]
+                        base_url = local_cfg["chat_base_url"]
 
             res = generate_creative_brief(topic, platform=platform, tone=tone, goal=goal, base_url=base_url, api_key=api_key)
             if res.get("ok"):
@@ -400,7 +408,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             raw_prompt = req_body.get("prompt", "").strip()
             aspect_ratio = req_body.get("aspect_ratio", "1:1")
             negative_space_zone = req_body.get("negative_space", "top-left")
-            base_url = req_body.get("base_url")
+            base_url = req_body.get("chat_base_url") or req_body.get("base_url")
             api_key = req_body.get("api_key")
 
             if not raw_prompt:
@@ -414,9 +422,9 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             if not api_key:
                 local_cfg = get_local_newapi_config()
                 if local_cfg["detected"]:
-                    api_key = local_cfg["api_key"]
+                    api_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY") or local_cfg["api_key"]
                     if not base_url:
-                        base_url = local_cfg["base_url"]
+                        base_url = local_cfg["chat_base_url"]
 
             res = refine_prompt_for_agnes(raw_prompt, aspect_ratio=aspect_ratio, negative_space_zone=negative_space_zone, base_url=base_url, api_key=api_key)
             if res.get("ok"):
@@ -429,7 +437,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/gemini/vision-inspect":
             image_rel = req_body.get("image_path", "").strip()
             title = req_body.get("title", "")
-            base_url = req_body.get("base_url")
+            base_url = req_body.get("chat_base_url") or req_body.get("base_url")
             api_key = req_body.get("api_key")
 
             if not image_rel:
@@ -447,9 +455,9 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             if not api_key:
                 local_cfg = get_local_newapi_config()
                 if local_cfg["detected"]:
-                    api_key = local_cfg["api_key"]
+                    api_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY") or local_cfg["api_key"]
                     if not base_url:
-                        base_url = local_cfg["base_url"]
+                        base_url = local_cfg["chat_base_url"]
 
             res = vision_inspect_artwork(str(img_abs), title=title, base_url=base_url, api_key=api_key)
             if res.get("ok"):
