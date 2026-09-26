@@ -228,6 +228,10 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "请提供有效的 Base URL"}, status=400)
                 return
 
+            if not (base_url.startswith("http://") or base_url.startswith("https://")):
+                self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
+                return
+
             models_url = f"{base_url}/models"
             req = urllib.request.Request(models_url, method="GET")
             req.add_header("User-Agent", "AgnesStudio/1.0")
@@ -242,7 +246,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                     res_json = json.loads(raw)
                     model_list = []
                     if "data" in res_json and isinstance(res_json["data"], list):
-                        model_list = [m.get("id") for m in res_json["data"] if isinstance(m, dict) and "id" in m]
+                        model_list = [str(m["id"]) for m in res_json["data"] if isinstance(m, dict) and m.get("id")]
                     
                     # 过滤生图相关模型
                     image_models = [m for m in model_list if "image" in m.lower() or "dall-e" in m.lower()]
@@ -283,6 +287,10 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "提示词不能为空"}, status=400)
                 return
 
+            if not (base_url.startswith("http://") or base_url.startswith("https://")):
+                self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
+                return
+
             gen_url = f"{base_url}/images/generations"
             payload = {
                 "model": model,
@@ -320,10 +328,10 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                         import base64
                         with open(out_path, "wb") as img_f:
                             img_f.write(base64.b64decode(b64_data))
-                    elif remote_url:
+                    elif remote_url and (remote_url.startswith("http://") or remote_url.startswith("https://")):
                         urllib.request.urlretrieve(remote_url, str(out_path))
                     else:
-                        self._send_json({"success": False, "error": "未能从模型响应中提取图片数据"}, status=500)
+                        self._send_json({"success": False, "error": "未能从模型响应中提取有效的图片数据"}, status=500)
                         return
 
                     self._send_json({
@@ -357,9 +365,14 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             if bg_image_rel.startswith("data:image/"):
                 bg_uri = bg_image_rel
             else:
-                # 定位底图绝对路径（限制在 public/ 内，防止路径穿越）
-                bg_abs_path = (PUBLIC_DIR / bg_image_rel.lstrip("/")).resolve()
-                if not str(bg_abs_path).startswith(str(PUBLIC_DIR.resolve())) or not bg_abs_path.exists():
+                # 定位底图绝对路径（限制在 public/ 内，防止路径穿越；支持 public/ 前缀）
+                rel_clean = bg_image_rel.lstrip("/")
+                if rel_clean.startswith("public/"):
+                    rel_clean = rel_clean[len("public/"):].lstrip("/")
+                bg_abs_path = (PUBLIC_DIR / rel_clean).resolve()
+                if not str(bg_abs_path).startswith(str(PUBLIC_DIR.resolve())) or not bg_abs_path.is_file():
+                    bg_abs_path = (DIR / bg_image_rel.lstrip("/")).resolve()
+                if not str(bg_abs_path).startswith(str(PUBLIC_DIR.resolve())) or not bg_abs_path.is_file():
                     bg_abs_path = ASSETS_DIR / "agnes_1789995698_9987.png"
                 bg_uri = get_base64_image(str(bg_abs_path))
 

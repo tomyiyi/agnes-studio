@@ -305,6 +305,106 @@ class TestEndpointContract(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_options_request_and_cors_headers(self):
+        server = HTTPServer(("127.0.0.1", 0), studio_server.StudioHTTPRequestHandler)
+        port = server.server_port
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        try:
+            for path in ("/api/config", "/api/render-poster", "/api/generate-image"):
+                with self.subTest(path=path):
+                    req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", method="OPTIONS")
+                    with urllib.request.urlopen(req, timeout=5) as resp:
+                        self.assertEqual(resp.status, 204)
+                        self.assertEqual(resp.headers.get("Access-Control-Allow-Origin"), "*")
+                        self.assertIn("POST", resp.headers.get("Access-Control-Allow-Methods", ""))
+                        self.assertIn("OPTIONS", resp.headers.get("Access-Control-Allow-Methods", ""))
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_url_scheme_validation(self):
+        server = HTTPServer(("127.0.0.1", 0), studio_server.StudioHTTPRequestHandler)
+        port = server.server_port
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        try:
+            # 1. test-connection with non-http/https URL
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{port}/api/test-connection",
+                data=json.dumps({"base_url": "file:///etc"}).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req, timeout=5)
+            self.assertEqual(ctx.exception.code, 400)
+            with ctx.exception:
+                resp = json.loads(ctx.exception.read().decode("utf-8"))
+            self.assertFalse(resp.get("success"))
+            self.assertIn("Base URL 必须以 http:// 或 https:// 开头", resp.get("error", ""))
+
+            # 2. generate-image with non-http/https URL
+            req_img = urllib.request.Request(
+                f"http://127.0.0.1:{port}/api/generate-image",
+                data=json.dumps({"prompt": "A test poster", "base_url": "ftp://example.com"}).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req_img, timeout=5)
+            self.assertEqual(ctx.exception.code, 400)
+            with ctx.exception:
+                resp_img = json.loads(ctx.exception.read().decode("utf-8"))
+            self.assertFalse(resp_img.get("success"))
+            self.assertIn("Base URL 必须以 http:// 或 https:// 开头", resp_img.get("error", ""))
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_post_render_poster_with_public_prefix_path(self):
+        server = HTTPServer(("127.0.0.1", 0), studio_server.StudioHTTPRequestHandler)
+        port = server.server_port
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        try:
+            captured_html = []
+
+            def fake_renderer(html_content, out_path):
+                captured_html.append(html_content)
+                return out_path
+
+            orig_renderer = studio_server.render_html_to_poster
+            studio_server.render_html_to_poster = fake_renderer
+            try:
+                # 传入带 public/ 前缀的路径
+                req_data = json.dumps({
+                    "style": "swiss_01",
+                    "title": "前缀路径测试",
+                    "subtitle": "PUBLIC PREFIX TEST",
+                    "bg_image": "public/assets/poster_workshop_hero_1080.png",
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    f"http://127.0.0.1:{port}/api/render-poster",
+                    data=req_data,
+                    headers={"Content-Type": "application/json", "Content-Length": str(len(req_data))},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    self.assertEqual(resp.status, 200)
+                    res_json = json.loads(resp.read().decode("utf-8"))
+                    self.assertTrue(res_json.get("success"))
+
+                self.assertEqual(len(captured_html), 1)
+                # 确认背景图片已被读取为 base64 data URI 并注入
+                self.assertIn("data:image/png;base64,", captured_html[0])
+                self.assertIn("前缀路径测试", captured_html[0])
+            finally:
+                studio_server.render_html_to_poster = orig_renderer
+        finally:
+            server.shutdown()
+            server.server_close()
+
 
 if __name__ == "__main__":
     unittest.main()
