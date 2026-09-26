@@ -21,8 +21,22 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from copywriting_rules import apply_fix, lint_copy, apply_pangu_spacing, normalize_punctuation
-from typography_rules import ChineseTypographyRules, ModularScale, SwissGridSystem
-from env_config import PROJECT_ROOT, PUBLIC_DIR, ASSETS_DIR, FONTS_DIR, DATA_DIR, resolve_chrome_path
+from typography_rules import (
+    ChineseTypographyRules,
+    ModularScale,
+    SwissGridSystem,
+    SmartPosterComposer,
+    PosterTypeSystem,
+)
+from env_config import (
+    PROJECT_ROOT,
+    PUBLIC_DIR,
+    ASSETS_DIR,
+    FONTS_DIR,
+    DATA_DIR,
+    resolve_chrome_path,
+    resolve_font_path,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -147,6 +161,122 @@ class TestEnvConfig(unittest.TestCase):
         chrome_path = resolve_chrome_path()
         self.assertIsInstance(chrome_path, str)
         self.assertTrue(len(chrome_path) > 0)
+
+    def test_font_resolution(self):
+        font_keys = ["smiley", "wenkai", "songti", "pingfang", "serif", "sans"]
+        for key in font_keys:
+            with self.subTest(font_key=key):
+                font_path = resolve_font_path(key)
+                self.assertIsInstance(font_path, str)
+                self.assertTrue(len(font_path) > 0, f"未能为 {key} 解析字体路径")
+                self.assertTrue(Path(font_path).exists(), f"解析出的字体路径不存在: {font_path}")
+
+    def test_font_resolution_fallback(self):
+        fallback_path = resolve_font_path("non_existent_random_font_xyz")
+        self.assertIsInstance(fallback_path, str)
+        self.assertTrue(len(fallback_path) > 0)
+        self.assertTrue(Path(fallback_path).exists(), f"兜底字体路径不存在: {fallback_path}")
+
+
+class TestSmartPosterComposer(unittest.TestCase):
+    """测试智能避障与对角拆字海报排版推导器"""
+
+    def test_plan_layout_collision_avoidance_split(self):
+        face_zone = [{"x_min": 0.45, "y_min": 0.08, "x_max": 0.55, "y_max": 0.22, "type": "face"}]
+        plan = SmartPosterComposer.plan_layout(
+            image_w=1200,
+            image_h=1600,
+            exclusion_zones=face_zone,
+            title="苏园惊鸿",
+            subtitle="园林清韵",
+            en_title="Suzhou Classic"
+        )
+        self.assertEqual(plan["layout_style"], "bilateral_split_vertical")
+        roles = {el["role"]: el for el in plan["elements"]}
+        self.assertIn("title_part_1", roles)
+        self.assertIn("title_part_2", roles)
+        self.assertIn("en_subtitle", roles)
+        self.assertIn("footer_metadata", roles)
+
+        part1 = roles["title_part_1"]
+        part2 = roles["title_part_2"]
+        self.assertEqual(part1["orientation"], "vertical")
+        self.assertEqual(part2["orientation"], "vertical")
+        self.assertGreater(part2["y"], part1["y"])
+        self.assertEqual(part1["font_size"], plan["hierarchy_sizes"]["h1"])
+
+    def test_plan_layout_horizontal_magazine(self):
+        plan = SmartPosterComposer.plan_layout(
+            image_w=1200,
+            image_h=1600,
+            exclusion_zones=[],
+            title="铜钟与蒸汽城",
+            subtitle="蒸汽纪元",
+            en_title="Steam & Chime"
+        )
+        self.assertEqual(plan["layout_style"], "top_horizontal_magazine")
+        roles = {el["role"]: el for el in plan["elements"]}
+        self.assertIn("title", roles)
+        self.assertIn("en_subtitle", roles)
+        self.assertIn("footer_metadata", roles)
+        self.assertEqual(roles["title"]["orientation"], "horizontal")
+
+
+class TestPosterTypeSystem(unittest.TestCase):
+    """测试海报字排规格与主题呈现规范"""
+
+    def setUp(self):
+        self.pts = PosterTypeSystem()
+
+    def test_sizes_scaling(self):
+        sizes_base = self.pts.sizes(canvas_w=1080)
+        self.assertIn("T1", sizes_base)
+        self.assertIn("T2", sizes_base)
+        self.assertIn("T3", sizes_base)
+        self.assertIn("T4", sizes_base)
+        self.assertGreater(sizes_base["T1"]["size"], sizes_base["T2"]["size"])
+        self.assertGreater(sizes_base["T2"]["size"], sizes_base["T3"]["size"])
+        self.assertGreater(sizes_base["T3"]["size"], sizes_base["T4"]["size"])
+
+        sizes_2x = self.pts.sizes(canvas_w=2160)
+        self.assertEqual(sizes_2x["T1"]["size"], sizes_base["T1"]["size"] * 2)
+
+    def test_theme_mode_mapping(self):
+        self.assertEqual(self.pts.theme_mode("ctr"), "压图巨字")
+        self.assertEqual(self.pts.theme_mode("editorial"), "负空间一角")
+        self.assertEqual(self.pts.theme_mode("brand"), "中轴竖排或负空间一角")
+        self.assertEqual(self.pts.theme_mode("story"), "对角拆字")
+        self.assertEqual(self.pts.theme_mode("vertical"), "中轴竖排")
+        self.assertEqual(self.pts.theme_mode("unknown_mode"), "负空间一角")
+
+    def test_validate_copy_pair(self):
+        valid_issues = self.pts.validate_copy_pair(
+            title="山河盛宴",
+            latin="FESTIVAL OF MOUNTAINS",
+            slogan="千里江山一日还"
+        )
+        self.assertEqual(valid_issues, [])
+
+        long_title_issues = self.pts.validate_copy_pair(
+            title="超级长的大气海报主标题完全超出限制",
+            latin="VALID LATIN",
+            slogan="合规短标语"
+        )
+        self.assertTrue(any("主标过长" in msg for msg in long_title_issues))
+
+        lowercase_latin_issues = self.pts.validate_copy_pair(
+            title="山河盛宴",
+            latin="Festival of mountains",
+            slogan="千里江山一日还"
+        )
+        self.assertTrue(any("全大写" in msg for msg in lowercase_latin_issues))
+
+        long_slogan_issues = self.pts.validate_copy_pair(
+            title="山河盛宴",
+            latin="FESTIVAL",
+            slogan="这是一个超级长毫无节制完全不适合海报金句排版的超长超长标语金句文本"
+        )
+        self.assertTrue(any("slogan >18 字" in msg for msg in long_slogan_issues))
 
 
 class TestDataIntegrity(unittest.TestCase):

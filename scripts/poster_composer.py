@@ -7,19 +7,13 @@ Agnes Studio - 商业海报排版与中文字体合成引擎
 
 import os
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
-from env_config import FONTS_DIR, ASSETS_DIR
+from env_config import FONTS_DIR, ASSETS_DIR, resolve_font_path
 
 FONTS_DIR = str(FONTS_DIR)
 ASSETS_DIR = str(ASSETS_DIR)
 
-FONT_MAP = {
-    "wenkai": os.path.join(FONTS_DIR, "LXGWWenKai-Regular.ttf"),
-    "smiley": os.path.join(FONTS_DIR, "SmileySans-Oblique.ttf"),
-    "songti": "/System/Library/Fonts/Supplemental/Songti.ttc"
-}
-
 def get_font(font_key, size):
-    path = FONT_MAP.get(font_key)
+    path = resolve_font_path(font_key)
     if path and os.path.exists(path):
         try:
             return ImageFont.truetype(path, size)

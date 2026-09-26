@@ -70,6 +70,87 @@ def resolve_chrome_path() -> str:
                 
     return "chromium"
 
+def resolve_font_path(font_key: str = "smiley") -> str:
+    """
+    自动解析跨平台中文字体路径 (macOS / Linux / Windows)
+    支持 'smiley' (得意黑), 'wenkai' (霞鹜文楷), 'songti' / 'serif' (宋体/衬线), 'pingfang' / 'sans' (黑体/无衬线)。
+    返回存在的字体文件绝对路径；若未命中则返回项目中可用的备选字体。
+    """
+    key = str(font_key).lower().strip()
+
+    # 1. 优先检查直接传递的有效绝对路径或相对路径
+    direct = Path(font_key)
+    if direct.is_file():
+        return str(direct.resolve())
+
+    # 2. 检查 public/fonts 中是否有完全同名或匹配文件名
+    exact_match = FONTS_DIR / font_key
+    if exact_match.is_file():
+        return str(exact_match.resolve())
+
+    # 3. 按语义类型路由候选路径
+    if key in ("smiley", "smileysans", "smiley-sans", "oblique"):
+        candidates = [
+            FONTS_DIR / "SmileySans-Oblique.ttf",
+            FONTS_DIR / "SmileySans-Oblique.otf",
+        ]
+    elif key in ("wenkai", "lxgw", "lxgwwenkai", "kai"):
+        candidates = [
+            FONTS_DIR / "LXGWWenKai-Regular.ttf",
+        ]
+    elif key in ("songti", "song", "serif", "didot", "bodoni"):
+        candidates = [
+            # macOS 系统路径
+            Path("/System/Library/Fonts/Supplemental/Songti.ttc"),
+            Path("/Library/Fonts/Songti.ttc"),
+            Path("/System/Library/Fonts/STSong.ttc"),
+            # Linux 系统路径 (Noto Serif CJK / 思源宋体)
+            Path("/usr/share/fonts/noto-cjk/NotoSerifCJK-Regular.ttc"),
+            Path("/usr/share/fonts/noto-cjk/NotoSerifCJK-Bold.ttc"),
+            Path("/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc"),
+            Path("/usr/share/fonts/truetype/noto/NotoSerifCJK-Regular.ttc"),
+            # Windows 系统路径 (中易宋体)
+            Path(os.path.expandvars(r"%WINDIR%\Fonts\simsun.ttc")),
+            # 项目内置优雅衬线/楷体降级
+            FONTS_DIR / "LXGWWenKai-Regular.ttf",
+            FONTS_DIR / "SmileySans-Oblique.ttf",
+        ]
+    elif key in ("pingfang", "sans", "sans-serif", "hei", "futura"):
+        candidates = [
+            # macOS 系统路径
+            Path("/System/Library/Fonts/PingFang.ttc"),
+            Path("/Library/Fonts/PingFang.ttc"),
+            # Linux 系统路径 (Noto Sans CJK / 思源黑体)
+            Path("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc"),
+            Path("/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc"),
+            Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
+            Path("/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"),
+            # Windows 系统路径 (微软雅黑)
+            Path(os.path.expandvars(r"%WINDIR%\Fonts\msyh.ttc")),
+            # 项目内置无衬线降级
+            FONTS_DIR / "SmileySans-Oblique.ttf",
+            FONTS_DIR / "LXGWWenKai-Regular.ttf",
+        ]
+    else:
+        # 通用未指定类型
+        candidates = [
+            FONTS_DIR / f"{font_key}.ttf",
+            FONTS_DIR / f"{font_key}.otf",
+            FONTS_DIR / "SmileySans-Oblique.ttf",
+            FONTS_DIR / "LXGWWenKai-Regular.ttf",
+        ]
+
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate.resolve())
+
+    # 4. 终极兜底：返回 fonts 目录中第一个发现的字体文件
+    for fallback in sorted(FONTS_DIR.glob("*.*")):
+        if fallback.suffix.lower() in (".ttf", ".otf", ".ttc"):
+            return str(fallback.resolve())
+
+    return ""
+
 if __name__ == "__main__":
     print(f"Project Root: {PROJECT_ROOT}")
     print(f"Assets Dir:   {ASSETS_DIR}")

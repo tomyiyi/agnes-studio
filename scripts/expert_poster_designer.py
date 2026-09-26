@@ -16,15 +16,15 @@ import numpy as np
 # 导入专业中文字体排印学与瑞士网格系统引擎
 from typography_rules import ChineseTypographyRules, ModularScale, SwissGridSystem, SmartPosterComposer
 from vision_subject_detector import detect_faces
-from env_config import FONTS_DIR, ASSETS_DIR
+from env_config import FONTS_DIR, ASSETS_DIR, resolve_font_path
 
 FONTS_DIR = str(FONTS_DIR)
 ASSETS_DIR = str(ASSETS_DIR)
 
-FONT_SMILEY = os.path.join(FONTS_DIR, "SmileySans-Oblique.ttf")
-FONT_WENKAI = os.path.join(FONTS_DIR, "LXGWWenKai-Regular.ttf")
-FONT_SONGTI = "/System/Library/Fonts/Supplemental/Songti.ttc"
-FONT_PINGFANG = "/System/Library/Fonts/PingFang.ttc"
+FONT_SMILEY = resolve_font_path("smiley")
+FONT_WENKAI = resolve_font_path("wenkai")
+FONT_SONGTI = resolve_font_path("songti")
+FONT_PINGFANG = resolve_font_path("pingfang")
 
 def get_font(path, size):
     if os.path.exists(path):
