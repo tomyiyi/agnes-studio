@@ -139,6 +139,19 @@ from gemini_engine import (
     DEFAULT_CHAT_MODEL,
     CHAT_MODEL_ALLOWLIST,
 )
+import render_cinema_poster
+from render_cinema_poster import (
+    b64 as cinema_b64,
+    sanitize_img_uri as cinema_sanitize_img_uri,
+    wrap as cinema_wrap,
+    build_film_bottom_html,
+    build_film_top_html,
+    build_side_rail_html,
+    film_bottom,
+    film_top,
+    side_rail,
+    shot as cinema_shot,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -2188,5 +2201,204 @@ class TestGeminiEngine(unittest.TestCase):
         self.assertEqual(res_call_err["error"], "Quota exceeded")
 
 
+class TestRenderCinemaPoster(unittest.TestCase):
+    """测试电影级海报渲染器 render_cinema_poster 及其版式模板规范与鲁棒性"""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_b64_with_data_uri(self):
+        raw_uri = "data:" + "image/png;base64,mocked_test_data"
+        result = cinema_b64(raw_uri)
+        self.assertEqual(result, raw_uri)
+
+    def test_b64_mime_types(self):
+        types = [
+            ("sample.png", "image/png"),
+            ("sample.jpg", "image/jpeg"),
+            ("sample.jpeg", "image/jpeg"),
+            ("sample.webp", "image/webp"),
+            ("sample.svg", "image/svg+xml"),
+            ("sample.gif", "image/gif"),
+        ]
+        for filename, expected_mime in types:
+            file_p = self.tmp_path / filename
+            file_p.write_bytes(b"\x00\x01\x02\x03")
+            uri = cinema_b64(file_p)
+            self.assertTrue(uri.startswith(f"data:{expected_mime};base64,"))
+            # Test string path support as well
+            uri_str = cinema_b64(str(file_p))
+            self.assertTrue(uri_str.startswith(f"data:{expected_mime};base64,"))
+
+    def test_b64_missing_file_raises_filenotfound(self):
+        with self.assertRaises(FileNotFoundError):
+            cinema_b64(self.tmp_path / "non_existent_poster.png")
+
+    def test_sanitize_img_uri(self):
+        malicious = "data:image/png;base64,abc\r\ndef'\"<script>"
+        sanitized = cinema_sanitize_img_uri(malicious)
+        self.assertNotIn("\r", sanitized)
+        self.assertNotIn("\n", sanitized)
+        self.assertNotIn("'", sanitized)
+        self.assertNotIn('"', sanitized)
+        self.assertNotIn("<", sanitized)
+        self.assertNotIn(">", sanitized)
+        self.assertIn("%27", sanitized)
+        self.assertIn("%22", sanitized)
+        self.assertIn("%3C", sanitized)
+        self.assertIn("%3E", sanitized)
+
+    def test_wrap_css_structure(self):
+        html = cinema_wrap("data:image/png;base64,test", "<div class='content'>Cinema Test</div>", extra_css=".test{color:red}")
+        self.assertIn("<!DOCTYPE html>", html)
+        self.assertIn("<div class='content'>Cinema Test</div>", html)
+        self.assertIn(".test{color:red}", html)
+        self.assertIn("src=\"data:image/png;base64,test\"", html)
+        self.assertIn("font-family:'NSB'", html)
+        self.assertIn("font-family:'PHH'", html)
+
+    def test_build_film_bottom_html_escaping_and_custom_text(self):
+        # 1. 默认参数
+        html_default = build_film_bottom_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage", html_default)
+        self.assertIn("A FILM STILL · AGNES", html_default)
+        self.assertIn("180deg,transparent 42%", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_film_bottom_html(
+            "data:image/png;base64,abc",
+            title="<危险标题>",
+            latin="ESCAPE & TEST",
+            tagline="“标语内容”",
+        )
+        self.assertNotIn("<危险标题>", html_custom)
+        self.assertIn("&lt;危险标题&gt;", html_custom)
+        self.assertIn("ESCAPE &amp; TEST", html_custom)
+        self.assertIn("“标语内容”", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_film_bottom_html("data:image/png;base64,abc", title=None, latin=None, tagline=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage", html_none)
+
+    def test_build_film_top_html_escaping_and_custom_text(self):
+        # 1. 默认参数
+        html_default = build_film_top_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage", html_default)
+        self.assertIn("她把城市调成静音", html_default)
+        self.assertIn("rgba(0,0,0,.72) 0%", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_film_top_html(
+            "data:image/png;base64,abc",
+            title="<黑客帝国>",
+            latin="THE MATRIX & REVOLUTIONS",
+            tagline="觉醒吧，尼奥",
+        )
+        self.assertNotIn("<黑客帝国>", html_custom)
+        self.assertIn("&lt;黑客帝国&gt;", html_custom)
+        self.assertIn("THE MATRIX &amp; REVOLUTIONS", html_custom)
+        self.assertIn("觉醒吧，尼奥", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_film_top_html("data:image/png;base64,abc", title=None, latin=None, tagline=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage", html_none)
+
+    def test_build_side_rail_html_escaping_and_custom_text(self):
+        # 1. 默认参数
+        html_default = build_side_rail_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage", html_default)
+        self.assertIn("writing-mode:vertical-rl", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_side_rail_html(
+            "data:image/png;base64,abc",
+            title="<银翼杀手>",
+            latin="BLADE RUNNER & 2049",
+            tagline="所有这些时刻都将消逝于时间中",
+        )
+        self.assertNotIn("<银翼杀手>", html_custom)
+        self.assertIn("&lt;银翼杀手&gt;", html_custom)
+        self.assertIn("BLADE RUNNER &amp; 2049", html_custom)
+        self.assertIn("所有这些时刻都将消逝于时间中", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_side_rail_html("data:image/png;base64,abc", title=None, latin=None, tagline=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage", html_none)
+
+    def test_shot_mkdir_and_invocation(self):
+        out_target = self.tmp_path / "deep" / "nested" / "cinema.png"
+        fake_page = MagicMock()
+        fake_browser = MagicMock()
+        fake_browser.new_page.return_value = fake_page
+        fake_chromium = MagicMock()
+        fake_chromium.launch.return_value = fake_browser
+        fake_playwright_ctx = MagicMock()
+        fake_playwright_ctx.chromium = fake_chromium
+        fake_playwright_cm = MagicMock()
+        fake_playwright_cm.__enter__.return_value = fake_playwright_ctx
+
+        # When screenshot is called, simulate creating file
+        def fake_screenshot(path, type="png"):
+            Path(path).write_bytes(b"\x89PNGfake")
+
+        fake_page.screenshot.side_effect = fake_screenshot
+
+        with patch("playwright.sync_api.sync_playwright", return_value=fake_playwright_cm):
+            res_path = cinema_shot("<html><body>Cinema</body></html>", out_target, timeout_ms=10)
+            self.assertEqual(res_path, out_target)
+            self.assertTrue(out_target.exists())
+            fake_page.set_content.assert_called_once_with("<html><body>Cinema</body></html>")
+            fake_page.wait_for_timeout.assert_called_once_with(10)
+            fake_browser.close.assert_called_once()
+
+    @patch("render_cinema_poster.shot")
+    def test_film_bottom_film_top_side_rail_integration(self, mock_shot):
+        sample_img = self.tmp_path / "cinema_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out.png"
+
+        mock_shot.return_value = out_p
+
+        # 1. film_bottom
+        res_bottom = film_bottom(sample_img, out_p, title="夜航底标", latin="Night Flight", tagline="AGNES FILM")
+        self.assertEqual(res_bottom, out_p)
+        mock_shot.assert_called()
+        call_html_bottom = mock_shot.call_args[0][0]
+        self.assertIn("夜航底标", call_html_bottom)
+        self.assertIn("Night Flight", call_html_bottom)
+
+        # 2. film_top
+        res_top = film_top(sample_img, out_p, title="夜航顶标", latin="Night Top", tagline="Top Tagline")
+        self.assertEqual(res_top, out_p)
+        call_html_top = mock_shot.call_args[0][0]
+        self.assertIn("夜航顶标", call_html_top)
+        self.assertIn("Night Top", call_html_top)
+
+        # 3. side_rail
+        res_rail = side_rail(sample_img, out_p, title="夜航侧轴", latin="Night Rail", tagline="Side Tagline")
+        self.assertEqual(res_rail, out_p)
+        call_html_rail = mock_shot.call_args[0][0]
+        self.assertIn("夜航侧轴", call_html_rail)
+        self.assertIn("Night Rail", call_html_rail)
+
+    @patch("render_cinema_poster.shot")
+    def test_main_execution(self, mock_shot):
+        mock_shot.return_value = self.tmp_path / "mock.png"
+        # Calling main shouldn't raise any exception
+        render_cinema_poster.main()
+        self.assertEqual(mock_shot.call_count, 3)
+
+
 if __name__ == "__main__":
     unittest.main()
+
