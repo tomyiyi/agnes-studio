@@ -17,13 +17,12 @@ import os
 import sys
 from pathlib import Path
 
-from PIL import Image
-from playwright.sync_api import sync_playwright
-
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from env_config import FONTS_DIR, ASSETS_DIR, resolve_chrome_path
+from PIL import Image
+from playwright.sync_api import sync_playwright
 
 OUT = ROOT / "experiments"
 FONTS = FONTS_DIR
@@ -108,7 +107,9 @@ body {{
 </body></html>"""
 
 
-def render(html: str, out_path: Path, fmt: str = "png") -> Path:
+def render(html: str, out_path: Path | str, fmt: str = "png") -> Path:
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
         launch = {"headless": True}
         if CHROME and os.path.exists(CHROME):
@@ -125,24 +126,41 @@ def render(html: str, out_path: Path, fmt: str = "png") -> Path:
     return out_path
 
 
-def save_q90_copy(src: Path, dst: Path) -> Path:
+def save_q90_copy(src: Path | str, dst: Path | str) -> Path:
+    src = Path(src)
+    dst = Path(dst)
+    if not src.is_file():
+        raise FileNotFoundError(f"Source image not found: {src}")
+    dst.parent.mkdir(parents=True, exist_ok=True)
     Image.open(src).convert("RGB").save(dst, "JPEG", quality=90, optimize=True)
     return dst
 
 
-def simulate_wechat_reencode(src: Path, dst: Path) -> Path:
+def simulate_wechat_reencode(src: Path | str, dst: Path | str) -> Path:
+    src = Path(src)
+    dst = Path(dst)
+    if not src.is_file():
+        raise FileNotFoundError(f"Source image not found: {src}")
+    dst.parent.mkdir(parents=True, exist_ok=True)
     im = Image.open(src).convert("RGB")
     small = im.resize((int(im.width * 0.92), int(im.height * 0.92)), Image.Resampling.LANCZOS)
     small.resize(im.size, Image.Resampling.BICUBIC).save(dst, "JPEG", quality=65, optimize=True)
     return dst
 
 
-def head_visible_probe(path: Path) -> str:
+def head_visible_probe(path: Path | str) -> str:
     """粗检：画面上部 8–38% 中带是否有足够肤色/亮度结构（头应在框内）。"""
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Image not found: {path}")
     im = Image.open(path).convert("RGB")
     w, h = im.size
     band = im.crop((int(w * 0.35), int(h * 0.05), int(w * 0.72), int(h * 0.42)))
-    px = list(band.resize((40, 24)).getdata())
+    resized = band.resize((40, 24))
+    if hasattr(resized, "get_flattened_data"):
+        px = list(resized.get_flattened_data())
+    else:
+        px = list(resized.getdata())
     skin = 0
     for r, g, b in px:
         if r > 60 and g > 40 and b > 30 and r > g > b and (r - b) > 15 and r < 230:

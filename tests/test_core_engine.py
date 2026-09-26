@@ -999,5 +999,93 @@ class TestPosterVisualLearner(unittest.TestCase):
         self.assertEqual(loaded[2]["filename"], "wide_blue.png")
 
 
+class TestWechatCoverAB(unittest.TestCase):
+    """测试微信头图 2.35:1 对照实验与光栅化组件 (WeChat Cover A/B Suite)"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+        self.dummy_src = self.tmp_path / "dummy_bg.png"
+        Image.new("RGB", (1000, 1000), color=(50, 50, 50)).save(self.dummy_src, "PNG")
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_env_constants(self):
+        self.assertEqual(wechat_cover_ab.CHROME, resolve_chrome_path())
+        self.assertEqual(wechat_cover_ab.FONTS, FONTS_DIR)
+        self.assertEqual(wechat_cover_ab.ASSETS, ASSETS_DIR)
+        self.assertEqual(wechat_cover_ab.W, 2350)
+        self.assertEqual(wechat_cover_ab.H, 1000)
+        self.assertEqual(wechat_cover_ab.RATIO, 2.35)
+
+    def test_make_subject_crop_success_and_missing(self):
+        dst = self.tmp_path / "nested" / "crop.png"
+        res = wechat_cover_ab.make_subject_crop(self.dummy_src, dst)
+        self.assertEqual(res, dst)
+        self.assertTrue(dst.exists())
+        with Image.open(dst) as im:
+            self.assertEqual(im.size, (1000, int(round(1000 / 2.35))))
+
+        missing = self.tmp_path / "missing.png"
+        with self.assertRaises(FileNotFoundError):
+            wechat_cover_ab.make_subject_crop(missing, dst)
+
+    def test_save_q90_copy_success_and_missing(self):
+        dst_jpg = self.tmp_path / "nested" / "export.jpg"
+        res = wechat_cover_ab.save_q90_copy(self.dummy_src, dst_jpg)
+        self.assertEqual(res, dst_jpg)
+        self.assertTrue(dst_jpg.exists())
+        with Image.open(dst_jpg) as im:
+            self.assertEqual(im.format, "JPEG")
+            self.assertEqual(im.size, (1000, 1000))
+
+        missing = self.tmp_path / "missing.png"
+        with self.assertRaises(FileNotFoundError):
+            wechat_cover_ab.save_q90_copy(missing, dst_jpg)
+
+    def test_simulate_wechat_reencode_success_and_missing(self):
+        dst_reencode = self.tmp_path / "nested" / "sim.jpg"
+        res = wechat_cover_ab.simulate_wechat_reencode(self.dummy_src, dst_reencode)
+        self.assertEqual(res, dst_reencode)
+        self.assertTrue(dst_reencode.exists())
+        with Image.open(dst_reencode) as im:
+            self.assertEqual(im.format, "JPEG")
+            self.assertEqual(im.size, (1000, 1000))
+
+        missing = self.tmp_path / "missing.png"
+        with self.assertRaises(FileNotFoundError):
+            wechat_cover_ab.simulate_wechat_reencode(missing, dst_reencode)
+
+    def test_head_visible_probe_cases(self):
+        # 1. 肤色充足测试图
+        skin_img = self.tmp_path / "skin.png"
+        Image.new("RGB", (500, 500), color=(180, 110, 80)).save(skin_img, "PNG")
+        res_skin = wechat_cover_ab.head_visible_probe(skin_img)
+        self.assertTrue(res_skin.endswith("(OK)"))
+
+        # 2. 无肤色暗色测试图
+        dark_img = self.tmp_path / "dark.png"
+        Image.new("RGB", (500, 500), color=(10, 10, 10)).save(dark_img, "PNG")
+        res_dark = wechat_cover_ab.head_visible_probe(dark_img)
+        self.assertTrue(res_dark.endswith("(REVIEW)"))
+
+        # 3. 不存在文件触发异常
+        missing = self.tmp_path / "missing.png"
+        with self.assertRaises(FileNotFoundError):
+            wechat_cover_ab.head_visible_probe(missing)
+
+    def test_cover_html_templates(self):
+        html_top = wechat_cover_ab.cover_html("data:image/png;base64,TEST_DATA", title_top=True)
+        self.assertIn("top:20%; left:6%;", html_top)
+        self.assertIn("top:54%; left:6%;", html_top)
+        self.assertIn("data:image/png;base64,TEST_DATA", html_top)
+        self.assertIn("SmileySans", html_top)
+
+        html_bot = wechat_cover_ab.cover_html("data:image/png;base64,TEST_DATA", title_top=False)
+        self.assertIn("bottom:8%; left:6%;", html_bot)
+        self.assertIn("bottom:28%; left:6%;", html_bot)
+
+
 if __name__ == "__main__":
     unittest.main()
