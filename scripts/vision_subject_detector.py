@@ -8,6 +8,7 @@ Agnes Studio · 多模态视觉主体与避障检测引擎 (Vision Subject Detec
 import subprocess
 import json
 import os
+import tempfile
 from pathlib import Path
 
 SWIFT_DETECTOR = """import Foundation
@@ -48,26 +49,36 @@ if let data = try? JSONSerialization.data(withJSONObject: faces, options: []) {
 """
 
 def detect_faces(image_path):
-    safe_img = Path(image_path).resolve()
-    if not safe_img.is_file():
+    if not image_path:
+        return []
+    try:
+        safe_img = Path(image_path).resolve()
+        if not safe_img.is_file():
+            return []
+    except Exception:
         return []
 
     import shutil
     # 1. 优先使用 macOS 原生 Vision 框架 (极低延迟无网络开销)
     if shutil.which("swift"):
-        safe_swift = Path("/tmp/detect_faces.swift").resolve()
-        if not (str(safe_swift).startswith("/tmp") or str(safe_swift).startswith("/private/tmp")) or ".." in str(safe_swift):
-            raise ValueError("Invalid swift script path")
-
-        safe_swift.write_text(SWIFT_DETECTOR, encoding="utf-8")
-            
-        res = subprocess.run(["swift", str(safe_swift), str(safe_img)], capture_output=True, text=True)
+        tmp_swift = None
         try:
+            with tempfile.NamedTemporaryFile("w", suffix=".swift", delete=False, encoding="utf-8") as tf:
+                tf.write(SWIFT_DETECTOR)
+                tmp_swift = tf.name
+
+            res = subprocess.run(["swift", tmp_swift, str(safe_img)], capture_output=True, text=True, timeout=15)
             faces = json.loads(res.stdout.strip())
             if isinstance(faces, list) and faces:
                 return faces
         except Exception:
             pass
+        finally:
+            if tmp_swift and os.path.exists(tmp_swift):
+                try:
+                    os.remove(tmp_swift)
+                except OSError:
+                    pass
 
     # 2. Linux / 虚拟机环境：无缝调用稳定的 Gemini 2.5 Flash 多模态视觉引擎
     try:
@@ -85,14 +96,28 @@ def check_occlusion(text_box, exclusion_zones):
     检查文本框 (tx1, ty1, tx2, ty2) 与保护区是否存在遮挡交叠
     坐标统一为 0.0 ~ 1.0 百分比
     """
-    tx1, ty1, tx2, ty2 = text_box
+    if not text_box or len(text_box) != 4:
+        return False, None
+    if not exclusion_zones or not isinstance(exclusion_zones, (list, tuple)):
+        return False, None
+
+    try:
+        tx1, ty1, tx2, ty2 = (float(text_box[0]), float(text_box[1]), float(text_box[2]), float(text_box[3]))
+    except (TypeError, ValueError):
+        return False, None
+
     for zone in exclusion_zones:
-        # 外扩头部上方 5% 和两侧各 3% 作为发饰与眼神呼吸缓冲区
-        zx1 = zone["x_min"] - 0.03
-        zx2 = zone["x_max"] + 0.03
-        zy1 = zone["y_min"] - 0.05
-        zy2 = zone["y_max"] + 0.03
-        
+        if not isinstance(zone, dict):
+            continue
+        try:
+            # 外扩头部上方 5% 和两侧各 3% 作为发饰与眼神呼吸缓冲区
+            zx1 = float(zone["x_min"]) - 0.03
+            zx2 = float(zone["x_max"]) + 0.03
+            zy1 = float(zone["y_min"]) - 0.05
+            zy2 = float(zone["y_max"]) + 0.03
+        except (KeyError, TypeError, ValueError):
+            continue
+
         # 判断重叠 (无交集条件的反面)
         has_overlap = not (tx2 < zx1 or tx1 > zx2 or ty2 < zy1 or ty1 > zy2)
         if has_overlap:

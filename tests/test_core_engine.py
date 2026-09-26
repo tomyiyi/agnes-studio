@@ -17,6 +17,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -54,6 +55,7 @@ from cover_pipeline import (
 )
 import wechat_cover_ab
 from expert_poster_designer import analyze_safe_zone
+from vision_subject_detector import detect_faces, check_occlusion
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -622,6 +624,71 @@ class TestCoverPipeline(unittest.TestCase):
             with Image.open(dummy_dst) as im:
                 self.assertEqual(im.size[0], 1000)
                 self.assertEqual(im.size[1], int(round(1000 / 2.35)))
+
+
+class TestVisionSubjectDetector(unittest.TestCase):
+    """测试多模态视觉主体检测与文字避障碰撞检测"""
+
+    def setUp(self):
+        self.sample_zone = {
+            "x_min": 0.40,
+            "x_max": 0.60,
+            "y_min": 0.40,
+            "y_max": 0.60,
+        }
+
+    def test_check_occlusion_positive_hit(self):
+        # 明显与主体区域重叠
+        text_box = (0.35, 0.38, 0.55, 0.55)
+        hit, zone = check_occlusion(text_box, [self.sample_zone])
+        self.assertTrue(hit)
+        self.assertEqual(zone, self.sample_zone)
+
+    def test_check_occlusion_clear_separation(self):
+        # 位于左上角完全无重叠区域
+        text_box = (0.05, 0.05, 0.25, 0.25)
+        hit, zone = check_occlusion(text_box, [self.sample_zone])
+        self.assertFalse(hit)
+        self.assertIsNone(zone)
+
+    def test_check_occlusion_margin_buffer(self):
+        # 保护区自带发饰/眼神缓冲区 (y_min 外扩 0.05，两侧外扩 0.03)
+        # y_min=0.40，外扩后为 0.35；文字框底部处于 0.37 时未进入主体本身但进入缓冲保护区
+        buffered_box = (0.42, 0.20, 0.58, 0.37)
+        hit, zone = check_occlusion(buffered_box, [self.sample_zone])
+        self.assertTrue(hit, "应该命中头部上方 5% 发饰眼神呼吸缓冲区")
+        self.assertEqual(zone, self.sample_zone)
+
+    def test_check_occlusion_robustness(self):
+        # 空值、格式非法及类型防御
+        self.assertEqual(check_occlusion(None, [self.sample_zone]), (False, None))
+        self.assertEqual(check_occlusion((0.1, 0.1), [self.sample_zone]), (False, None))
+        self.assertEqual(check_occlusion((0.1, 0.1, 0.5, 0.5), None), (False, None))
+        self.assertEqual(check_occlusion((0.1, 0.1, 0.5, 0.5), []), (False, None))
+        self.assertEqual(check_occlusion((0.1, 0.1, 0.5, 0.5), ["not_a_dict"]), (False, None))
+        self.assertEqual(check_occlusion((0.1, 0.1, 0.5, 0.5), [{"bad_key": 1}]), (False, None))
+        # 字符串数字坐标兼容
+        hit, zone = check_occlusion(("0.35", "0.38", "0.55", "0.55"), [self.sample_zone])
+        self.assertTrue(hit)
+        self.assertEqual(zone, self.sample_zone)
+
+    def test_detect_faces_input_guards(self):
+        # 非法或不存在输入安全返回空列表
+        self.assertEqual(detect_faces(None), [])
+        self.assertEqual(detect_faces(""), [])
+        self.assertEqual(detect_faces("non_existent_file_path.png"), [])
+
+    def test_detect_faces_fallback_flow(self):
+        # 验证 Linux / 无 swift 环境下的回退机制
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_img = Path(tmpdir) / "face_test.png"
+            Image.new("RGB", (200, 200), color=(100, 100, 100)).save(tmp_img, "PNG")
+
+            mock_boxes = [{"x_min": 0.2, "x_max": 0.8, "y_min": 0.1, "y_max": 0.7}]
+            with patch("shutil.which", return_value=None), \
+                 patch("gemini_engine.detect_visual_subjects_gemini", return_value=mock_boxes):
+                detected = detect_faces(str(tmp_img))
+                self.assertEqual(detected, mock_boxes)
 
 
 if __name__ == "__main__":
