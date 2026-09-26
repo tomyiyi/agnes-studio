@@ -12,6 +12,7 @@ Automated regression tests covering:
 6. Data integrity & JSON syntax across all configuration files
 """
 
+import datetime
 import io
 import json
 import sys
@@ -19,7 +20,7 @@ import tempfile
 import unittest
 import urllib.error
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -84,6 +85,15 @@ from poster_visual_learner import (
     analyze_poster_visual,
     DEFAULT_TARGET_FILES,
     DEFAULT_OUTPUT_PATH,
+)
+import autonomous_followup
+from autonomous_followup import (
+    log as followup_log,
+    post_event,
+    check_and_sync_git,
+    check_and_heal_server,
+    run_creative_pipeline_cycle,
+    generate_morning_report,
 )
 
 
@@ -1406,6 +1416,247 @@ class TestUpstreamSentinel(unittest.TestCase):
         )
         self.assertFalse(out_file.exists())
         self.assertEqual(summary["gateway"]["status"], "unhealthy")
+
+
+class TestAutonomousFollowup(unittest.TestCase):
+    """测试 24/7 自主跟进守护与晨报生成引擎"""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_log_creates_file_and_directory(self):
+        target_log = self.tmp_path / "sub" / "test_followup.log"
+        followup_log("系统启动探测", kind="TEST", log_file=target_log)
+        self.assertTrue(target_log.exists())
+        content = target_log.read_text(encoding="utf-8")
+        self.assertIn("[TEST] 系统启动探测", content)
+
+    def test_post_event_writes_valid_ndjson(self):
+        inbox = self.tmp_path / "inbox" / "events.ndjson"
+        success = post_event("test_event", {"metric": 42}, inbox_file=inbox)
+        self.assertTrue(success)
+        self.assertTrue(inbox.exists())
+
+        lines = inbox.read_text(encoding="utf-8").strip().splitlines()
+        self.assertEqual(len(lines), 1)
+        record = json.loads(lines[0])
+        self.assertEqual(record["source"], "agnes-followup-daemon")
+        self.assertEqual(record["kind"], "test_event")
+        self.assertEqual(record["payload"]["metric"], 42)
+        self.assertIn("timestamp", record)
+        self.assertIn("time_str", record)
+
+    def test_post_event_handles_write_failure(self):
+        invalid_path = self.tmp_path / "a_dir"
+        invalid_path.mkdir(parents=True, exist_ok=True)
+        res = post_event("test_fail", {}, inbox_file=invalid_path)
+        self.assertFalse(res)
+
+    def test_generate_morning_report_structure_and_metrics(self):
+        report_file = self.tmp_path / "reports" / "MORNING_REPORT_TEST.md"
+        fixed_dt = datetime.datetime(2026, 9, 26, 8, 0, 0)
+        history = [
+            {
+                "title": "晨光留白",
+                "subtitle": "MORNING LIGHT",
+                "poster_url": "assets/poster_1.png",
+                "score": 92,
+            },
+            {
+                "title": "秩序之境",
+                "subtitle": "ORDER STUDY",
+                "poster_url": "assets/poster_2.png",
+                "score": "88",
+            },
+            {
+                "title": "未完成草稿",
+                "subtitle": "DRAFT",
+                "poster_url": "",
+                "score": 50,
+            },
+        ]
+        out_path = generate_morning_report(history, report_file=report_file, now=fixed_dt)
+        self.assertEqual(out_path, str(report_file))
+        self.assertTrue(report_file.exists())
+
+        content = report_file.read_text(encoding="utf-8")
+        self.assertIn("# Agnes Studio 自主演进晨报 (2026-09-26)", content)
+        self.assertIn("新增自主生成海报**: 2 张", content)
+        self.assertIn("90.0 / 100 分", content)
+        self.assertIn("《晨光留白》", content)
+        self.assertIn("《秩序之境》", content)
+        self.assertNotIn("《未完成草稿》", content)
+
+    def test_generate_morning_report_empty_and_zero_scores(self):
+        report_file = self.tmp_path / "reports" / "MORNING_EMPTY.md"
+        fixed_dt = datetime.datetime(2026, 9, 27, 8, 0, 0)
+        out_path = generate_morning_report([], report_file=report_file, now=fixed_dt)
+        self.assertTrue(Path(out_path).exists())
+        content = Path(out_path).read_text(encoding="utf-8")
+        self.assertIn("新增自主生成海报**: 0 张", content)
+        self.assertIn("0.0 / 100 分", content)
+
+    @patch("urllib.request.urlopen")
+    def test_check_and_heal_server_healthy(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        server_alive, new_api_alive = check_and_heal_server(
+            server_url="http://127.0.0.1:8088/api/config",
+            api_base="http://127.0.0.1:3000",
+            api_key="test_key",
+            auto_heal=False,
+        )
+        self.assertTrue(server_alive)
+        self.assertTrue(new_api_alive)
+
+    @patch("urllib.request.urlopen")
+    def test_check_and_heal_server_unhealthy_no_heal(self, mock_urlopen):
+        mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
+
+        server_alive, new_api_alive = check_and_heal_server(
+            server_url="http://127.0.0.1:8088/api/config",
+            api_base="http://127.0.0.1:3000",
+            api_key="test_key",
+            auto_heal=False,
+        )
+        self.assertFalse(server_alive)
+        self.assertFalse(new_api_alive)
+
+    @patch("subprocess.Popen")
+    @patch("time.sleep")
+    @patch("urllib.request.urlopen")
+    def test_check_and_heal_server_triggers_auto_heal(self, mock_urlopen, mock_sleep, mock_popen):
+        def urlopen_side_effect(req, *args, **kwargs):
+            url = req.full_url if hasattr(req, "full_url") else str(req)
+            if "8088" in url:
+                raise urllib.error.URLError("Connection refused")
+            mock_resp = MagicMock()
+            mock_resp.status = 200
+            mock_resp.__enter__.return_value = mock_resp
+            return mock_resp
+
+        mock_urlopen.side_effect = urlopen_side_effect
+        server_alive, new_api_alive = check_and_heal_server(
+            server_url="http://127.0.0.1:8088/api/config",
+            api_base="http://127.0.0.1:3000",
+            api_key="test_key",
+            auto_heal=True,
+        )
+        self.assertFalse(server_alive)
+        self.assertTrue(new_api_alive)
+        self.assertTrue(mock_popen.called)
+
+    @patch("subprocess.check_output")
+    @patch("subprocess.run")
+    def test_check_and_sync_git_up_to_date(self, mock_run, mock_check_output):
+        mock_run.return_value = MagicMock(returncode=0, stderr="")
+        mock_check_output.side_effect = ["rev_abc", "rev_abc"]
+
+        synced, status = check_and_sync_git(cwd=self.tmp_path, proxy="")
+        self.assertFalse(synced)
+        self.assertEqual(status, "up_to_date")
+
+    @patch("subprocess.run")
+    def test_check_and_sync_git_fetch_failed(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=1, stderr="fatal: remote error")
+
+        synced, status = check_and_sync_git(cwd=self.tmp_path, proxy="")
+        self.assertFalse(synced)
+        self.assertEqual(status, "fetch_failed")
+
+    @patch("subprocess.check_output")
+    @patch("subprocess.run")
+    def test_check_and_sync_git_behind_and_rebase_success(self, mock_run, mock_check_output):
+        mock_run.return_value = MagicMock(returncode=0, stderr="")
+        mock_check_output.side_effect = [
+            "local_rev_1",
+            "remote_rev_2",
+            "3",
+            "abc1234 feat(poster): latest commit",
+        ]
+
+        synced, commit = check_and_sync_git(cwd=self.tmp_path, proxy="http://127.0.0.1:7890")
+        self.assertTrue(synced)
+        self.assertEqual(commit, "abc1234 feat(poster): latest commit")
+
+    @patch("subprocess.check_output")
+    @patch("subprocess.run")
+    def test_check_and_sync_git_rebase_conflict(self, mock_run, mock_check_output):
+        mock_fetch_res = MagicMock(returncode=0, stderr="")
+        mock_pull_res = MagicMock(returncode=1, stderr="CONFLICT (content)")
+        mock_run.side_effect = [mock_fetch_res, mock_pull_res, MagicMock(returncode=0)]
+        mock_check_output.side_effect = [
+            "local_rev_1",
+            "remote_rev_2",
+            "1",
+        ]
+
+        synced, status = check_and_sync_git(cwd=self.tmp_path, proxy="")
+        self.assertFalse(synced)
+        self.assertEqual(status, "rebase_conflict")
+
+    @patch("subprocess.run")
+    def test_check_and_sync_git_exception_handled(self, mock_run):
+        mock_run.side_effect = RuntimeError("Process timeout")
+        synced, status = check_and_sync_git(cwd=self.tmp_path, proxy="")
+        self.assertFalse(synced)
+        self.assertIn("Process timeout", status)
+
+    @patch("urllib.request.urlopen")
+    def test_run_creative_pipeline_cycle_success(self, mock_urlopen):
+        responses = [
+            {"success": True, "brief": {"title": "极简秩序", "subtitle": "ORDER", "style_preset": "swiss_01", "gen_prompt": "concrete wall"}},
+            {"success": True, "file_path": "/tmp/test_bg.png"},
+            {"success": True, "poster_url": "assets/test_poster.png", "duration_ms": 350},
+            {"success": True, "inspection": {"aesthetic_score": 93, "occlusion_risk": "low", "text_legibility": "excellent"}},
+        ]
+
+        class MockHttpResponse:
+            def __init__(self, data):
+                self._data = json.dumps(data).encode("utf-8")
+            def read(self):
+                return self._data
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                pass
+
+        mock_urlopen.side_effect = [MockHttpResponse(r) for r in responses]
+
+        result = run_creative_pipeline_cycle(0, server_base="http://127.0.0.1:8088", timeout=10)
+        self.assertIsNotNone(result)
+        self.assertEqual(result["title"], "极简秩序")
+        self.assertEqual(result["subtitle"], "ORDER")
+        self.assertEqual(result["poster_url"], "assets/test_poster.png")
+        self.assertEqual(result["score"], 93)
+
+    @patch("urllib.request.urlopen")
+    def test_run_creative_pipeline_cycle_brief_fail(self, mock_urlopen):
+        class MockHttpResponse:
+            def __init__(self, data):
+                self._data = json.dumps(data).encode("utf-8")
+            def read(self):
+                return self._data
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                pass
+
+        mock_urlopen.return_value = MockHttpResponse({"success": False, "error": "gemini quota exhausted"})
+        result = run_creative_pipeline_cycle(1, server_base="http://127.0.0.1:8088", timeout=10)
+        self.assertIsNone(result)
+
+    @patch("urllib.request.urlopen")
+    def test_run_creative_pipeline_cycle_exception(self, mock_urlopen):
+        mock_urlopen.side_effect = urllib.error.URLError("Network unreachable")
+        result = run_creative_pipeline_cycle(2, server_base="http://127.0.0.1:8088", timeout=10)
+        self.assertIsNone(result)
 
 
 if __name__ == "__main__":

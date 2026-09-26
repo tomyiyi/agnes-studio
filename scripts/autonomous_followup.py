@@ -21,22 +21,34 @@ import urllib.error
 from pathlib import Path
 
 DIR = Path(__file__).resolve().parent.parent
+SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+try:
+    from check_upstream_updates import get_local_auth_key
+except ImportError:
+    def get_local_auth_key(path=None):
+        return ""
+
 LOG_FILE = DIR / "logs" / "followup.log"
 INBOX_FILE = Path.home() / ".omarchy-evolution" / "inbox" / "events.ndjson"
 REPORTS_DIR = DIR / "docs" / "reports"
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-def log(msg, kind="INFO"):
+def log(msg, kind="INFO", log_file=None):
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{now_str}] [{kind}] {msg}"
     print(line)
+    target_file = Path(log_file) if log_file is not None else LOG_FILE
     try:
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(target_file, "a", encoding="utf-8") as f:
             f.write(line + "\n")
     except Exception:
         pass
 
-def post_event(kind, payload):
+def post_event(kind, payload, inbox_file=None):
     event = {
         "source": "agnes-followup-daemon",
         "kind": kind,
@@ -44,69 +56,78 @@ def post_event(kind, payload):
         "time_str": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "payload": payload
     }
+    target = Path(inbox_file) if inbox_file is not None else (
+        Path(os.environ.get("AGNES_INBOX_FILE")) if os.environ.get("AGNES_INBOX_FILE") else INBOX_FILE
+    )
     try:
-        INBOX_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(INBOX_FILE, "a", encoding="utf-8") as f:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with open(target, "a", encoding="utf-8") as f:
             f.write(json.dumps(event, ensure_ascii=False) + "\n")
+        return True
     except Exception as e:
         log(f"写入事件箱失败: {e}", "WARN")
+        return False
 
-def check_and_sync_git():
+def check_and_sync_git(cwd=None, proxy=None, timeout=30):
     """检查并同步 MacBook Pro M5 提交"""
+    target_dir = Path(cwd) if cwd is not None else DIR
+    proxy_val = os.environ.get("AGNES_GIT_PROXY", "http://192.168.1.164:7897") if proxy is None else proxy
     try:
         # 使用物理机 Clash Verge 代理加速访问 GitHub
-        cmd_fetch = [
-            "git",
-            "-c", "http.proxy=http://192.168.1.164:7897",
-            "-c", "https.proxy=http://192.168.1.164:7897",
-            "fetch", "origin", "main"
-        ]
-        res = subprocess.run(cmd_fetch, cwd=str(DIR), capture_output=True, text=True, timeout=30)
+        cmd_fetch = ["git"]
+        if proxy_val:
+            cmd_fetch.extend(["-c", f"http.proxy={proxy_val}", "-c", f"https.proxy={proxy_val}"])
+        cmd_fetch.extend(["fetch", "origin", "main"])
+        res = subprocess.run(cmd_fetch, cwd=str(target_dir), capture_output=True, text=True, timeout=timeout)
         if res.returncode != 0:
             log(f"Git fetch 失败: {res.stderr.strip()}", "WARN")
             return False, "fetch_failed"
 
-        local_rev = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=str(DIR), text=True).strip()
-        remote_rev = subprocess.check_output(["git", "rev-parse", "origin/main"], cwd=str(DIR), text=True).strip()
+        local_rev = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=str(target_dir), text=True).strip()
+        remote_rev = subprocess.check_output(["git", "rev-parse", "origin/main"], cwd=str(target_dir), text=True).strip()
 
         if local_rev != remote_rev:
             # 检查是否有未合入的远程提交
-            behind_cnt = int(subprocess.check_output(["git", "rev-list", "--count", "HEAD..origin/main"], cwd=str(DIR), text=True).strip() or 0)
+            behind_cnt = int(subprocess.check_output(["git", "rev-list", "--count", "HEAD..origin/main"], cwd=str(target_dir), text=True).strip() or 0)
             if behind_cnt > 0:
                 log(f"检测到 MacBook Pro M5 新推送了 {behind_cnt} 个提交！准备安全 rebase 同步...", "SYNC")
-                cmd_pull = [
-                    "git",
-                    "-c", "http.proxy=http://192.168.1.164:7897",
-                    "-c", "https.proxy=http://192.168.1.164:7897",
-                    "pull", "--rebase", "--autostash", "origin", "main"
-                ]
-                pull_res = subprocess.run(cmd_pull, cwd=str(DIR), capture_output=True, text=True, timeout=40)
+                cmd_pull = ["git"]
+                if proxy_val:
+                    cmd_pull.extend(["-c", f"http.proxy={proxy_val}", "-c", f"https.proxy={proxy_val}"])
+                cmd_pull.extend(["pull", "--rebase", "--autostash", "origin", "main"])
+                pull_res = subprocess.run(cmd_pull, cwd=str(target_dir), capture_output=True, text=True, timeout=timeout + 10)
                 if pull_res.returncode == 0:
-                    latest_commit = subprocess.check_output(["git", "log", "-1", "--oneline"], cwd=str(DIR), text=True).strip()
+                    latest_commit = subprocess.check_output(["git", "log", "-1", "--oneline"], cwd=str(target_dir), text=True).strip()
                     log(f"✓ 成功同步最新代码至: {latest_commit}", "SYNC")
                     post_event("git_sync_success", {"commit": latest_commit, "behind_cnt": behind_cnt})
                     return True, latest_commit
                 else:
                     log(f"Git rebase 冲突或失败: {pull_res.stderr.strip()}", "WARN")
-                    subprocess.run(["git", "rebase", "--abort"], cwd=str(DIR))
+                    subprocess.run(["git", "rebase", "--abort"], cwd=str(target_dir))
                     return False, "rebase_conflict"
         return False, "up_to_date"
     except Exception as e:
         log(f"Git 同步异常: {e}", "ERROR")
         return False, str(e)
 
-def check_and_heal_server():
+def check_and_heal_server(server_url=None, api_base=None, api_key=None, auto_heal=True):
     """检查 8088 端口服务与 New API 健康度，异常时自动拉起自愈"""
+    srv_url = server_url or os.environ.get("AGNES_STUDIO_SERVER_URL") or "http://127.0.0.1:8088/api/config"
+    target_api_base = api_base or os.environ.get("AGNES_API_BASE") or os.environ.get("NEW_API_BASE") or "http://192.168.1.164:3000"
+    target_key = api_key if api_key is not None else (
+        os.environ.get("AGNES_API_KEY") or get_local_auth_key() or "sk-dtG1nh9qwKOFcW2F40rP04xuCToCECtnyxuaTTpSAiCO2FKw"
+    )
+
     server_alive = False
     try:
-        req = urllib.request.Request("http://127.0.0.1:8088/api/config")
+        req = urllib.request.Request(srv_url)
         with urllib.request.urlopen(req, timeout=3) as resp:
             if resp.status == 200:
                 server_alive = True
     except Exception:
         server_alive = False
 
-    if not server_alive:
+    if not server_alive and auto_heal:
         log("⚠️ 检测到端口 8088 studio_server 未响应，启动自愈拉起进程...", "HEAL")
         py_cmd = str(DIR / ".venv" / "bin" / "python")
         if not os.path.exists(py_cmd):
@@ -128,8 +149,10 @@ def check_and_heal_server():
     # 检测黑苹果物理机 New API 网关
     new_api_alive = False
     try:
-        req = urllib.request.Request("http://192.168.1.164:3000/v1/models")
-        req.add_header("Authorization", "Bearer sk-dtG1nh9qwKOFcW2F40rP04xuCToCECtnyxuaTTpSAiCO2FKw")
+        models_url = f"{target_api_base.rstrip('/')}/v1/models"
+        req = urllib.request.Request(models_url)
+        if target_key:
+            req.add_header("Authorization", f"Bearer {target_key}")
         with urllib.request.urlopen(req, timeout=4) as resp:
             if resp.status == 200:
                 new_api_alive = True
@@ -138,9 +161,11 @@ def check_and_heal_server():
 
     return server_alive, new_api_alive
 
-def run_creative_pipeline_cycle(cycle_id):
+def run_creative_pipeline_cycle(cycle_id, server_base=None, timeout=None):
     """周期性执行一次自主设计创意生成与多模态质检"""
     log(f"开始执行第 {cycle_id} 轮自主海报演进流水线...", "PIPELINE")
+    base = (server_base or os.environ.get("AGNES_STUDIO_BASE_URL") or "http://127.0.0.1:8088").rstrip("/")
+    timeout_val = timeout or 40
     # 主题库轮换
     topics = [
         "冷调工业极简空间，混凝土墙面与晨曦窄光",
@@ -153,7 +178,7 @@ def run_creative_pipeline_cycle(cycle_id):
     
     # 调起内部 API 生成 Brief 并渲染
     try:
-        url_brief = "http://127.0.0.1:8088/api/gemini/generate-brief"
+        url_brief = f"{base}/api/gemini/generate-brief"
         payload = json.dumps({
             "topic": topic,
             "tone": "minimal",
@@ -161,7 +186,7 @@ def run_creative_pipeline_cycle(cycle_id):
             "goal": "editorial"
         }).encode("utf-8")
         req = urllib.request.Request(url_brief, data=payload, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=40) as resp:
+        with urllib.request.urlopen(req, timeout=timeout_val) as resp:
             brief_res = json.loads(resp.read().decode("utf-8"))
             if not brief_res.get("success"):
                 log(f"Gemini 简报生成未成功: {brief_res.get('error')}", "WARN")
@@ -170,14 +195,14 @@ def run_creative_pipeline_cycle(cycle_id):
             log(f"✓ 获得创意简报: 《{brief.get('title')}》 - {brief.get('subtitle')}", "PIPELINE")
 
         # 调起生图
-        url_gen = "http://127.0.0.1:8088/api/generate-image"
+        url_gen = f"{base}/api/generate-image"
         gen_payload = json.dumps({
             "prompt": brief.get("gen_prompt") or topic,
             "model": "agnes-image-2.5-flash",
             "size": "1024x1024"
         }).encode("utf-8")
         req_gen = urllib.request.Request(url_gen, data=gen_payload, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req_gen, timeout=75) as resp:
+        with urllib.request.urlopen(req_gen, timeout=max(timeout_val, 75)) as resp:
             gen_res = json.loads(resp.read().decode("utf-8"))
             if not gen_res.get("success"):
                 log(f"底图生成未成功: {gen_res.get('error')}", "WARN")
@@ -186,7 +211,7 @@ def run_creative_pipeline_cycle(cycle_id):
             log(f"✓ 留白底图就绪: {bg_path}", "PIPELINE")
 
         # 调起排版渲染
-        url_render = "http://127.0.0.1:8088/api/render-poster"
+        url_render = f"{base}/api/render-poster"
         render_payload = json.dumps({
             "style": brief.get("style_preset", "swiss_01"),
             "title": brief.get("title", "苏黎世秩序"),
@@ -196,7 +221,7 @@ def run_creative_pipeline_cycle(cycle_id):
             "bg_image": bg_path
         }).encode("utf-8")
         req_render = urllib.request.Request(url_render, data=render_payload, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req_render, timeout=30) as resp:
+        with urllib.request.urlopen(req_render, timeout=timeout_val) as resp:
             render_res = json.loads(resp.read().decode("utf-8"))
             if not render_res.get("success"):
                 log(f"海报渲染未成功: {render_res.get('error')}", "WARN")
@@ -205,13 +230,13 @@ def run_creative_pipeline_cycle(cycle_id):
             log(f"✓ 商业海报渲染完成: {poster_url} (耗时: {render_res.get('duration_ms')}ms)", "PIPELINE")
 
         # 视觉多模态质检审查
-        url_inspect = "http://127.0.0.1:8088/api/gemini/vision-inspect"
+        url_inspect = f"{base}/api/gemini/vision-inspect"
         inspect_payload = json.dumps({
             "image_path": poster_url,
             "title": brief.get("title")
         }).encode("utf-8")
         req_inspect = urllib.request.Request(url_inspect, data=inspect_payload, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req_inspect, timeout=40) as resp:
+        with urllib.request.urlopen(req_inspect, timeout=timeout_val) as resp:
             inspect_res = json.loads(resp.read().decode("utf-8"))
             score = 0
             if inspect_res.get("success"):
@@ -233,17 +258,31 @@ def run_creative_pipeline_cycle(cycle_id):
         log(f"流水线执行异常: {e}", "ERROR")
         return None
 
-def generate_morning_report(history):
+def generate_morning_report(history, report_file=None, now=None):
     """于早上 8:00 生成晨报交付文件"""
-    date_str = datetime.datetime.now().strftime("%Y-%m-%d")
-    report_file = REPORTS_DIR / f"MORNING_REPORT_{datetime.datetime.now().strftime('%Y%m%d')}.md"
+    current_dt = now or datetime.datetime.now()
+    date_str = current_dt.strftime("%Y-%m-%d")
+    if report_file is None:
+        target_file = REPORTS_DIR / f"MORNING_REPORT_{current_dt.strftime('%Y%m%d')}.md"
+    else:
+        target_file = Path(report_file)
+    target_file.parent.mkdir(parents=True, exist_ok=True)
     
-    total_posters = len([h for h in history if h.get("poster_url")])
-    avg_score = round(sum([h.get("score", 0) for h in history if h.get("score")]) / max(total_posters, 1), 1)
+    posters = [h for h in history if isinstance(h, dict) and h.get("poster_url")]
+    total_posters = len(posters)
+    scores = []
+    for h in posters:
+        try:
+            val = float(h.get("score") or 0)
+            if val > 0:
+                scores.append(val)
+        except (ValueError, TypeError):
+            pass
+    avg_score = round(sum(scores) / max(len(scores), 1), 1)
 
     content = f"""# Agnes Studio 自主演进晨报 ({date_str})
 
-**生成时间**: {datetime.datetime.now().strftime('%Y-%m-%d 08:00:00')}  
+**生成时间**: {current_dt.strftime('%Y-%m-%d %H:%M:%S')}  
 **守护范围**: 跨机协作代码同步、本地 Studio Server 守护、自主海报生成流水线演进  
 **宿主机网关**: New API Hub (`192.168.1.164:3000`) & Clash Verge (`192.168.1.164:7897`)  
 
@@ -262,9 +301,8 @@ def generate_morning_report(history):
 | 主标 | 副标 | 视觉风格 | 审美评分 | 交付文件 |
 | :--- | :--- | :--- | :--- | :--- |
 """
-    for h in history:
-        if h.get("poster_url"):
-            content += f"| 《{h.get('title')}》 | {h.get('subtitle')} | 瑞士/新中式 | {h.get('score')} 分 | `{h.get('poster_url')}` |\n"
+    for h in posters:
+        content += f"| 《{h.get('title', '')}》 | {h.get('subtitle', '')} | 瑞士/新中式 | {h.get('score', 0)} 分 | `{h.get('poster_url', '')}` |\n"
 
     content += """
 ---
@@ -276,10 +314,11 @@ def generate_morning_report(history):
 
 *Agnes Studio 专属工程助手 持续守护中*
 """
-    with open(report_file, "w", encoding="utf-8") as f:
+    with open(target_file, "w", encoding="utf-8") as f:
         f.write(content)
-    log(f"🎉 晨报已正式生成并交付: {report_file}", "REPORT")
-    post_event("morning_report_delivered", {"report_path": str(report_file)})
+    log(f"🎉 晨报已正式生成并交付: {target_file}", "REPORT")
+    post_event("morning_report_delivered", {"report_path": str(target_file)})
+    return str(target_file)
 
 def main():
     log("🚀 [Agnes Studio] 24/7 自主跟进守护引擎已启动，目标持续跟进至早上 08:00...")
