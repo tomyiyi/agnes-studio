@@ -28,6 +28,10 @@ class TestEndpointContract(unittest.TestCase):
         source = Path(gemini_engine.__file__).read_text(encoding="utf-8")
         self.assertIn("ANTIGRAVITY_API_KEY", source)
 
+    def test_studio_server_safe_import(self):
+        self.assertTrue(callable(getattr(studio_server, "ensure_venv", None)))
+        self.assertTrue(callable(getattr(studio_server, "get_local_newapi_config", None)))
+
 
 if __name__ == "__main__":
     unittest.main()

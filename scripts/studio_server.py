@@ -27,11 +27,12 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 DIR = Path(__file__).resolve().parent.parent
 
-# 自动自提至项目 .venv 环境（如存在且当前非虚拟环境）
-VENV_PY = DIR / ".venv" / "bin" / "python"
-if VENV_PY.exists() and sys.executable != str(VENV_PY) and os.environ.get("AGNES_VENV_SWITCHED") != "1":
-    os.environ["AGNES_VENV_SWITCHED"] = "1"
-    os.execv(str(VENV_PY), [str(VENV_PY)] + sys.argv)
+def ensure_venv():
+    """在直接运行服务时，自动自提至项目 .venv 环境（如存在且当前非虚拟环境）"""
+    venv_py = DIR / ".venv" / "bin" / "python"
+    if venv_py.exists() and sys.executable != str(venv_py) and os.environ.get("AGNES_VENV_SWITCHED") != "1":
+        os.environ["AGNES_VENV_SWITCHED"] = "1"
+        os.execv(str(venv_py), [str(venv_py)] + sys.argv)
 
 PUBLIC_DIR = DIR / "public"
 ASSETS_DIR = PUBLIC_DIR / "assets"
@@ -658,6 +659,7 @@ def run(port=8088):
     httpd.serve_forever()
 
 if __name__ == "__main__":
+    ensure_venv()
     p = 8088
     if len(sys.argv) > 1:
         try:
