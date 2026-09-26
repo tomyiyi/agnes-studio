@@ -19,7 +19,9 @@ from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 import json
+import os
 import time
 import urllib.error
 import urllib.request
@@ -31,11 +33,12 @@ DEFAULT_BASE = "http://127.0.0.1:3000/v1"
 DEFAULT_MODEL = "agnes-image-2.5-flash"
 
 
-def load_gateway() -> tuple[str, str, str]:
+def load_gateway(key_path: Path | str | None = None) -> tuple[str, str, str]:
+    target_path = Path(key_path) if key_path else DEFAULT_KEY_PATH
     base, key, model = DEFAULT_BASE, "", DEFAULT_MODEL
-    if DEFAULT_KEY_PATH.exists():
+    if target_path.exists():
         try:
-            data = json.loads(DEFAULT_KEY_PATH.read_text(encoding="utf-8"))
+            data = json.loads(target_path.read_text(encoding="utf-8"))
             base = data.get("base_url") or base
             key = data.get("api_key") or key
             models = (data.get("models") or {}).get("image_generation") or []
@@ -43,6 +46,11 @@ def load_gateway() -> tuple[str, str, str]:
                 model = models[0]
         except Exception:
             pass
+
+    # 环境变量具备最高优先级或用于兜底补全
+    base = os.environ.get("NEW_API_BASE_URL") or os.environ.get("AGNES_BASE_URL") or base
+    key = os.environ.get("NEW_API_KEY") or key
+    model = os.environ.get("AGNES_IMAGE_MODEL") or model
     return base, key, model
 
 
@@ -54,8 +62,13 @@ def generate(
     base_url: str | None = None,
     api_key: str | None = None,
     retries: int = 2,
+    timeout: int = 90,
+    key_path: Path | str | None = None,
 ) -> dict:
-    base, key, default_model = load_gateway()
+    if not prompt or not isinstance(prompt, str) or not prompt.strip():
+        return {"ok": False, "error": "Prompt must be a non-empty string", "via": "new-api-rotation-pool"}
+
+    base, key, default_model = load_gateway(key_path=key_path)
     base = (base_url or base).rstrip("/")
     key = api_key or key
     model = model or default_model
@@ -77,7 +90,7 @@ def generate(
     for attempt in range(retries + 1):
         t0 = time.time()
         try:
-            with urllib.request.urlopen(req, timeout=90) as resp:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
             item = (data.get("data") or [{}])[0]
             return {
@@ -98,14 +111,18 @@ def generate(
     return {"ok": False, "error": last_err, "via": "new-api-rotation-pool"}
 
 
-def save_image(result: dict, out: Path) -> Path:
+def save_image(result: dict, out: Path | str) -> Path:
+    out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     if result.get("b64_json"):
-        out.write_bytes(base64.b64decode(result["b64_json"]))
+        try:
+            out.write_bytes(base64.b64decode(result["b64_json"]))
+        except (binascii.Error, ValueError) as e:
+            raise ValueError(f"[gateway] invalid base64 image payload: {e}") from e
     elif result.get("url"):
         urllib.request.urlretrieve(result["url"], str(out))
     else:
-        raise SystemExit(f"[gateway] no image payload: {result}")
+        raise ValueError(f"[gateway] no image payload: {result}")
     return out
 
 
@@ -136,7 +153,10 @@ def main() -> None:
     res = generate(prompt, size=args.size, model=args.model)
     if not res.get("ok"):
         raise SystemExit(f"[gateway] {res}")
-    save_image(res, Path(args.out))
+    try:
+        save_image(res, Path(args.out))
+    except Exception as e:
+        raise SystemExit(f"[gateway] {e}")
     print(
         f"✓ {args.out} via {res['via']} model={res['model']} "
         f"cost={res['cost_s']}s attempt={res['attempt']}"

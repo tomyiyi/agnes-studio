@@ -12,10 +12,12 @@ Automated regression tests covering:
 6. Data integrity & JSON syntax across all configuration files
 """
 
+import io
 import json
 import sys
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 
@@ -54,6 +56,8 @@ from cover_pipeline import (
     qa_thumbnail_ok,
 )
 import wechat_cover_ab
+import agnes_gateway
+from agnes_gateway import load_gateway, generate, save_image
 from expert_poster_designer import (
     analyze_safe_zone,
     render_expert_steampunk_poster,
@@ -1085,6 +1089,152 @@ class TestWechatCoverAB(unittest.TestCase):
         html_bot = wechat_cover_ab.cover_html("data:image/png;base64,TEST_DATA", title_top=False)
         self.assertIn("bottom:8%; left:6%;", html_bot)
         self.assertIn("bottom:28%; left:6%;", html_bot)
+
+
+class TestAgnesGateway(unittest.TestCase):
+    """测试 Agnes 生图网关与本地轮换机制 (Agnes Gateway Suite)"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_gateway_constants(self):
+        self.assertEqual(agnes_gateway.DEFAULT_BASE, "http://127.0.0.1:3000/v1")
+        self.assertEqual(agnes_gateway.DEFAULT_MODEL, "agnes-image-2.5-flash")
+
+    def test_load_gateway_defaults(self):
+        non_existent_key = self.tmp_path / "no_key.json"
+        with patch.dict("os.environ", {}, clear=True):
+            base, key, model = load_gateway(key_path=non_existent_key)
+            self.assertEqual(base, "http://127.0.0.1:3000/v1")
+            self.assertEqual(key, "")
+            self.assertEqual(model, "agnes-image-2.5-flash")
+
+    def test_load_gateway_from_json(self):
+        cfg_file = self.tmp_path / "local_key.json"
+        cfg_data = {
+            "base_url": "http://192.168.1.100:3000/v1",
+            "api_key": "sk-custom-token-12345",
+            "models": {
+                "image_generation": ["custom-flux-pro", "custom-agnes-2.5"]
+            }
+        }
+        cfg_file.write_text(json.dumps(cfg_data), encoding="utf-8")
+
+        with patch.dict("os.environ", {}, clear=True):
+            base, key, model = load_gateway(key_path=cfg_file)
+            self.assertEqual(base, "http://192.168.1.100:3000/v1")
+            self.assertEqual(key, "sk-custom-token-12345")
+            self.assertEqual(model, "custom-flux-pro")
+
+    def test_load_gateway_env_overrides(self):
+        cfg_file = self.tmp_path / "local_key.json"
+        cfg_file.write_text(json.dumps({"base_url": "http://10.0.0.1/v1", "api_key": "old-key"}), encoding="utf-8")
+
+        env_vars = {
+            "NEW_API_BASE_URL": "http://override-gateway:3000/v1",
+            "NEW_API_KEY": "env-secret-key-999",
+            "AGNES_IMAGE_MODEL": "agnes-ultra-hd",
+        }
+        with patch.dict("os.environ", env_vars, clear=True):
+            base, key, model = load_gateway(key_path=cfg_file)
+            self.assertEqual(base, "http://override-gateway:3000/v1")
+            self.assertEqual(key, "env-secret-key-999")
+            self.assertEqual(model, "agnes-ultra-hd")
+
+    def test_generate_invalid_prompt(self):
+        res1 = generate("")
+        self.assertFalse(res1["ok"])
+        self.assertIn("non-empty string", res1["error"])
+
+        res2 = generate("   \n\t  ")
+        self.assertFalse(res2["ok"])
+
+    @patch("urllib.request.urlopen")
+    def test_generate_success(self, mock_urlopen):
+        fake_resp_data = {
+            "data": [
+                {
+                    "url": "https://example.com/generated_artwork.png",
+                    "b64_json": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+                }
+            ]
+        }
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.read.return_value = json.dumps(fake_resp_data).encode("utf-8")
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        res = generate("Cyberpunk neon rain street", retries=0)
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["url"], "https://example.com/generated_artwork.png")
+        self.assertEqual(res["attempt"], 1)
+        self.assertEqual(res["via"], "new-api-rotation-pool")
+        self.assertIn("b64_json", res)
+        self.assertGreaterEqual(res["cost_s"], 0)
+
+    @patch("time.sleep", return_value=None)
+    @patch("urllib.request.urlopen")
+    def test_generate_http_error_retry(self, mock_urlopen, mock_sleep):
+        err = urllib.error.HTTPError(
+            url="http://127.0.0.1:3000/v1/images/generations",
+            code=502,
+            msg="Bad Gateway",
+            hdrs={},
+            fp=io.BytesIO(b"gateway upstream timeout"),
+        )
+        mock_urlopen.side_effect = err
+
+        res = generate("Test retry prompt", retries=1)
+        self.assertFalse(res["ok"])
+        self.assertIn("HTTP 502", res["error"])
+        self.assertEqual(mock_urlopen.call_count, 2)
+        self.assertEqual(mock_sleep.call_count, 2)
+
+    def test_save_image_b64(self):
+        out_file = self.tmp_path / "deep" / "folder" / "sample.png"
+        raw_bytes = b"FAKE_PNG_BINARY_CONTENT_12345"
+        import base64
+        b64_payload = base64.b64encode(raw_bytes).decode("utf-8")
+
+        res_dict = {"b64_json": b64_payload}
+        saved_path = save_image(res_dict, out_file)
+
+        self.assertEqual(saved_path, out_file)
+        self.assertTrue(out_file.exists())
+        self.assertEqual(out_file.read_bytes(), raw_bytes)
+
+    def test_save_image_str_path(self):
+        out_file_str = str(self.tmp_path / "str_path_test.png")
+        raw_bytes = b"STR_PATH_CONTENT"
+        import base64
+        b64_payload = base64.b64encode(raw_bytes).decode("utf-8")
+
+        saved_path = save_image({"b64_json": b64_payload}, out_file_str)
+        self.assertEqual(saved_path, Path(out_file_str))
+        self.assertEqual(Path(out_file_str).read_bytes(), raw_bytes)
+
+    def test_save_image_corrupt_b64(self):
+        out_file = self.tmp_path / "corrupt.png"
+        with self.assertRaises(ValueError) as ctx:
+            save_image({"b64_json": "!!!INVALID_BASE64_BYTES!!!"}, out_file)
+        self.assertIn("invalid base64", str(ctx.exception).lower())
+
+    def test_save_image_no_payload(self):
+        out_file = self.tmp_path / "empty.png"
+        with self.assertRaises(ValueError) as ctx:
+            save_image({"status": "unknown"}, out_file)
+        self.assertIn("no image payload", str(ctx.exception))
+
+    @patch("urllib.request.urlretrieve")
+    def test_save_image_url(self, mock_urlretrieve):
+        out_file = self.tmp_path / "from_url.png"
+        res_dict = {"url": "https://cdn.example.com/asset.png"}
+        saved_path = save_image(res_dict, out_file)
+        self.assertEqual(saved_path, out_file)
+        mock_urlretrieve.assert_called_once_with("https://cdn.example.com/asset.png", str(out_file))
 
 
 if __name__ == "__main__":
