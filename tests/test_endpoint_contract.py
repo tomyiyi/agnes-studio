@@ -109,6 +109,53 @@ class TestEndpointContract(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_post_unknown_endpoint_returns_404_json(self):
+        server = HTTPServer(("127.0.0.1", 0), studio_server.StudioHTTPRequestHandler)
+        port = server.server_port
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        try:
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{port}/api/non_existent_route",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req, timeout=5)
+            self.assertEqual(ctx.exception.code, 404)
+            with ctx.exception:
+                resp_data = json.loads(ctx.exception.read().decode("utf-8"))
+            self.assertFalse(resp_data.get("success"))
+            self.assertIn("Endpoint not found", resp_data.get("error", ""))
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_post_non_dict_payload_handled_gracefully(self):
+        server = HTTPServer(("127.0.0.1", 0), studio_server.StudioHTTPRequestHandler)
+        port = server.server_port
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        try:
+            # Send non-dict JSON body to /api/test-connection
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{port}/api/test-connection",
+                data=b"123",
+                headers={"Content-Type": "application/json", "Content-Length": "3"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req, timeout=5)
+            self.assertEqual(ctx.exception.code, 400)
+            with ctx.exception:
+                resp_data = json.loads(ctx.exception.read().decode("utf-8"))
+            self.assertFalse(resp_data.get("success"))
+            self.assertIn("请提供有效的 Base URL", resp_data.get("error", ""))
+        finally:
+            server.shutdown()
+            server.server_close()
+
 
 if __name__ == "__main__":
     unittest.main()

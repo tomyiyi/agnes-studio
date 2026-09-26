@@ -193,17 +193,22 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         parsed_path = urllib.parse.urlparse(self.path).path.rstrip("/")
-        content_len = int(self.headers.get("Content-Length", 0))
+        try:
+            content_len = int(self.headers.get("Content-Length", 0))
+        except (ValueError, TypeError):
+            content_len = 0
         post_data = self.rfile.read(content_len) if content_len > 0 else b"{}"
         try:
             req_body = json.loads(post_data.decode("utf-8"))
+            if not isinstance(req_body, dict):
+                req_body = {}
         except Exception:
             req_body = {}
 
         # 1. 连通性测试 API
         if parsed_path == "/api/test-connection":
-            base_url = req_body.get("base_url", "").strip().rstrip("/")
-            api_key = req_body.get("api_key", "").strip()
+            base_url = str(req_body.get("base_url") or "").strip().rstrip("/")
+            api_key = str(req_body.get("api_key") or "").strip()
             if not api_key:
                 local_cfg = get_local_newapi_config()
                 if local_cfg["detected"]:
@@ -263,11 +268,11 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
         if parsed_path == "/api/generate-image":
             local_cfg = get_local_newapi_config()
             default_base = local_cfg.get("base_url", "http://192.168.1.164:3000/v1") if local_cfg.get("detected") else "http://192.168.1.164:3000/v1"
-            base_url = (req_body.get("base_url") or default_base).strip().rstrip("/")
-            api_key = req_body.get("api_key", "").strip() or local_cfg.get("api_key", "")
-            model = req_body.get("model", "agnes-image-2.5-flash").strip()
-            prompt = req_body.get("prompt", "").strip()
-            size = req_body.get("size", "1024x1024")
+            base_url = str(req_body.get("base_url") or default_base).strip().rstrip("/")
+            api_key = str(req_body.get("api_key") or "").strip() or local_cfg.get("api_key", "")
+            model = str(req_body.get("model") or "agnes-image-2.5-flash").strip()
+            prompt = str(req_body.get("prompt") or "").strip()
+            size = str(req_body.get("size") or "1024x1024")
 
             if not prompt:
                 self._send_json({"success": False, "error": "提示词不能为空"}, status=400)
@@ -335,14 +340,14 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "排版引擎不可用，请确保已安装 playwright 及其浏览器依赖"}, status=500)
                 return
 
-            style = req_body.get("style") or "swiss_01"
-            title = req_body.get("title") or "苏黎世秩序"
-            subtitle = req_body.get("subtitle") or "STRUCTURE & ESSENCE"
-            body = req_body.get("body") or "设计不是情绪的宣泄，而是对客观秩序的精确度量。让字符锚定在理性的基准线上。"
-            author = req_body.get("author") or "TOM // AGNES STUDIO"
+            style = str(req_body.get("style") or "swiss_01")
+            title = str(req_body.get("title") or "苏黎世秩序")
+            subtitle = str(req_body.get("subtitle") or "STRUCTURE & ESSENCE")
+            body = str(req_body.get("body") or "设计不是情绪的宣泄，而是对客观秩序的精确度量。让字符锚定在理性的基准线上。")
+            author = str(req_body.get("author") or "TOM // AGNES STUDIO")
 
             # 兼容前端 background_img 与历史 bg_image 两种字段名
-            bg_image_rel = req_body.get("bg_image") or req_body.get("background_img") or "assets/poster_pro_swiss_01.png"
+            bg_image_rel = str(req_body.get("bg_image") or req_body.get("background_img") or "assets/poster_pro_swiss_01.png")
 
             # 定位底图绝对路径（限制在 public/ 内，防止路径穿越）
             bg_abs_path = (PUBLIC_DIR / bg_image_rel.lstrip("/")).resolve()
@@ -373,10 +378,10 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         # 4. Gemini 智能简报与文案生成
         if parsed_path == "/api/gemini/generate-brief":
-            topic = req_body.get("topic", "").strip()
-            platform = req_body.get("platform", "wechat")
-            tone = req_body.get("tone", "luxury")
-            goal = req_body.get("goal", "editorial")
+            topic = str(req_body.get("topic") or "").strip()
+            platform = str(req_body.get("platform") or "wechat")
+            tone = str(req_body.get("tone") or "luxury")
+            goal = str(req_body.get("goal") or "editorial")
             base_url = req_body.get("chat_base_url") or req_body.get("base_url")
             api_key = req_body.get("api_key")
 
@@ -404,9 +409,9 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         # 5. Gemini 物理光学 Prompt 编译与增强
         if parsed_path == "/api/gemini/refine-prompt":
-            raw_prompt = req_body.get("prompt", "").strip()
-            aspect_ratio = req_body.get("aspect_ratio", "1:1")
-            negative_space_zone = req_body.get("negative_space", "top-left")
+            raw_prompt = str(req_body.get("prompt") or "").strip()
+            aspect_ratio = str(req_body.get("aspect_ratio") or "1:1")
+            negative_space_zone = str(req_body.get("negative_space") or "top-left")
             base_url = req_body.get("chat_base_url") or req_body.get("base_url")
             api_key = req_body.get("api_key")
 
@@ -434,8 +439,8 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         # 6. Gemini 视觉多模态审美与排版审查
         if parsed_path == "/api/gemini/vision-inspect":
-            image_rel = req_body.get("image_path", "").strip()
-            title = req_body.get("title", "")
+            image_rel = str(req_body.get("image_path") or "").strip()
+            title = str(req_body.get("title") or "")
             base_url = req_body.get("chat_base_url") or req_body.get("base_url")
             api_key = req_body.get("api_key")
 
@@ -444,10 +449,10 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 return
 
             img_abs = (PUBLIC_DIR / image_rel.lstrip("/")).resolve()
-            if not img_abs.exists():
+            if not str(img_abs).startswith(str(PUBLIC_DIR.resolve())) or not img_abs.exists():
                 img_abs = (DIR / image_rel.lstrip("/")).resolve()
 
-            if not img_abs.exists() or not img_abs.is_file():
+            if not str(img_abs).startswith(str(DIR.resolve())) or not img_abs.exists() or not img_abs.is_file():
                 self._send_json({"success": False, "error": f"找不到图片文件: {image_rel}"}, status=404)
                 return
 
@@ -465,7 +470,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": res.get("error")}, status=500)
             return
 
-        super().do_POST()
+        self._send_json({"success": False, "error": f"Endpoint not found: {parsed_path}"}, status=404)
 
 def generate_custom_poster_html(style, title, subtitle, body, author, bg_uri):
     """根据自定义参数生成对应流派的高保真 HTML 排印代码"""
