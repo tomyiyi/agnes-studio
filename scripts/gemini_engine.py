@@ -256,6 +256,7 @@ def refine_prompt_for_agnes(
 def detect_visual_subjects_gemini(
     image_path: str,
     *,
+    model: Optional[str] = None,
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
 ) -> List[Dict[str, float]]:
@@ -294,7 +295,7 @@ def detect_visual_subjects_gemini(
 
         res = call_gemini(
             messages,
-            model="agnes-2.5-flash",
+            model=model,
             temperature=0.1,
             max_tokens=400,
             base_url=base_url,
@@ -326,6 +327,7 @@ def vision_inspect_artwork(
     image_path: str,
     title: str = "",
     *,
+    model: Optional[str] = None,
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -375,7 +377,7 @@ def vision_inspect_artwork(
 
         res = call_gemini(
             messages,
-            model="agnes-2.5-flash",
+            model=model,
             temperature=0.3,
             max_tokens=600,
             base_url=base_url,

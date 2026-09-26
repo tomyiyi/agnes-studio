@@ -189,6 +189,10 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             self._send_json(resp)
             return
 
+        if parsed_path.startswith("/api/") or parsed_path == "/api":
+            self._send_json({"success": False, "error": f"Endpoint not found: {parsed_path}"}, status=404)
+            return
+
         super().do_GET()
 
     def do_POST(self):
@@ -446,6 +450,10 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
             if not image_rel:
                 self._send_json({"success": False, "error": "请提供待质检图片路径"}, status=400)
+                return
+
+            if not vision_inspect_artwork:
+                self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
                 return
 
             img_abs = (PUBLIC_DIR / image_rel.lstrip("/")).resolve()

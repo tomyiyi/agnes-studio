@@ -156,6 +156,73 @@ class TestEndpointContract(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_get_unknown_api_endpoint_returns_404_json(self):
+        server = HTTPServer(("127.0.0.1", 0), studio_server.StudioHTTPRequestHandler)
+        port = server.server_port
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        try:
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{port}/api/non_existent_endpoint",
+                method="GET",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req, timeout=5)
+            self.assertEqual(ctx.exception.code, 404)
+            with ctx.exception:
+                resp_data = json.loads(ctx.exception.read().decode("utf-8"))
+            self.assertFalse(resp_data.get("success"))
+            self.assertIn("Endpoint not found", resp_data.get("error", ""))
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_gemini_vision_and_inspect_default_models(self):
+        import inspect
+        sig_detect = inspect.signature(gemini_engine.detect_visual_subjects_gemini)
+        self.assertIn("model", sig_detect.parameters)
+        self.assertIsNone(sig_detect.parameters["model"].default)
+
+        sig_inspect = inspect.signature(gemini_engine.vision_inspect_artwork)
+        self.assertIn("model", sig_inspect.parameters)
+        self.assertIsNone(sig_inspect.parameters["model"].default)
+
+        source = Path(gemini_engine.__file__).read_text(encoding="utf-8")
+        self.assertNotIn('model="agnes-2.5-flash"', source)
+
+    def test_post_endpoints_validation_contract(self):
+        server = HTTPServer(("127.0.0.1", 0), studio_server.StudioHTTPRequestHandler)
+        port = server.server_port
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        try:
+            endpoints = [
+                ("/api/generate-image", {}, 400, "提示词不能为空"),
+                ("/api/gemini/generate-brief", {}, 400, "请输入创意主题"),
+                ("/api/gemini/refine-prompt", {}, 400, "请输入原始提示词"),
+                ("/api/gemini/vision-inspect", {}, 400, "请提供待质检图片路径"),
+                ("/api/gemini/vision-inspect", {"image_path": "non_existent_file.png"}, 404, "找不到图片文件"),
+            ]
+            for path, payload, expected_code, expected_err in endpoints:
+                with self.subTest(path=path, payload=payload):
+                    data = json.dumps(payload).encode("utf-8")
+                    req = urllib.request.Request(
+                        f"http://127.0.0.1:{port}{path}",
+                        data=data,
+                        headers={"Content-Type": "application/json", "Content-Length": str(len(data))},
+                        method="POST",
+                    )
+                    with self.assertRaises(urllib.error.HTTPError) as ctx:
+                        urllib.request.urlopen(req, timeout=5)
+                    self.assertEqual(ctx.exception.code, expected_code)
+                    with ctx.exception:
+                        resp_data = json.loads(ctx.exception.read().decode("utf-8"))
+                    self.assertFalse(resp_data.get("success"))
+                    self.assertIn(expected_err, resp_data.get("error", ""))
+        finally:
+            server.shutdown()
+            server.server_close()
+
 
 if __name__ == "__main__":
     unittest.main()
