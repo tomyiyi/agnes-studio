@@ -37,8 +37,13 @@ def get_base64_image(image_path):
     """读取本地图片并转为 base64 data URI，确保无头浏览器 100% 离线秒级加载"""
     with open(image_path, "rb") as f:
         data = f.read()
-    ext = os.path.splitext(image_path)[1].lower().replace(".", "")
-    mime = "image/png" if ext == "png" else "image/jpeg"
+    ext = os.path.splitext(str(image_path))[1].lower().lstrip(".")
+    if ext == "png":
+        mime = "image/png"
+    elif ext == "webp":
+        mime = "image/webp"
+    else:
+        mime = "image/jpeg"
     return f"data:{mime};base64,{base64.b64encode(data).decode('utf-8')}"
 
 def render_html_to_poster(html_content, output_path):

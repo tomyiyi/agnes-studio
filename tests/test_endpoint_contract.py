@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import tempfile
 import threading
 import unittest
 import urllib.request
@@ -10,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
 import gemini_engine
+import pro_poster_renderer
 import studio_server
 
 
@@ -469,6 +471,50 @@ class TestEndpointContract(unittest.TestCase):
         finally:
             server.shutdown()
             server.server_close()
+
+    def test_gemini_engine_contract_and_image_handling(self):
+        # 1. 验证 markdown 代码块去除（含大小写兼容与去空白）
+        self.assertEqual(gemini_engine._strip_markdown_codeblock('```json\n{"a": 1}\n```'), '{"a": 1}')
+        self.assertEqual(gemini_engine._strip_markdown_codeblock('```JSON\n{"b": 2}\n```'), '{"b": 2}')
+        self.assertEqual(gemini_engine._strip_markdown_codeblock('```\n{"c": 3}\n```'), '{"c": 3}')
+        self.assertEqual(gemini_engine._strip_markdown_codeblock('{"d": 4}'), '{"d": 4}')
+
+        # 2. 验证 call_gemini 对非 http/https scheme 的快速拦截
+        bad_schemes = ["ftp://example.com/v1", "file:///etc/passwd", "gopher://bad"]
+        for bad_url in bad_schemes:
+            with self.subTest(bad_url=bad_url):
+                res = gemini_engine.call_gemini([], base_url=bad_url)
+                self.assertFalse(res["ok"])
+                self.assertIn("Base URL 必须以 http:// 或 https:// 开头", res.get("error", ""))
+
+        # 3. 验证缺失文件时多模态函数的安全优雅退出
+        missing_file = "non_existent_img_xyz.png"
+        self.assertEqual(gemini_engine.detect_visual_subjects_gemini(missing_file), [])
+        inspect_res = gemini_engine.vision_inspect_artwork(missing_file)
+        self.assertFalse(inspect_res["ok"])
+        self.assertIn("文件不存在", inspect_res.get("error", ""))
+
+        # 4. 验证 WebP / PNG / JPEG base64 MIME 正确性
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            webp_f = tmp_path / "sample.webp"
+            png_f = tmp_path / "sample.png"
+            jpg_f = tmp_path / "sample.jpg"
+
+            webp_f.write_bytes(b"RIFF\x00\x00\x00\x00WEBPVP8 ")
+            png_f.write_bytes(b"\x89PNG\r\n\x1a\n")
+            jpg_f.write_bytes(b"\xff\xd8\xff\xe0")
+
+            # studio_server.get_base64_image
+            self.assertTrue(studio_server.get_base64_image(webp_f).startswith("data:image/webp;base64,"))
+            self.assertTrue(studio_server.get_base64_image(png_f).startswith("data:image/png;base64,"))
+            self.assertTrue(studio_server.get_base64_image(jpg_f).startswith("data:image/jpeg;base64,"))
+            self.assertEqual(studio_server.get_base64_image(tmp_path / "not_found.png"), "")
+
+            # pro_poster_renderer.get_base64_image
+            self.assertTrue(pro_poster_renderer.get_base64_image(webp_f).startswith("data:image/webp;base64,"))
+            self.assertTrue(pro_poster_renderer.get_base64_image(png_f).startswith("data:image/png;base64,"))
+            self.assertTrue(pro_poster_renderer.get_base64_image(jpg_f).startswith("data:image/jpeg;base64,"))
 
 
 if __name__ == "__main__":

@@ -84,8 +84,12 @@ def call_gemini(
     """通过 New API 统一网关调用 Gemini 聊天与多模态端点"""
     def_base, def_key, def_model = load_credentials()
     base = (base_url or def_base).rstrip("/")
-    key = api_key or def_key
     target_model = model or def_model
+
+    if not (base.startswith("http://") or base.startswith("https://")):
+        return {"ok": False, "error": f"Base URL 必须以 http:// 或 https:// 开头: {base}", "model": target_model}
+
+    key = api_key or def_key
 
     payload = {
         "model": target_model,
@@ -135,7 +139,7 @@ def call_gemini(
 def _strip_markdown_codeblock(text: str) -> str:
     """提取 markdown 代码块内的原始内容"""
     text = text.strip()
-    match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
+    match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
     if match:
         return match.group(1).strip()
     return text
@@ -270,8 +274,13 @@ def detect_visual_subjects_gemini(
 
     try:
         data_bytes = img_file.read_bytes()
-        ext = img_file.suffix.lower().replace(".", "")
-        mime = "image/png" if ext == "png" else "image/jpeg"
+        ext = img_file.suffix.lower().lstrip(".")
+        if ext == "png":
+            mime = "image/png"
+        elif ext == "webp":
+            mime = "image/webp"
+        else:
+            mime = "image/jpeg"
         b64 = base64.b64encode(data_bytes).decode("utf-8")
         data_uri = f"data:{mime};base64,{b64}"
 
@@ -340,8 +349,13 @@ def vision_inspect_artwork(
 
     try:
         data_bytes = img_file.read_bytes()
-        ext = img_file.suffix.lower().replace(".", "")
-        mime = "image/png" if ext == "png" else "image/jpeg"
+        ext = img_file.suffix.lower().lstrip(".")
+        if ext == "png":
+            mime = "image/png"
+        elif ext == "webp":
+            mime = "image/webp"
+        else:
+            mime = "image/jpeg"
         b64 = base64.b64encode(data_bytes).decode("utf-8")
         data_uri = f"data:{mime};base64,{b64}"
 

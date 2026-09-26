@@ -47,8 +47,13 @@ def get_base64_image(image_path):
     try:
         with open(image_path, "rb") as f:
             data = f.read()
-        ext = os.path.splitext(str(image_path))[1].lower().replace(".", "")
-        mime = "image/png" if ext == "png" else "image/jpeg"
+        ext = os.path.splitext(str(image_path))[1].lower().lstrip(".")
+        if ext == "png":
+            mime = "image/png"
+        elif ext == "webp":
+            mime = "image/webp"
+        else:
+            mime = "image/jpeg"
         return f"data:{mime};base64,{base64.b64encode(data).decode('utf-8')}"
     except Exception as e:
         print(f"⚠️ [Base64 Error] 读取图片失败 {image_path}: {e}")
