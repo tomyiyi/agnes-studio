@@ -2,68 +2,127 @@
 # -*- coding: utf-8 -*-
 """
 Agnes Studio · 海报多模态视觉解构与设计自学习引擎
+================================================
+用于自动解构海报的主色调（Dominant Palette）、网格比例（Aspect Ratio）、
+版式特征分类（Layout Category）与设计规则沉淀。
 """
 
-import os
+from __future__ import annotations
+
 import json
+import os
+import sys
 from pathlib import Path
+from typing import Any
+
+SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+from env_config import ASSETS_DIR, DATA_DIR, PROJECT_ROOT
 from PIL import Image
 
-def analyze_poster_visual():
+DEFAULT_TARGET_FILES = [
+    ASSETS_DIR / "cover_cinematic_split_green.png",
+    ASSETS_DIR / "cover_cinematic_letterbox.png",
+    ASSETS_DIR / "poster_style_smiley.png",
+]
+
+DEFAULT_OUTPUT_PATH = DATA_DIR / "learned_poster_rules.json"
+
+
+def extract_poster_features(filepath: str | Path) -> dict[str, Any] | None:
+    """提取单张海报的多模态视觉特征与排版规则"""
+    path = Path(filepath)
+    if not path.is_file():
+        return None
+
+    filename = path.name
+    with Image.open(path) as img:
+        rgb_img = img.convert("RGB")
+        w, h = rgb_img.size
+        thumb = rgb_img.resize((32, 32))
+        colors = thumb.getcolors(32 * 32) or []
+        colors.sort(key=lambda x: x[0], reverse=True)
+
+        palette = []
+        for count, rgb in colors[:5]:
+            if isinstance(rgb, tuple) and len(rgb) >= 3:
+                hex_val = f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
+                palette.append({"hex": hex_val, "rgb": list(rgb[:3]), "pixels": count})
+
+        aspect_ratio = round(w / h, 2) if h > 0 else 1.0
+        if aspect_ratio >= 1.3:
+            layout = "电影宽银幕上下遮幅 (2.35:1)"
+        else:
+            layout = "加块绿 · 左右对角拆字法"
+
+        return {
+            "filename": filename,
+            "dimensions": f"{w}x{h}",
+            "aspect_ratio": aspect_ratio,
+            "dominant_palette": palette,
+            "layout_category": layout,
+            "rules": [
+                "形：莫兰迪色块打底隔离复杂背景",
+                "斜：8° 窄斜体得意黑建立动势",
+                "比：主标题与微标 10:1 极端字阶对比",
+                "空：对角避让保留人物视觉焦点",
+            ],
+        }
+
+
+def analyze_poster_visual(
+    target_files: list[str | Path] | None = None,
+    output_path: str | Path | None = None,
+) -> list[dict[str, Any]]:
+    """分析海报视觉特征并持久化学习结果，非破坏性保留知识库扩展规则"""
     print("🚀 启动海报视觉多模态特征解构与学习引擎...")
-    
-    target_files = [
-        "/Users/tom/Desktop/agnes-studio/public/assets/cover_cinematic_split_green.png",
-        "/Users/tom/Desktop/agnes-studio/public/assets/cover_cinematic_letterbox.png",
-        "/Users/tom/Desktop/agnes-studio/public/assets/poster_style_smiley.png"
-    ]
 
-    results = []
-    for filepath in target_files:
-        if not os.path.isfile(filepath):
-            continue
+    files_to_process = DEFAULT_TARGET_FILES if target_files is None else target_files
+    results: list[dict[str, Any]] = []
 
-        filename = os.path.basename(filepath)
-        with Image.open(filepath) as img:
-            w, h = img.size
-            thumb = img.resize((32, 32))
-            colors = thumb.getcolors(32 * 32) or []
-            colors.sort(key=lambda x: x[0], reverse=True)
-            
-            palette = []
-            for count, rgb in colors[:5]:
-                if isinstance(rgb, tuple) and len(rgb) >= 3:
-                    hex_val = f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
-                    palette.append({"hex": hex_val, "rgb": list(rgb[:3]), "pixels": count})
+    for item in files_to_process:
+        feat = extract_poster_features(item)
+        if feat is not None:
+            results.append(feat)
+            print(f"  ✓ 解构成功: {feat['filename']} -> {feat['layout_category']}")
 
-            aspect_ratio = w / h if h > 0 else 1.0
-            if aspect_ratio >= 1.3:
-                layout = "电影宽银幕上下遮幅 (2.35:1)"
+    out_file = Path(output_path).resolve() if output_path else DEFAULT_OUTPUT_PATH.resolve()
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+
+    final_list: list[dict[str, Any]] = []
+    if out_file.is_file():
+        try:
+            existing = json.loads(out_file.read_text(encoding="utf-8"))
+            if isinstance(existing, list):
+                filename_to_new = {item["filename"]: item for item in results if "filename" in item}
+                seen_filenames = set()
+                for entry in existing:
+                    if isinstance(entry, dict) and "filename" in entry:
+                        fn = entry["filename"]
+                        if fn in filename_to_new:
+                            final_list.append(filename_to_new[fn])
+                            seen_filenames.add(fn)
+                        else:
+                            final_list.append(entry)
+                    else:
+                        final_list.append(entry)
+                for item in results:
+                    fn = item.get("filename")
+                    if fn and fn not in seen_filenames:
+                        final_list.append(item)
             else:
-                layout = "加块绿 · 左右对角拆字法"
+                final_list = results
+        except Exception:
+            final_list = results
+    else:
+        final_list = results
 
-            results.append({
-                "filename": filename,
-                "dimensions": f"{w}x{h}",
-                "aspect_ratio": round(aspect_ratio, 2),
-                "dominant_palette": palette,
-                "layout_category": layout,
-                "rules": [
-                    "形：莫兰迪色块打底隔离复杂背景",
-                    "斜：8° 窄斜体得意黑建立动势",
-                    "比：主标题与微标 10:1 极端字阶对比",
-                    "空：对角避让保留人物视觉焦点"
-                ]
-            })
-            print(f"  ✓ 解构成功: {filename} -> {layout}")
+    out_file.write_text(json.dumps(final_list, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"✨ 海报设计学习报告与知识沉淀已保存至: {out_file}")
+    return results
 
-    safe_dir = Path("/Users/tom/Desktop/agnes-studio/data").resolve()
-    target_path = (safe_dir / "learned_poster_rules.json").resolve()
-    if not str(target_path).startswith(str(safe_dir)):
-        raise ValueError("Path traversal detected")
-
-    target_path.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"✨ 海报设计学习报告与知识沉淀已保存至: {target_path}")
 
 if __name__ == "__main__":
     analyze_poster_visual()

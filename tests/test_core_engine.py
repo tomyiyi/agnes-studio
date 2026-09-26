@@ -68,6 +68,12 @@ from film_cover_engine import (
     render_shusheng_top_green,
     render_shusheng_letterbox,
 )
+from poster_visual_learner import (
+    extract_poster_features,
+    analyze_poster_visual,
+    DEFAULT_TARGET_FILES,
+    DEFAULT_OUTPUT_PATH,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -896,6 +902,101 @@ class TestExpertPosterDesigner(unittest.TestCase):
             render_expert_steampunk_poster(self.tmp_path / "missing.png", out_file)
         with self.assertRaises(FileNotFoundError):
             render_expert_neochinese_poster(self.tmp_path / "missing.png", out_file)
+
+
+class TestPosterVisualLearner(unittest.TestCase):
+    """测试海报多模态视觉解构与设计自学习引擎 (Poster Visual Learner Engine)"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+
+        # 构造纯红色 400x400 方图
+        self.square_img = self.tmp_path / "square_red.png"
+        Image.new("RGB", (400, 400), color=(255, 0, 0)).save(self.square_img, "PNG")
+
+        # 构造 1000x400 宽银幕图 (2.5:1)
+        self.wide_img = self.tmp_path / "wide_blue.png"
+        Image.new("RGB", (1000, 400), color=(0, 0, 255)).save(self.wide_img, "PNG")
+
+        # 构造 RGBA 含 Alpha 通道图
+        self.rgba_img = self.tmp_path / "rgba_sample.png"
+        Image.new("RGBA", (300, 300), color=(0, 255, 0, 200)).save(self.rgba_img, "PNG")
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_extract_missing_file_returns_none(self):
+        missing = self.tmp_path / "non_existent.png"
+        self.assertIsNone(extract_poster_features(missing))
+
+    def test_extract_square_poster_features(self):
+        feat = extract_poster_features(self.square_img)
+        self.assertIsNotNone(feat)
+        self.assertEqual(feat["filename"], "square_red.png")
+        self.assertEqual(feat["dimensions"], "400x400")
+        self.assertEqual(feat["aspect_ratio"], 1.0)
+        self.assertEqual(feat["layout_category"], "加块绿 · 左右对角拆字法")
+        self.assertTrue(len(feat["dominant_palette"]) >= 1)
+        self.assertEqual(feat["dominant_palette"][0]["hex"], "#ff0000")
+        self.assertEqual(feat["dominant_palette"][0]["rgb"], [255, 0, 0])
+        self.assertEqual(len(feat["rules"]), 4)
+
+    def test_extract_wide_poster_features(self):
+        feat = extract_poster_features(self.wide_img)
+        self.assertIsNotNone(feat)
+        self.assertEqual(feat["filename"], "wide_blue.png")
+        self.assertEqual(feat["dimensions"], "1000x400")
+        self.assertEqual(feat["aspect_ratio"], 2.5)
+        self.assertEqual(feat["layout_category"], "电影宽银幕上下遮幅 (2.35:1)")
+        self.assertEqual(feat["dominant_palette"][0]["hex"], "#0000ff")
+
+    def test_extract_rgba_poster_features_handles_alpha(self):
+        feat = extract_poster_features(self.rgba_img)
+        self.assertIsNotNone(feat)
+        self.assertEqual(feat["filename"], "rgba_sample.png")
+        self.assertEqual(feat["dimensions"], "300x300")
+        self.assertEqual(feat["aspect_ratio"], 1.0)
+        self.assertEqual(feat["dominant_palette"][0]["hex"], "#00ff00")
+
+    def test_analyze_poster_visual_custom_destination(self):
+        out_json = self.tmp_path / "sub" / "output_rules.json"
+        results = analyze_poster_visual(
+            target_files=[self.square_img, self.wide_img],
+            output_path=out_json,
+        )
+        self.assertEqual(len(results), 2)
+        self.assertTrue(out_json.is_file())
+        loaded = json.loads(out_json.read_text(encoding="utf-8"))
+        self.assertEqual(len(loaded), 2)
+        self.assertEqual(loaded[0]["filename"], "square_red.png")
+        self.assertEqual(loaded[1]["filename"], "wide_blue.png")
+
+    def test_analyze_poster_visual_preserves_curated_rules(self):
+        out_json = self.tmp_path / "curated_rules.json"
+        existing_data = [
+            {
+                "id": "grand-space-rule",
+                "rule": "留白≥35%",
+            },
+            {
+                "filename": "square_red.png",
+                "dominant_palette": [{"hex": "#000000", "rgb": [0, 0, 0], "pixels": 1}],
+            },
+        ]
+        out_json.write_text(json.dumps(existing_data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        results = analyze_poster_visual(
+            target_files=[self.square_img, self.wide_img],
+            output_path=out_json,
+        )
+        self.assertEqual(len(results), 2)
+
+        loaded = json.loads(out_json.read_text(encoding="utf-8"))
+        self.assertEqual(loaded[0]["id"], "grand-space-rule")
+        self.assertEqual(loaded[1]["filename"], "square_red.png")
+        self.assertEqual(loaded[1]["dominant_palette"][0]["hex"], "#ff0000")
+        self.assertEqual(loaded[2]["filename"], "wide_blue.png")
 
 
 if __name__ == "__main__":
