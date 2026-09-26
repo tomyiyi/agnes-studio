@@ -471,7 +471,8 @@ def qa_thumbnail_ok(path: Path | str) -> bool:
     # 左上标题窗
     w, h = thumb.size
     box = thumb.crop((int(w * 0.05), int(h * 0.08), int(w * 0.55), int(h * 0.55)))
-    return statistics.pstdev(list(box.getdata())) > 18
+    data = box.get_flattened_data() if hasattr(box, "get_flattened_data") else box.getdata()
+    return statistics.pstdev(list(data)) > 18
 
 
 def render_wechat_list_sim(png_path: Path | str, out_path: Path | str) -> Path:

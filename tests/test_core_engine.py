@@ -17,10 +17,11 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
+import env_config  # noqa: F401
+from PIL import Image
 
 from copywriting_rules import apply_fix, lint_copy, apply_pangu_spacing, normalize_punctuation
 from typography_rules import (
@@ -192,6 +193,14 @@ class TestEnvConfig(unittest.TestCase):
         self.assertIsInstance(fallback_path, str)
         self.assertTrue(len(fallback_path) > 0)
         self.assertTrue(Path(fallback_path).exists(), f"兜底字体路径不存在: {fallback_path}")
+
+    def test_venv_site_packages_registered(self):
+        venv_dir = PROJECT_ROOT / ".venv"
+        if venv_dir.exists():
+            site_packages = list(venv_dir.glob("lib/python*/site-packages"))
+            if site_packages:
+                for sp in site_packages:
+                    self.assertIn(str(sp), sys.path)
 
 
 class TestSmartPosterComposer(unittest.TestCase):
