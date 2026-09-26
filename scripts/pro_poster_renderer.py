@@ -24,8 +24,8 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from playwright.sync_api import sync_playwright
 from env_config import resolve_chrome_path, ASSETS_DIR, FONTS_DIR
+from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS_DIR = ROOT / "public" / "assets"
@@ -35,19 +35,26 @@ CHROME_PATH = resolve_chrome_path()
 
 def get_base64_image(image_path):
     """读取本地图片并转为 base64 data URI，确保无头浏览器 100% 离线秒级加载"""
-    with open(image_path, "rb") as f:
-        data = f.read()
-    ext = os.path.splitext(str(image_path))[1].lower().lstrip(".")
-    if ext == "png":
-        mime = "image/png"
-    elif ext == "webp":
-        mime = "image/webp"
-    else:
-        mime = "image/jpeg"
-    return f"data:{mime};base64,{base64.b64encode(data).decode('utf-8')}"
+    try:
+        with open(image_path, "rb") as f:
+            data = f.read()
+        ext = os.path.splitext(str(image_path))[1].lower().lstrip(".")
+        if ext == "png":
+            mime = "image/png"
+        elif ext == "webp":
+            mime = "image/webp"
+        else:
+            mime = "image/jpeg"
+        return f"data:{mime};base64,{base64.b64encode(data).decode('utf-8')}"
+    except Exception as e:
+        print(f"⚠️ [Base64 Error] 读取图片失败 {image_path}: {e}")
+        return ""
 
 def render_html_to_poster(html_content, output_path):
     """通用无头 Chrome 渲染管线，1200x1200 亚像素级渲染"""
+    output_dir = os.path.dirname(os.path.abspath(output_path))
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
     with sync_playwright() as p:
         launch_kwargs = {"headless": True}
         if CHROME_PATH:
@@ -1108,7 +1115,11 @@ if __name__ == "__main__":
     parser.add_argument("--all", action="store_true", default=True, help="全部渲染")
     args = parser.parse_args()
     
-    if args.key and args.key in POSTER_REGISTRY:
-        POSTER_REGISTRY[args.key]["func"]()
+    if args.key:
+        if args.key in POSTER_REGISTRY:
+            POSTER_REGISTRY[args.key]["func"]()
+        else:
+            print(f"❌ 未知海报 key: {args.key}，可选: {list(POSTER_REGISTRY.keys())}")
+            sys.exit(1)
     else:
         run_all()

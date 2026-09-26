@@ -370,15 +370,33 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             if bg_image_rel.startswith("data:image/"):
                 bg_uri = bg_image_rel
             else:
-                # 定位底图绝对路径（限制在 public/ 内，防止路径穿越；支持 public/ 前缀）
-                rel_clean = bg_image_rel.lstrip("/")
+                # 定位底图绝对路径（限制在 public/、experiments/、outputs/ 内，防止路径穿越；支持 public/ 前缀与 query 参数）
+                clean_rel = bg_image_rel.split("?")[0].split("#")[0].strip()
+                rel_clean = clean_rel.lstrip("/")
                 if rel_clean.startswith("public/"):
                     rel_clean = rel_clean[len("public/"):].lstrip("/")
                 bg_abs_path = (PUBLIC_DIR / rel_clean).resolve()
-                if not str(bg_abs_path).startswith(str(PUBLIC_DIR.resolve())) or not bg_abs_path.is_file():
-                    bg_abs_path = (DIR / bg_image_rel.lstrip("/")).resolve()
-                if not str(bg_abs_path).startswith(str(PUBLIC_DIR.resolve())) or not bg_abs_path.is_file():
-                    bg_abs_path = ASSETS_DIR / "agnes_1789995698_9987.png"
+
+                allowed_dirs = [
+                    PUBLIC_DIR.resolve(),
+                    (DIR / "experiments").resolve(),
+                    (DIR / "outputs").resolve(),
+                ]
+                def is_under_allowed_dir(candidate):
+                    if not candidate.is_file():
+                        return False
+                    return any(
+                        candidate == allowed_dir or allowed_dir in candidate.parents
+                        for allowed_dir in allowed_dirs
+                    )
+
+                is_valid = is_under_allowed_dir(bg_abs_path)
+                if not is_valid:
+                    alt_abs = (DIR / clean_rel.lstrip("/")).resolve()
+                    if is_under_allowed_dir(alt_abs):
+                        bg_abs_path = alt_abs
+                    else:
+                        bg_abs_path = ASSETS_DIR / "agnes_1789995698_9987.png"
                 bg_uri = get_base64_image(str(bg_abs_path))
 
             timestamp = int(time.time())

@@ -515,6 +515,81 @@ class TestEndpointContract(unittest.TestCase):
             self.assertTrue(pro_poster_renderer.get_base64_image(webp_f).startswith("data:image/webp;base64,"))
             self.assertTrue(pro_poster_renderer.get_base64_image(png_f).startswith("data:image/png;base64,"))
             self.assertTrue(pro_poster_renderer.get_base64_image(jpg_f).startswith("data:image/jpeg;base64,"))
+            self.assertEqual(pro_poster_renderer.get_base64_image(tmp_path / "not_found.png"), "")
+
+    def test_post_render_poster_bg_path_resolution(self):
+        server = HTTPServer(("127.0.0.1", 0), studio_server.StudioHTTPRequestHandler)
+        port = server.server_port
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        try:
+            rendered_payloads = []
+
+            def fake_renderer(html_content, out_path):
+                rendered_payloads.append((html_content, out_path))
+                return out_path
+
+            orig_renderer = studio_server.render_html_to_poster
+            studio_server.render_html_to_poster = fake_renderer
+            try:
+                expected_swiss = studio_server.get_base64_image(str(studio_server.PUBLIC_DIR / "assets" / "poster_pro_swiss_01.png"))
+                default_bg = studio_server.get_base64_image(str(studio_server.ASSETS_DIR / "agnes_1789995698_9987.png"))
+                self.assertTrue(len(expected_swiss) > 0)
+                self.assertTrue(len(default_bg) > 0)
+                self.assertNotEqual(expected_swiss, default_bg)
+
+                # 1. 验证带 query 字符串（如前端防缓存 ?t=...）能够正确解析并使用目标图片
+                req_data = json.dumps({
+                    "style": "swiss_01",
+                    "title": "测试瑞士",
+                    "bg_image": "assets/poster_pro_swiss_01.png?t=1672345678#preview",
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    f"http://127.0.0.1:{port}/api/render-poster",
+                    data=req_data,
+                    headers={"Content-Type": "application/json", "Content-Length": str(len(req_data))},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    self.assertEqual(resp.status, 200)
+                self.assertIn(expected_swiss, rendered_payloads[-1][0])
+
+                # 2. 验证带 public/ 前缀能够正确解析
+                req_data2 = json.dumps({
+                    "style": "swiss_01",
+                    "title": "测试前缀",
+                    "bg_image": "public/assets/poster_pro_swiss_01.png",
+                }).encode("utf-8")
+                req2 = urllib.request.Request(
+                    f"http://127.0.0.1:{port}/api/render-poster",
+                    data=req_data2,
+                    headers={"Content-Type": "application/json", "Content-Length": str(len(req_data2))},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req2, timeout=5) as resp:
+                    self.assertEqual(resp.status, 200)
+                self.assertIn(expected_swiss, rendered_payloads[-1][0])
+
+                # 3. 验证目录穿越被安全拦截并回退至默认底图
+                req_data3 = json.dumps({
+                    "style": "swiss_01",
+                    "title": "测试穿越",
+                    "bg_image": "../../../etc/shadow",
+                }).encode("utf-8")
+                req3 = urllib.request.Request(
+                    f"http://127.0.0.1:{port}/api/render-poster",
+                    data=req_data3,
+                    headers={"Content-Type": "application/json", "Content-Length": str(len(req_data3))},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req3, timeout=5) as resp:
+                    self.assertEqual(resp.status, 200)
+                self.assertIn(default_bg, rendered_payloads[-1][0])
+            finally:
+                studio_server.render_html_to_poster = orig_renderer
+        finally:
+            server.shutdown()
+            server.server_close()
 
 
 if __name__ == "__main__":
