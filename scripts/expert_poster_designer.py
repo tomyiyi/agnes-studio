@@ -10,6 +10,13 @@ Agnes Studio · 专家级动态海报排版引擎 (Expert Dynamic Poster Designe
 """
 
 import os
+import sys
+from pathlib import Path
+
+SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
 from env_config import FONTS_DIR, ASSETS_DIR, resolve_font_path
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
@@ -27,9 +34,9 @@ FONT_SONGTI = resolve_font_path("songti")
 FONT_PINGFANG = resolve_font_path("pingfang")
 
 def get_font(path, size):
-    if os.path.exists(path):
+    if path and os.path.exists(str(path)):
         try:
-            return ImageFont.truetype(path, size)
+            return ImageFont.truetype(str(path), size)
         except Exception:
             pass
     return ImageFont.load_default()
@@ -39,7 +46,13 @@ def analyze_safe_zone(img_path):
     第一阶段：多模态空间解析与负空间检测
     划分 3x3 网格并计算区域平整度与方差，自动推导最佳安全区
     """
-    with Image.open(img_path) as img:
+    if not img_path:
+        raise ValueError("Image path cannot be empty")
+    p = Path(img_path)
+    if not p.is_file():
+        raise FileNotFoundError(f"Source image not found: {img_path}")
+
+    with Image.open(p) as img:
         w, h = img.size
         gray = img.convert("L")
         arr = np.array(gray)
@@ -70,14 +83,21 @@ def analyze_safe_zone(img_path):
             "safe_y": int(h * 0.06) if best_r == 0 else int(h * 0.65)
         }
 
-def render_expert_steampunk_poster():
+def render_expert_steampunk_poster(src_img=None, out_img=None):
     """
     实战案例 1：《铜钟与蒸汽城》日漫概念 Key Visual
     基于左上角平整负空间 (方差 0.4) 打造【非对称左上悬挂 + 对角视线穿透】
     严格接入瑞士 12 栏网格 (Swiss Grid) 与黄金分割模块化字阶 (Modular Scale)
     """
-    src_img = os.path.join(ASSETS_DIR, "agnes_1790006749_b2b755da.png")
-    out_img = os.path.join(ASSETS_DIR, "poster_expert_dynamic_steampunk.png")
+    if not src_img:
+        src_img = os.path.join(ASSETS_DIR, "agnes_1790006749_b2b755da.png")
+    if not out_img:
+        out_img = os.path.join(ASSETS_DIR, "poster_expert_dynamic_steampunk.png")
+
+    if not os.path.isfile(src_img):
+        raise FileNotFoundError(f"Source image not found: {src_img}")
+    os.makedirs(os.path.dirname(os.path.abspath(out_img)), exist_ok=True)
+
     print("🎨 [Expert Designer] 开始执行《铜钟与蒸汽城》动态专家级排版 (瑞士网格与黄金字阶)...")
     
     analysis = analyze_safe_zone(src_img)
@@ -149,36 +169,43 @@ def render_expert_steampunk_poster():
     draw.text((badge_x + int(14 * scale), badge_y + int(7 * scale)), "劇場版公開", font=get_font(FONT_SONGTI, int(15 * scale)), fill=c_white)
     
     final_img = Image.alpha_composite(base, overlay).convert("RGB")
-    final_img.save(out_img, quality=95)
+    final_img.save(str(out_img), quality=95)
     print(f"✨ 案例 1 完成: {out_img}")
-    return out_img
+    return str(out_img)
 
 from vision_subject_detector import detect_faces, check_occlusion
 
-def render_expert_neochinese_poster():
+def render_expert_neochinese_poster(src_img=None, out_img=None):
     """
     实战案例 2：《苏园惊鸿》新中式马面裙立像
     采用【智能主体避障 + 两边拆字错位夹击】：
     严禁在中轴人头上方落字！将“苏园”与“惊鸿”分置左右两侧环境区，
     中间 40% 核心区彻底留白，完整展示人物发簪、面容、立领与身姿！
     """
-    src_img = os.path.join(ASSETS_DIR, "agnes_1789998061_5508.png")
-    out_img = os.path.join(ASSETS_DIR, "poster_expert_dynamic_neochinese.png")
+    if not src_img:
+        src_img = os.path.join(ASSETS_DIR, "agnes_1789998061_5508.png")
+    if not out_img:
+        out_img = os.path.join(ASSETS_DIR, "poster_expert_dynamic_neochinese.png")
+
+    if not os.path.isfile(src_img):
+        raise FileNotFoundError(f"Source image not found: {src_img}")
+    os.makedirs(os.path.dirname(os.path.abspath(out_img)), exist_ok=True)
+
     print("🎨 [Expert Designer] 开始执行《苏园惊鸿》智能避障动态排版...")
     
     # 1. 真实人脸与主体保护区检测
     faces = detect_faces(src_img)
     print(f"  🔍 实时检测到底部主体面部保护区: {faces}")
-    
-    w, h = 1024, 1024
+
+    base = Image.open(src_img).convert("RGBA")
+    w, h = base.size
     scale = w / 1024.0
-    
+
     # 瑞士网格与黄金字阶系统
     grid = SwissGridSystem(w, h, columns=12, margin_ratio=0.06)
     scale_sys = ModularScale(base_size=16.0 * scale, ratio_name="golden")
     hier = scale_sys.get_poster_hierarchy()
-    
-    base = Image.open(src_img).convert("RGBA")
+
     overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     
@@ -247,12 +274,16 @@ def render_expert_neochinese_poster():
     draw.text(((w - fw) // 2, bot_y), foot_text, font=f_en, fill=(190, 185, 175, 200))
     
     final_img = Image.alpha_composite(base, overlay).convert("RGB")
-    final_img.save(out_img, quality=95)
+    final_img.save(str(out_img), quality=95)
     print(f"✨ 案例 2 完成: {out_img}")
-    return out_img
+    return str(out_img)
 
 if __name__ == "__main__":
     print("🚀 [Expert Engine] 启动专家级多模态动态排版流水线...")
-    render_expert_steampunk_poster()
-    render_expert_neochinese_poster()
+    src_steampunk = os.path.join(ASSETS_DIR, "agnes_1790006749_b2b755da.png")
+    if os.path.exists(src_steampunk):
+        render_expert_steampunk_poster(src_steampunk)
+    src_neochinese = os.path.join(ASSETS_DIR, "agnes_1789998061_5508.png")
+    if os.path.exists(src_neochinese):
+        render_expert_neochinese_poster(src_neochinese)
     print("🎉 专家级动态海报排版实操测试圆满完成！")

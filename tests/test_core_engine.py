@@ -54,7 +54,12 @@ from cover_pipeline import (
     qa_thumbnail_ok,
 )
 import wechat_cover_ab
-from expert_poster_designer import analyze_safe_zone
+from expert_poster_designer import (
+    analyze_safe_zone,
+    render_expert_steampunk_poster,
+    render_expert_neochinese_poster,
+)
+from poster_composer import compose_commercial_poster
 from vision_subject_detector import detect_faces, check_occlusion
 from film_cover_engine import (
     render_shusheng_capsule_green,
@@ -398,6 +403,14 @@ class TestSafeZoneAnalyzer(unittest.TestCase):
         self.assertEqual(len(res["bg_rgb"]), 3)
         self.assertGreater(res["safe_x"], 0)
         self.assertGreater(res["safe_y"], 0)
+
+    def test_safe_zone_analyzer_guards(self):
+        with self.assertRaises(ValueError):
+            analyze_safe_zone("")
+        with self.assertRaises(ValueError):
+            analyze_safe_zone(None)
+        with self.assertRaises(FileNotFoundError):
+            analyze_safe_zone("non_existent_image_for_analysis.png")
 
 
 class TestDataIntegrity(unittest.TestCase):
@@ -763,6 +776,126 @@ class TestFilmCoverEngine(unittest.TestCase):
             author_cn=None,
         )
         self.assertTrue(Path(ret).exists())
+
+
+class TestPosterComposer(unittest.TestCase):
+    """测试商业海报合成引擎 (Poster Composer)"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+        self.dummy_bg = self.tmp_path / "dummy_poster_bg.png"
+        Image.new("RGB", (512, 512), color=(20, 30, 40)).save(self.dummy_bg, "PNG")
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_render_all_font_styles(self):
+        styles = ["wenkai", "smiley", "songti"]
+        for style in styles:
+            out_file = self.tmp_path / f"poster_{style}.png"
+            ret = compose_commercial_poster(
+                self.dummy_bg,
+                out_file,
+                font_style=style,
+                main_title="测试标题",
+                sub_title="TEST SUBTITLE",
+                tagline="「 测试副标 」",
+            )
+            self.assertEqual(ret, str(out_file))
+            self.assertTrue(out_file.exists())
+            with Image.open(out_file) as im:
+                self.assertEqual(im.size, (512, 512))
+                self.assertEqual(im.mode, "RGB")
+
+    def test_render_all_theme_colors(self):
+        colors = ["amber_gold", "cyber_cyan", "pure_white", "unknown_fallback"]
+        for color in colors:
+            out_file = self.tmp_path / f"poster_{color}.png"
+            ret = compose_commercial_poster(
+                self.dummy_bg,
+                out_file,
+                theme_color=color,
+                main_title="色彩测试",
+            )
+            self.assertEqual(ret, str(out_file))
+            self.assertTrue(out_file.exists())
+
+    def test_input_guards(self):
+        out_file = self.tmp_path / "out.png"
+
+        # 背景图为空或不存在
+        with self.assertRaises(ValueError):
+            compose_commercial_poster("", out_file)
+        with self.assertRaises(ValueError):
+            compose_commercial_poster(None, out_file)
+        with self.assertRaises(FileNotFoundError):
+            compose_commercial_poster(self.tmp_path / "non_existent.png", out_file)
+
+        # 输出路径为空
+        with self.assertRaises(ValueError):
+            compose_commercial_poster(self.dummy_bg, "")
+        with self.assertRaises(ValueError):
+            compose_commercial_poster(self.dummy_bg, None)
+
+    def test_auto_create_output_directory(self):
+        nested_out = self.tmp_path / "deep" / "nested" / "poster.png"
+        ret = compose_commercial_poster(self.dummy_bg, nested_out)
+        self.assertEqual(ret, str(nested_out))
+        self.assertTrue(nested_out.exists())
+
+    def test_none_string_fallbacks(self):
+        # 传递 None 字符串安全回退，不崩溃
+        out_file = self.tmp_path / "none_strings_poster.png"
+        ret = compose_commercial_poster(
+            self.dummy_bg,
+            out_file,
+            font_style=None,
+            main_title=None,
+            sub_title=None,
+            tagline=None,
+            metadata_no=None,
+            theme_color=None,
+        )
+        self.assertTrue(Path(ret).exists())
+
+
+class TestExpertPosterDesigner(unittest.TestCase):
+    """测试专家级动态海报排版引擎 (Expert Dynamic Poster Designer)"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+        self.dummy_bg = self.tmp_path / "dummy_expert_bg.png"
+        Image.new("RGB", (600, 600), color=(40, 50, 60)).save(self.dummy_bg, "PNG")
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_render_steampunk_custom_paths(self):
+        out_file = self.tmp_path / "steampunk_custom.png"
+        ret = render_expert_steampunk_poster(self.dummy_bg, out_file)
+        self.assertEqual(ret, str(out_file))
+        self.assertTrue(out_file.exists())
+        with Image.open(out_file) as im:
+            self.assertEqual(im.size, (600, 600))
+            self.assertEqual(im.mode, "RGB")
+
+    def test_render_neochinese_custom_paths(self):
+        out_file = self.tmp_path / "neochinese_custom.png"
+        ret = render_expert_neochinese_poster(self.dummy_bg, out_file)
+        self.assertEqual(ret, str(out_file))
+        self.assertTrue(out_file.exists())
+        with Image.open(out_file) as im:
+            self.assertEqual(im.size, (600, 600))
+            self.assertEqual(im.mode, "RGB")
+
+    def test_missing_source_image(self):
+        out_file = self.tmp_path / "out.png"
+        with self.assertRaises(FileNotFoundError):
+            render_expert_steampunk_poster(self.tmp_path / "missing.png", out_file)
+        with self.assertRaises(FileNotFoundError):
+            render_expert_neochinese_poster(self.tmp_path / "missing.png", out_file)
 
 
 if __name__ == "__main__":
