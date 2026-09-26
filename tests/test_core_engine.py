@@ -125,6 +125,20 @@ from pro_poster_renderer import (
     render_preset,
     run_all as run_all_posters,
 )
+import gemini_engine
+from gemini_engine import (
+    load_credentials,
+    encode_image_data_uri,
+    call_gemini,
+    _strip_markdown_codeblock,
+    generate_creative_brief,
+    refine_prompt_for_agnes,
+    detect_visual_subjects_gemini,
+    vision_inspect_artwork,
+    DEFAULT_BASE,
+    DEFAULT_CHAT_MODEL,
+    CHAT_MODEL_ALLOWLIST,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -1876,6 +1890,302 @@ class TestProPosterRenderer(unittest.TestCase):
         for k in POSTER_REGISTRY.keys():
             self.assertIn(k, all_results)
             self.assertTrue(all_results[k].endswith(".png"))
+
+
+class TestGeminiEngine(unittest.TestCase):
+    """Gemini 智能多模态与排版引擎单元测试"""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    @patch.dict("os.environ", {}, clear=True)
+    @patch("gemini_engine.KEY_PATH", Path("/tmp/non_existent_key_path_xyz.json"))
+    def test_load_credentials_defaults(self):
+        base, key, model = load_credentials()
+        self.assertEqual(base, DEFAULT_BASE)
+        self.assertEqual(key, "")
+        self.assertEqual(model, DEFAULT_CHAT_MODEL)
+
+    @patch.dict("os.environ", {
+        "GEMINI_BASE_URL": "http://127.0.0.1:9999/v1",
+        "ANTIGRAVITY_API_KEY": "sk-secret-token",
+        "GEMINI_CHAT_MODEL": "gemini-3.1-pro-high",
+    }, clear=True)
+    @patch("gemini_engine.KEY_PATH", Path("/tmp/non_existent_key_path_xyz.json"))
+    def test_load_credentials_with_env(self):
+        base, key, model = load_credentials()
+        self.assertEqual(base, "http://127.0.0.1:9999/v1")
+        self.assertEqual(key, "sk-secret-token")
+        self.assertEqual(model, "gemini-3.1-pro-high")
+
+    @patch.dict("os.environ", {}, clear=True)
+    def test_load_credentials_with_key_file(self):
+        fake_key_file = self.tmp_path / "fake_key.json"
+        fake_key_file.write_text(json.dumps({
+            "chat_base_url": "http://example.com/api",
+            "api_key": "file-key-123",
+            "models": {
+                "chat": ["gemini-3.8-flash-high", "unsupported-model"]
+            }
+        }), encoding="utf-8")
+
+        with patch("gemini_engine.KEY_PATH", fake_key_file):
+            base, key, model = load_credentials()
+            self.assertEqual(base, "http://example.com/api")
+            self.assertEqual(key, "file-key-123")
+            self.assertEqual(model, "gemini-3.8-flash-high")
+
+    def test_strip_markdown_codeblock(self):
+        self.assertEqual(_strip_markdown_codeblock('```json\n{"k": "v"}\n```'), '{"k": "v"}')
+        self.assertEqual(_strip_markdown_codeblock('```JSON\n{"k": "v"}\n```'), '{"k": "v"}')
+        self.assertEqual(_strip_markdown_codeblock('```javascript\n{"k": "v"}\n```'), '{"k": "v"}')
+        self.assertEqual(_strip_markdown_codeblock('```\nplain text\n```'), 'plain text')
+        self.assertEqual(_strip_markdown_codeblock('raw text only'), 'raw text only')
+        self.assertEqual(_strip_markdown_codeblock(None), '')
+
+    def test_encode_image_data_uri(self):
+        png_f = self.tmp_path / "sample.png"
+        png_f.write_bytes(b"\x89PNG\r\n\x1a\n")
+        uri_png = encode_image_data_uri(png_f)
+        self.assertTrue(uri_png.startswith("data:image/png;base64,"))
+
+        webp_f = self.tmp_path / "sample.webp"
+        webp_f.write_bytes(b"RIFF....WEBP")
+        uri_webp = encode_image_data_uri(webp_f)
+        self.assertTrue(uri_webp.startswith("data:image/webp;base64,"))
+
+        jpg_f = self.tmp_path / "sample.jpg"
+        jpg_f.write_bytes(b"\xff\xd8\xff")
+        uri_jpg = encode_image_data_uri(jpg_f)
+        self.assertTrue(uri_jpg.startswith("data:image/jpeg;base64,"))
+
+        gif_f = self.tmp_path / "sample.gif"
+        gif_f.write_bytes(b"GIF89a")
+        uri_gif = encode_image_data_uri(gif_f)
+        self.assertTrue(uri_gif.startswith("data:image/gif;base64,"))
+
+    def test_call_gemini_invalid_base_url(self):
+        res = call_gemini([], base_url="ftp://invalid.url")
+        self.assertFalse(res["ok"])
+        self.assertIn("Base URL 必须以 http:// 或 https:// 开头", res["error"])
+
+    @patch("urllib.request.urlopen")
+    def test_call_gemini_success(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            "choices": [{"message": {"content": "Hello Agnes"}}],
+            "usage": {"total_tokens": 42}
+        }).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        res = call_gemini([{"role": "user", "content": "hi"}], retries=0)
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["content"], "Hello Agnes")
+        self.assertEqual(res["usage"]["total_tokens"], 42)
+        self.assertIn("cost_s", res)
+
+    @patch("urllib.request.urlopen")
+    def test_call_gemini_api_error_response(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            "error": {"message": "Rate limit reached"}
+        }).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        res = call_gemini([], retries=0)
+        self.assertFalse(res["ok"])
+        self.assertIn("API Error: Rate limit reached", res["error"])
+
+    @patch("urllib.request.urlopen")
+    def test_call_gemini_empty_choices(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            "choices": []
+        }).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        res = call_gemini([], retries=0)
+        self.assertFalse(res["ok"])
+        self.assertIn("API 返回的 choices 列表为空", res["error"])
+
+    @patch("time.sleep")
+    @patch("urllib.request.urlopen")
+    def test_call_gemini_http_error(self, mock_urlopen, mock_sleep):
+        mock_err = urllib.error.HTTPError(
+            url="http://127.0.0.1:18045",
+            code=401,
+            msg="Unauthorized",
+            hdrs={},
+            fp=io.BytesIO(b'{"message": "Invalid token"}')
+        )
+        mock_urlopen.side_effect = mock_err
+
+        res = call_gemini([], retries=1)
+        self.assertFalse(res["ok"])
+        self.assertIn("HTTP 401", res["error"])
+        mock_sleep.assert_called_once()
+
+    def test_generate_creative_brief_empty_topic(self):
+        res = generate_creative_brief("")
+        self.assertFalse(res["ok"])
+        self.assertIn("主题内容不能为空", res["error"])
+
+    @patch("gemini_engine.call_gemini")
+    def test_generate_creative_brief_success(self, mock_call):
+        mock_call.return_value = {
+            "ok": True,
+            "content": json.dumps({
+                "title": "晨光破晓",
+                "subtitle": "dawn of the new era",
+                "body": "光线穿透薄雾照耀大地。",
+                "author": "Agnes Studio",
+                "style_preset": "swiss_01",
+            }),
+            "cost_s": 0.45,
+        }
+
+        res = generate_creative_brief("极简晨光", tone="minimalist")
+        self.assertTrue(res["ok"])
+        brief = res["brief"]
+        self.assertEqual(brief["title"], "晨光破晓")
+        self.assertEqual(brief["subtitle"], "DAWN OF THE NEW ERA")
+        self.assertEqual(brief["author"], "Agnes Studio")
+        self.assertEqual(res["cost_s"], 0.45)
+
+    @patch("gemini_engine.call_gemini")
+    def test_generate_creative_brief_failures(self, mock_call):
+        # 1. call_gemini failure
+        mock_call.return_value = {"ok": False, "error": "Network failed"}
+        res = generate_creative_brief("测试")
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["error"], "Network failed")
+
+        # 2. Malformed JSON
+        mock_call.return_value = {"ok": True, "content": "not a json string"}
+        res = generate_creative_brief("测试")
+        self.assertFalse(res["ok"])
+        self.assertIn("JSON解析失败", res["error"])
+
+        # 3. Non-dict JSON
+        mock_call.return_value = {"ok": True, "content": '["title1", "title2"]'}
+        res = generate_creative_brief("测试")
+        self.assertFalse(res["ok"])
+        self.assertIn("简报格式非字典对象", res["error"])
+
+    def test_refine_prompt_for_agnes_empty(self):
+        res = refine_prompt_for_agnes("   ")
+        self.assertFalse(res["ok"])
+        self.assertIn("原始提示词不能为空", res["error"])
+
+    @patch("gemini_engine.call_gemini")
+    def test_refine_prompt_for_agnes_success_and_failure(self, mock_call):
+        mock_call.return_value = {
+            "ok": True,
+            "content": '"Cinematic soft volumetric light, Hasselblad H6D-100c, ultra clean frame"',
+            "cost_s": 0.32,
+        }
+        res = refine_prompt_for_agnes("Cyberpunk tea master")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["prompt"], "Cinematic soft volumetric light, Hasselblad H6D-100c, ultra clean frame")
+        self.assertEqual(res["cost_s"], 0.32)
+
+        # Call failure
+        mock_call.return_value = {"ok": False, "error": "Gateway timeout"}
+        res_fail = refine_prompt_for_agnes("Prompt")
+        self.assertFalse(res_fail["ok"])
+        self.assertEqual(res_fail["error"], "Gateway timeout")
+
+    def test_detect_visual_subjects_gemini_missing_file_and_empty(self):
+        self.assertEqual(detect_visual_subjects_gemini(""), [])
+        self.assertEqual(detect_visual_subjects_gemini(None), [])
+        self.assertEqual(detect_visual_subjects_gemini(str(self.tmp_path / "not_found.png")), [])
+
+    @patch("gemini_engine.call_gemini")
+    def test_detect_visual_subjects_gemini_success_and_normalization(self, mock_call):
+        img_f = self.tmp_path / "test.png"
+        img_f.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        # Coordinates with swapped min/max and string values
+        mock_call.return_value = {
+            "ok": True,
+            "content": json.dumps([
+                {"x_min": 0.8, "x_max": 0.2, "y_min": 0.9, "y_max": 0.3},
+                {"x_min": "invalid", "x_max": 0.5, "y_min": 0.1, "y_max": 0.2},
+                {"x_min": 0.0, "x_max": 1.5, "y_min": -0.5, "y_max": 1.0},
+            ])
+        }
+
+        boxes = detect_visual_subjects_gemini(str(img_f))
+        self.assertEqual(len(boxes), 2)
+        # Swapped coords normalized
+        self.assertAlmostEqual(boxes[0]["x_min"], 0.2)
+        self.assertAlmostEqual(boxes[0]["x_max"], 0.8)
+        self.assertAlmostEqual(boxes[0]["y_min"], 0.3)
+        self.assertAlmostEqual(boxes[0]["y_max"], 0.9)
+        # Clamped coords
+        self.assertAlmostEqual(boxes[1]["x_min"], 0.0)
+        self.assertAlmostEqual(boxes[1]["x_max"], 1.0)
+        self.assertAlmostEqual(boxes[1]["y_min"], 0.0)
+        self.assertAlmostEqual(boxes[1]["y_max"], 1.0)
+
+    @patch("gemini_engine.call_gemini")
+    def test_detect_visual_subjects_gemini_api_failure(self, mock_call):
+        img_f = self.tmp_path / "test.png"
+        img_f.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        mock_call.return_value = {"ok": False, "error": "timeout"}
+        self.assertEqual(detect_visual_subjects_gemini(str(img_f)), [])
+
+    def test_vision_inspect_artwork_missing_file_and_empty(self):
+        res_empty = vision_inspect_artwork("")
+        self.assertFalse(res_empty["ok"])
+        self.assertIn("图片路径不能为空", res_empty["error"])
+
+        res_missing = vision_inspect_artwork(str(self.tmp_path / "not_found.png"))
+        self.assertFalse(res_missing["ok"])
+        self.assertIn("文件不存在", res_missing["error"])
+
+    @patch("gemini_engine.call_gemini")
+    def test_vision_inspect_artwork_success_and_failures(self, mock_call):
+        img_f = self.tmp_path / "artwork.png"
+        img_f.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        # Success case
+        mock_call.return_value = {
+            "ok": True,
+            "content": json.dumps({
+                "aesthetic_score": 95,
+                "occlusion_risk": "low",
+                "text_legibility": "excellent",
+                "negative_space_quality": "balanced",
+                "critique": "构图严谨，留白充分。",
+                "suggestions": ["无修改建议"]
+            }),
+            "cost_s": 0.52,
+        }
+        res = vision_inspect_artwork(str(img_f), title="艺术海报")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["inspection"]["aesthetic_score"], 95)
+        self.assertEqual(res["cost_s"], 0.52)
+
+        # Non-dict failure
+        mock_call.return_value = {"ok": True, "content": '["score", 95]'}
+        res_non_dict = vision_inspect_artwork(str(img_f))
+        self.assertFalse(res_non_dict["ok"])
+        self.assertIn("质检结果格式非字典对象", res_non_dict["error"])
+
+        # Call error
+        mock_call.return_value = {"ok": False, "error": "Quota exceeded"}
+        res_call_err = vision_inspect_artwork(str(img_f))
+        self.assertFalse(res_call_err["ok"])
+        self.assertEqual(res_call_err["error"], "Quota exceeded")
 
 
 if __name__ == "__main__":

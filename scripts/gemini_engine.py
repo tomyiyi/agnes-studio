@@ -48,26 +48,51 @@ CHAT_MODEL_ALLOWLIST = {
 
 def load_credentials() -> Tuple[str, str, str]:
     """读取网关配置，返回 (base_url, api_key, chat_model)"""
-    runtime_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY", "")
-    base, key, model = DEFAULT_BASE, runtime_key, DEFAULT_CHAT_MODEL
+    env_base = os.getenv("GEMINI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+    env_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY", "")
+    env_model = os.getenv("GEMINI_CHAT_MODEL") or os.getenv("GEMINI_MODEL") or os.getenv("CHAT_MODEL")
+
+    base = env_base or DEFAULT_BASE
+    key = env_key
+    model = env_model or DEFAULT_CHAT_MODEL
+
     if KEY_PATH.exists():
         try:
             with open(KEY_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
             # 3000 is reserved for Agnes image generation. Chat/vision must use
             # the DSH tunnel unless an explicit chat_base_url is supplied.
-            base = data.get("chat_base_url") or DEFAULT_BASE
+            if not env_base:
+                base = data.get("chat_base_url") or DEFAULT_BASE
             # DSH's 18045 gateway uses its runtime OPENAI_API_KEY. Only fall
             # back to the local New API key for standalone Agnes use.
             if not key:
                 key = data.get("api_key") or key
-            chat_models = (data.get("models") or {}).get("chat") or []
-            allowed_models = [item for item in chat_models if item in CHAT_MODEL_ALLOWLIST]
-            if allowed_models:
-                model = allowed_models[0]
+            if not env_model:
+                chat_models = (data.get("models") or {}).get("chat") or []
+                allowed_models = [item for item in chat_models if item in CHAT_MODEL_ALLOWLIST]
+                if allowed_models:
+                    model = allowed_models[0]
         except Exception:
             pass
     return base.rstrip("/"), key, model
+
+
+def encode_image_data_uri(image_path: Path) -> str:
+    """读取图片并转换为带 MIME 的 Base64 Data URI"""
+    ext = image_path.suffix.lower().lstrip(".")
+    if ext == "png":
+        mime = "image/png"
+    elif ext == "webp":
+        mime = "image/webp"
+    elif ext == "gif":
+        mime = "image/gif"
+    elif ext in ("jpg", "jpeg"):
+        mime = "image/jpeg"
+    else:
+        mime = "image/jpeg"
+    b64 = base64.b64encode(image_path.read_bytes()).decode("utf-8")
+    return f"data:{mime};base64,{b64}"
 
 
 def call_gemini(
@@ -110,13 +135,34 @@ def call_gemini(
     )
 
     last_err = None
-    for attempt in range(retries + 1):
+    max_retries = max(0, int(retries))
+    for attempt in range(max_retries + 1):
         t0 = time.time()
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
             cost_s = round(time.time() - t0, 2)
-            choice = (data.get("choices") or [{}])[0]
+            if not isinstance(data, dict):
+                last_err = "响应非有效 JSON 对象"
+                if attempt < max_retries:
+                    time.sleep(0.6 * (attempt + 1))
+                continue
+            if "error" in data:
+                err_val = data["error"]
+                err_msg = err_val.get("message") if isinstance(err_val, dict) else str(err_val)
+                last_err = f"API Error: {err_msg}"
+                if attempt < max_retries:
+                    time.sleep(0.6 * (attempt + 1))
+                continue
+
+            choices = data.get("choices")
+            if not choices or not isinstance(choices, list):
+                last_err = "API 返回的 choices 列表为空"
+                if attempt < max_retries:
+                    time.sleep(0.6 * (attempt + 1))
+                continue
+
+            choice = choices[0] if isinstance(choices[0], dict) else {}
             msg = choice.get("message") or {}
             content = msg.get("content", "")
             return {
@@ -131,15 +177,19 @@ def call_gemini(
             last_err = f"HTTP {e.code}: {err_body}"
         except Exception as e:
             last_err = str(e)
-        time.sleep(0.6 * (attempt + 1))
+
+        if attempt < max_retries:
+            time.sleep(0.6 * (attempt + 1))
 
     return {"ok": False, "error": last_err, "model": target_model}
 
 
 def _strip_markdown_codeblock(text: str) -> str:
     """提取 markdown 代码块内的原始内容"""
+    if not isinstance(text, str):
+        return ""
     text = text.strip()
-    match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
+    match = re.search(r"```(?:[a-zA-Z0-9_-]+)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
     if match:
         return match.group(1).strip()
     return text
@@ -158,6 +208,10 @@ def generate_creative_brief(
     智能生成商业级海报简报与排版文案
     遵循中文排印规范、10:1字阶、盘古之白与对角拆字美学
     """
+    if not topic or not str(topic).strip():
+        return {"ok": False, "error": "主题内容不能为空"}
+
+    clean_topic = str(topic).strip()
     sys_prompt = """你是一位国际顶尖视觉创意总监兼中文字体排版大师（熟谙 Muller-Brockmann 瑞士网格系统、中国古典金石碑版与现代院线电影排印）。
 请根据用户提供的主题、平台、调性与商业目标，输出一份高水准的海报简报。
 
@@ -181,7 +235,7 @@ def generate_creative_brief(
   "design_rationale": "排版与视觉设计阐述 (一句话)"
 }"""
 
-    user_prompt = f"创意主题: {topic}\n目标平台: {platform} (尺寸: {'2350x1000' if platform=='wechat' else '1080x1440'})\n美学调性: {tone}\n设计目标: {goal}"
+    user_prompt = f"创意主题: {clean_topic}\n目标平台: {platform} (尺寸: {'2350x1000' if platform=='wechat' else '1080x1440'})\n美学调性: {tone}\n设计目标: {goal}"
 
     res = call_gemini(
         [
@@ -201,11 +255,13 @@ def generate_creative_brief(
 
     try:
         data = json.loads(json_str)
+        if not isinstance(data, dict):
+            return {"ok": False, "error": "简报格式非字典对象", "raw": raw_text}
         # 强制执行盘古之白与标点修整
-        data["title"] = apply_fix(data.get("title", ""))
-        data["subtitle"] = data.get("subtitle", "").upper()
-        data["body"] = apply_fix(data.get("body", ""))
-        data["author"] = apply_fix(data.get("author", "AGNES STUDIO"))
+        data["title"] = apply_fix(str(data.get("title", "")))
+        data["subtitle"] = str(data.get("subtitle", "")).upper()
+        data["body"] = apply_fix(str(data.get("body", "")))
+        data["author"] = apply_fix(str(data.get("author", "AGNES STUDIO")))
         return {"ok": True, "brief": data, "cost_s": res.get("cost_s")}
     except Exception as e:
         return {
@@ -227,6 +283,10 @@ def refine_prompt_for_agnes(
     将普通的自然语言提示词编译为 Agnes 物理光学级专业 Prompt
     注入相机镜头、打光方案、粒子质感与文字预留负空间
     """
+    if not raw_prompt or not str(raw_prompt).strip():
+        return {"ok": False, "error": "原始提示词不能为空"}
+
+    clean_prompt = str(raw_prompt).strip()
     sys_prompt = """你是一位专门为 Agnes 图像扩散模型撰写 Prompt 的物理光学专家与电影摄影指导。
 任务：将用户的原始想法扩展为极致专业的商业摄影/艺术生成 Prompt（英文）。
 必须包含要素：
@@ -238,7 +298,7 @@ def refine_prompt_for_agnes(
 
 请直接输出优化后的纯英文 Prompt，不要包含额外解释或引号。"""
 
-    user_prompt = f"原始提示词: {raw_prompt}\n画幅比例: {aspect_ratio}\n建议留白方位: {negative_space_zone}"
+    user_prompt = f"原始提示词: {clean_prompt}\n画幅比例: {aspect_ratio}\n建议留白方位: {negative_space_zone}"
 
     res = call_gemini(
         [
@@ -265,25 +325,22 @@ def detect_visual_subjects_gemini(
     api_key: Optional[str] = None,
 ) -> List[Dict[str, float]]:
     """
-    使用 Gemini 2.5 Flash 多模态视觉能力检测图片中的人脸与高显著性主体保护区。
+    使用 Gemini 多模态视觉能力检测图片中的人脸与高显著性主体保护区。
     返回标准化的 0.0 ~ 1.0 浮点坐标列表：[{"x_min": ..., "x_max": ..., "y_min": ..., "y_max": ...}]
     """
-    img_file = Path(image_path).resolve()
-    if not img_file.is_file():
+    if not image_path:
         return []
 
     try:
-        data_bytes = img_file.read_bytes()
-        ext = img_file.suffix.lower().lstrip(".")
-        if ext == "png":
-            mime = "image/png"
-        elif ext == "webp":
-            mime = "image/webp"
-        else:
-            mime = "image/jpeg"
-        b64 = base64.b64encode(data_bytes).decode("utf-8")
-        data_uri = f"data:{mime};base64,{b64}"
+        img_file = Path(image_path).resolve()
+        if not img_file.is_file():
+            return []
+        data_uri = encode_image_data_uri(img_file)
+    except Exception as e:
+        print(f"⚠️ [Gemini Vision] 准备图片异常: {e}")
+        return []
 
+    try:
         prompt = (
             "Analyze this image and identify all human faces, key figures, or primary focal subject regions that MUST NOT be covered by poster text. "
             "Return strictly a JSON array of objects with normalized coordinates (range 0.0 to 1.0): "
@@ -320,12 +377,19 @@ def detect_visual_subjects_gemini(
             valid_boxes = []
             for b in parsed:
                 if isinstance(b, dict) and all(k in b for k in ("x_min", "x_max", "y_min", "y_max")):
-                    valid_boxes.append({
-                        "x_min": max(0.0, min(1.0, float(b["x_min"]))),
-                        "x_max": max(0.0, min(1.0, float(b["x_max"]))),
-                        "y_min": max(0.0, min(1.0, float(b["y_min"]))),
-                        "y_max": max(0.0, min(1.0, float(b["y_max"]))),
-                    })
+                    try:
+                        x0 = max(0.0, min(1.0, float(b["x_min"])))
+                        x1 = max(0.0, min(1.0, float(b["x_max"])))
+                        y0 = max(0.0, min(1.0, float(b["y_min"])))
+                        y1 = max(0.0, min(1.0, float(b["y_max"])))
+                        valid_boxes.append({
+                            "x_min": min(x0, x1),
+                            "x_max": max(x0, x1),
+                            "y_min": min(y0, y1),
+                            "y_max": max(y0, y1),
+                        })
+                    except (ValueError, TypeError):
+                        continue
             return valid_boxes
     except Exception as e:
         print(f"⚠️ [Gemini Vision] 主体识别异常: {e}")
@@ -343,22 +407,18 @@ def vision_inspect_artwork(
     """
     对生成的排版海报或留白底图进行 Gemini 多模态视觉审美质检与安全区评估
     """
-    img_file = Path(image_path).resolve()
-    if not img_file.is_file():
-        return {"ok": False, "error": f"文件不存在: {image_path}"}
+    if not image_path:
+        return {"ok": False, "error": "图片路径不能为空"}
 
     try:
-        data_bytes = img_file.read_bytes()
-        ext = img_file.suffix.lower().lstrip(".")
-        if ext == "png":
-            mime = "image/png"
-        elif ext == "webp":
-            mime = "image/webp"
-        else:
-            mime = "image/jpeg"
-        b64 = base64.b64encode(data_bytes).decode("utf-8")
-        data_uri = f"data:{mime};base64,{b64}"
+        img_file = Path(image_path).resolve()
+        if not img_file.is_file():
+            return {"ok": False, "error": f"文件不存在: {image_path}"}
+        data_uri = encode_image_data_uri(img_file)
+    except Exception as e:
+        return {"ok": False, "error": f"读取文件异常: {e}"}
 
+    try:
         prompt = f"""请作为资深平面设计审稿总监与视觉质检员，对这张商业海报作品进行多模态审美审查。
 当前标题内容: 「{title}」
 
@@ -403,6 +463,8 @@ def vision_inspect_artwork(
 
         raw = _strip_markdown_codeblock(res.get("content", ""))
         parsed = json.loads(raw)
+        if not isinstance(parsed, dict):
+            return {"ok": False, "error": "质检结果格式非字典对象", "raw": raw}
         return {"ok": True, "inspection": parsed, "cost_s": res.get("cost_s")}
     except Exception as e:
         return {"ok": False, "error": f"质检执行失败: {e}"}
