@@ -358,6 +358,71 @@ class TestEndpointContract(unittest.TestCase):
                 resp_img = json.loads(ctx.exception.read().decode("utf-8"))
             self.assertFalse(resp_img.get("success"))
             self.assertIn("Base URL 必须以 http:// 或 https:// 开头", resp_img.get("error", ""))
+
+            # 3. gemini endpoints with non-http/https URL
+            gemini_endpoints = [
+                ("/api/gemini/generate-brief", {"topic": "艺术设计", "chat_base_url": "ftp://example.com"}),
+                ("/api/gemini/refine-prompt", {"prompt": "A sunset view", "base_url": "file:///etc"}),
+                ("/api/gemini/vision-inspect", {"image_path": "assets/sample.png", "chat_base_url": "bad://url"}),
+            ]
+            for ep_path, ep_payload in gemini_endpoints:
+                with self.subTest(endpoint=ep_path):
+                    req_ep = urllib.request.Request(
+                        f"http://127.0.0.1:{port}{ep_path}",
+                        data=json.dumps(ep_payload).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    with self.assertRaises(urllib.error.HTTPError) as ctx:
+                        urllib.request.urlopen(req_ep, timeout=5)
+                    self.assertEqual(ctx.exception.code, 400)
+                    with ctx.exception:
+                        resp_ep = json.loads(ctx.exception.read().decode("utf-8"))
+                    self.assertFalse(resp_ep.get("success"))
+                    self.assertIn("Base URL 必须以 http:// 或 https:// 开头", resp_ep.get("error", ""))
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_vision_inspect_file_validation(self):
+        server = HTTPServer(("127.0.0.1", 0), studio_server.StudioHTTPRequestHandler)
+        port = server.server_port
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        try:
+            # 1. 非图片文件扩展名应返回 400
+            for invalid_file in ("package.json", "scripts/studio_server.py", "readme.txt"):
+                with self.subTest(file=invalid_file):
+                    req = urllib.request.Request(
+                        f"http://127.0.0.1:{port}/api/gemini/vision-inspect",
+                        data=json.dumps({"image_path": invalid_file}).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    with self.assertRaises(urllib.error.HTTPError) as ctx:
+                        urllib.request.urlopen(req, timeout=5)
+                    self.assertEqual(ctx.exception.code, 400)
+                    with ctx.exception:
+                        resp = json.loads(ctx.exception.read().decode("utf-8"))
+                    self.assertFalse(resp.get("success"))
+                    self.assertIn("只支持 PNG、JPG、JPEG、WEBP 格式的图片文件", resp.get("error", ""))
+
+            # 2. 路径穿越或在允许目录之外的文件应返回 404
+            for invalid_path in ("../../etc/passwd.png", "../outside.png"):
+                with self.subTest(path=invalid_path):
+                    req = urllib.request.Request(
+                        f"http://127.0.0.1:{port}/api/gemini/vision-inspect",
+                        data=json.dumps({"image_path": invalid_path}).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    with self.assertRaises(urllib.error.HTTPError) as ctx:
+                        urllib.request.urlopen(req, timeout=5)
+                    self.assertEqual(ctx.exception.code, 404)
+                    with ctx.exception:
+                        resp = json.loads(ctx.exception.read().decode("utf-8"))
+                    self.assertFalse(resp.get("success"))
+                    self.assertIn("找不到图片文件", resp.get("error", ""))
         finally:
             server.shutdown()
             server.server_close()

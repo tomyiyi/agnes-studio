@@ -410,6 +410,12 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "请输入创意主题"}, status=400)
                 return
 
+            if base_url:
+                base_url = str(base_url).strip().rstrip("/")
+                if not (base_url.startswith("http://") or base_url.startswith("https://")):
+                    self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
+                    return
+
             if not generate_creative_brief:
                 self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
                 return
@@ -440,6 +446,12 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "请输入原始提示词"}, status=400)
                 return
 
+            if base_url:
+                base_url = str(base_url).strip().rstrip("/")
+                if not (base_url.startswith("http://") or base_url.startswith("https://")):
+                    self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
+                    return
+
             if not refine_prompt_for_agnes:
                 self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
                 return
@@ -469,16 +481,40 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "请提供待质检图片路径"}, status=400)
                 return
 
-            if not vision_inspect_artwork:
-                self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
+            ALLOWED_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
+            clean_rel = image_rel.split("?")[0].split("#")[0].strip()
+            ext = os.path.splitext(clean_rel)[1].lower()
+            if ext not in ALLOWED_IMAGE_EXTS:
+                self._send_json({"success": False, "error": "只支持 PNG、JPG、JPEG、WEBP 格式的图片文件"}, status=400)
                 return
 
-            img_abs = (PUBLIC_DIR / image_rel.lstrip("/")).resolve()
-            if not str(img_abs).startswith(str(PUBLIC_DIR.resolve())) or not img_abs.exists():
-                img_abs = (DIR / image_rel.lstrip("/")).resolve()
+            if base_url:
+                base_url = str(base_url).strip().rstrip("/")
+                if not (base_url.startswith("http://") or base_url.startswith("https://")):
+                    self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
+                    return
 
-            if not str(img_abs).startswith(str(DIR.resolve())) or not img_abs.exists() or not img_abs.is_file():
-                self._send_json({"success": False, "error": f"找不到图片文件: {image_rel}"}, status=404)
+            rel_clean = clean_rel.lstrip("/")
+            if rel_clean.startswith("public/"):
+                rel_clean = rel_clean[len("public/"):].lstrip("/")
+            img_abs = (PUBLIC_DIR / rel_clean).resolve()
+
+            allowed_dirs = [
+                PUBLIC_DIR.resolve(),
+                (DIR / "experiments").resolve(),
+                (DIR / "outputs").resolve(),
+            ]
+            is_in_allowed_dir = any(str(img_abs).startswith(str(d)) for d in allowed_dirs)
+            if not is_in_allowed_dir or not img_abs.exists() or not img_abs.is_file():
+                alt_abs = (DIR / clean_rel.lstrip("/")).resolve()
+                if any(str(alt_abs).startswith(str(d)) for d in allowed_dirs) and alt_abs.is_file():
+                    img_abs = alt_abs
+                else:
+                    self._send_json({"success": False, "error": f"找不到图片文件: {image_rel}"}, status=404)
+                    return
+
+            if not vision_inspect_artwork:
+                self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
                 return
 
             if not api_key:
