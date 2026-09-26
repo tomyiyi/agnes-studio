@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+from html import escape
 import json
 import os
 import statistics
@@ -322,15 +323,10 @@ def validate_copy(title_a: str, title_b: str, latin: str, slogan: str) -> list[s
         for name, val in [("title_a", title_a), ("title_b", title_b), ("slogan", slogan)]:
             if ch in val:
                 errs.append(f"{name} 含禁则字符 {ch}，请用「」")
-    # 盘古：中英紧贴检测（以最终 latin+slogan 抽样）
-    sample = f"{latin} {slogan}"
-    if ChineseTypographyRules is not None:
-        spaced = ChineseTypographyRules.apply_pangu_spacing(sample)
-        if spaced != sample and sample != apply_pangu(sample):
-            pass
-    if apply_pangu(f"{title_a}{title_b} {latin}") == f"{title_a}{title_b} {latin}" and latin:
-        # 若中英紧贴且调用后无变化，视为已合规
-        pass
+    if rules.get("pangu_required", False):
+        for name, val in [("title_a", title_a), ("title_b", title_b), ("slogan", slogan)]:
+            if val and apply_pangu(val) != val:
+                errs.append(f"{name} 缺少盘古之白空格（中英文/数字间需空一格）")
     if latin and ("BEAUTY" in latin or "ENGINE" in latin or latin.isupper()):
         # 要求 tracking 语义上合法：不允许超长
         if len(latin) > 28:
@@ -339,15 +335,18 @@ def validate_copy(title_a: str, title_b: str, latin: str, slogan: str) -> list[s
 
 
 def build_filename(platform: str, mode: str, slug: str, ext: str = "png") -> str:
+    if platform not in PLATFORMS:
+        raise ValueError(f"Unsupported platform: {platform}")
     spec = PLATFORMS[platform]
     code = {
         "wechat": "wx_head",
         "wechat-sq": "wx_sub",
         "xhs": "xhs_main",
         "xhs-sq": "xhs_sq",
-    }[platform]
+    }.get(platform, "custom")
+    clean_ext = ext.lstrip(".")
     date = __import__("datetime").date.today().strftime("%Y%m%d")
-    return f"{code}_{mode}_{spec['w']}x{spec['h']}_{date}_{slug}.{ext}"
+    return f"{code}_{mode}_{spec['w']}x{spec['h']}_{date}_{slug}.{clean_ext}"
 
 
 def face_boxes(image_path: Path):
@@ -580,30 +579,31 @@ def type_html_styles() -> str:
 
 
 def title_block(title_a, title_b, title_b_accent, mode, size_hero):
+    a = escape(str(title_a or ""), quote=True)
+    b = escape(str(title_b or ""), quote=True)
+    acc = escape(str(title_b_accent or ""), quote=True)
     if mode == "diag":
-        b = title_b
-        if title_b_accent and title_b_accent in b:
-            b = b.replace(title_b_accent, f"<em>{title_b_accent}</em>", 1)
+        if acc and acc in b:
+            b = b.replace(acc, f"<em>{acc}</em>", 1)
         return (
-            f'<div class="diag-1" style="font-size:{size_hero}px">{title_a}</div>'
+            f'<div class="diag-1" style="font-size:{size_hero}px">{a}</div>'
             f'<div class="diag-2" style="font-size:{size_hero}px">{b}</div>'
         )
     if mode == "stack":
         return (
-            f'<div class="stack-1" style="font-size:{size_hero}px">{title_a}</div>'
-            f'<div class="stack-2" style="font-size:{int(size_hero*0.55)}px">{title_b}</div>'
+            f'<div class="stack-1" style="font-size:{size_hero}px">{a}</div>'
+            f'<div class="stack-2" style="font-size:{int(size_hero*0.55)}px">{b}</div>'
         )
     if mode == "vertical":
-        b = title_b
-        if title_b_accent and title_b_accent in b:
-            b = b.replace(title_b_accent, f"<em>{title_b_accent}</em>", 1)
+        if acc and acc in b:
+            b = b.replace(acc, f"<em>{acc}</em>", 1)
         return (
             f'<div class="vwrap" style="font-size:{size_hero}px">'
-            f'<div class="vtitle">{title_a}</div><div class="vtitle">{b}</div></div>'
+            f'<div class="vtitle">{a}</div><div class="vtitle">{b}</div></div>'
         )
-    line = title_a + title_b
-    if title_b_accent and title_b_accent in line:
-        line = line.replace(title_b_accent, f"<em>{title_b_accent}</em>", 1)
+    line = a + b
+    if acc and acc in line:
+        line = line.replace(acc, f"<em>{acc}</em>", 1)
     return f'<div class="bignews" style="font-size:{size_hero}px">{line}</div>'
 
 
@@ -679,13 +679,25 @@ def compose_html(
     if block_css_override:
         block_css = block_css_override
 
+    safe_latin = escape(str(latin or ""), quote=True)
+    safe_slogan = escape(str(slogan or ""), quote=True)
+    safe_bg_uri = (
+        str(bg_uri or "")
+        .replace("\r", "")
+        .replace("\n", "")
+        .replace("'", "%27")
+        .replace('"', "%22")
+        .replace("<", "%3C")
+        .replace(">", "%3E")
+    )
+
     return f"""<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8"><style>
 {styles}
   body {{ width: {W}px; height: {H}px; position: relative; }}
   .photo {{
     position: absolute; inset: 0;
-    background: url('{bg_uri}') {photo_pos} / cover no-repeat;
+    background: url('{safe_bg_uri}') {photo_pos} / cover no-repeat;
     filter: none;
   }}
   .scrim {{ position: absolute; inset: 0; background: {scrim}; }}
@@ -703,8 +715,8 @@ def compose_html(
   <div class="block">
     <div class="rule"></div>
     {title_block(title_a, title_b, title_accent, mode, hero)}
-    <div class="latin mono">{latin}</div>
-    <div class="slogan">{slogan}</div>
+    <div class="latin mono">{safe_latin}</div>
+    <div class="slogan">{safe_slogan}</div>
   </div>
 </body></html>"""
 

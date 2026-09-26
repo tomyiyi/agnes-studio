@@ -38,6 +38,13 @@ from env_config import (
     resolve_font_path,
 )
 from cover_style import resolve_style, load_catalog, CoverStyle
+from cover_pipeline import (
+    validate_copy,
+    build_filename,
+    resolve_text_box,
+    compose_html,
+    PLATFORMS,
+)
 from expert_poster_designer import analyze_safe_zone
 
 
@@ -391,6 +398,107 @@ class TestDataIntegrity(unittest.TestCase):
         for name in core_files:
             target = DATA_DIR / name
             self.assertTrue(target.exists(), f"核心配置缺失: {name}")
+
+
+class TestCoverPipeline(unittest.TestCase):
+    """测试封面流水线文案门禁、动态命名、防遮挡与 HTML 渲染安全规范"""
+
+    def test_validate_copy_length_and_forbid_chars(self):
+        # 1. 正常文案通过
+        errs = validate_copy("东方", "神颜", "ORIENTAL BEAUTY", "她以骨相写诗，以眉眼成章")
+        self.assertEqual(errs, [])
+
+        # 2. title_a / title_b 长度超限
+        errs_short = validate_copy("东", "神颜", "ORIENTAL BEAUTY", "短标题测试")
+        self.assertTrue(any("title_a" in e for e in errs_short))
+
+        errs_long = validate_copy("超级长的大标题", "神颜", "ORIENTAL BEAUTY", "长标题测试")
+        self.assertTrue(any("title_a" in e for e in errs_long))
+
+        errs_tb_long = validate_copy("东方", "超级长副标", "ORIENTAL BEAUTY", "长副标测试")
+        self.assertTrue(any("title_b" in e for e in errs_tb_long))
+
+        # 3. slogan 超限 (>18 字)
+        errs_slogan = validate_copy("东方", "神颜", "BEAUTY", "这是一段非常非常长的毫无节制的超过十八个字的长标语句子测试")
+        self.assertTrue(any("slogan" in e for e in errs_slogan))
+
+        # 4. 禁则弯引号
+        errs_quote = validate_copy("“东方", "神颜”", "BEAUTY", "‘高级感’")
+        self.assertTrue(any("禁则字符" in e for e in errs_quote))
+
+        # 5. 盘古之白空格缺失
+        errs_pangu = validate_copy("东方", "神颜", "BEAUTY", "体验Agnes模型发布")
+        self.assertTrue(any("盘古之白" in e for e in errs_pangu))
+
+        # 6. latin 过长 (>28 字符)
+        errs_latin = validate_copy("东方", "神颜", "VERY LONG LATIN SUBTITLE THAT EXCEEDS LIMIT", "测试标语")
+        self.assertTrue(any("latin 过长" in e for e in errs_latin))
+
+    def test_build_filename_and_platforms(self):
+        date_today = __import__("datetime").date.today().strftime("%Y%m%d")
+        expected_codes = {
+            "wechat": ("wx_head", 2350, 1000),
+            "wechat-sq": ("wx_sub", 1080, 1080),
+            "xhs": ("xhs_main", 1080, 1440),
+            "xhs-sq": ("xhs_sq", 1080, 1080),
+        }
+        for plat, (code, w, h) in expected_codes.items():
+            with self.subTest(platform=plat):
+                fn = build_filename(plat, "diag", "sample-slug", "png")
+                self.assertEqual(fn, f"{code}_diag_{w}x{h}_{date_today}_sample-slug.png")
+
+        # 针对以点开头的扩展名
+        fn_dot = build_filename("wechat", "diag", "sample-slug", ".png")
+        self.assertNotIn("..png", fn_dot)
+        self.assertTrue(fn_dot.endswith(".png"))
+
+        # 不支持的平台抛出 ValueError
+        with self.assertRaises(ValueError):
+            build_filename("unknown_platform_xyz", "diag", "sample-slug")
+
+    def test_resolve_text_box(self):
+        # 1. 无人脸时成功回退兜底候选框
+        res_noface = resolve_text_box([], "wechat", "safe", "diag")
+        self.assertTrue(res_noface["ok"])
+        self.assertIsNotNone(res_noface["chosen"])
+        self.assertIn("left:", res_noface["block_css"])
+        self.assertEqual(res_noface["note"], "no-face-fallback")
+
+        # 2. 有人脸且未完全覆盖时成功避让人脸
+        faces = [{"x_min": 0.50, "y_min": 0.10, "x_max": 0.70, "y_max": 0.40}]
+        res_face = resolve_text_box(faces, "wechat", "safe", "diag")
+        self.assertTrue(res_face["ok"])
+        self.assertEqual(res_face["note"], "clear")
+        x1, y1, x2, y2 = res_face["chosen"]
+        # 避让逻辑应保证文本框与人脸不重叠
+        has_overlap = not (x2 < 0.47 or x1 > 0.73 or y2 < 0.05 or y1 > 0.43)
+        self.assertFalse(has_overlap)
+
+        # 3. 极度遮挡：人脸覆盖整个画面导致所有候选框均被命中
+        giant_face = [{"x_min": 0.0, "y_min": 0.0, "x_max": 1.0, "y_max": 1.0}]
+        res_blocked = resolve_text_box(giant_face, "wechat", "safe", "diag")
+        self.assertFalse(res_blocked["ok"])
+        self.assertIsNone(res_blocked["chosen"])
+        self.assertEqual(res_blocked["note"], "all-boxes-hit-face")
+
+    def test_compose_html_escaping_and_sanitization(self):
+        html_xss = compose_html(
+            "wechat",
+            "data:image/png;base64,sample');}</style><script>alert('xss')</script>",
+            title_a="<script>alert(1)</script>",
+            title_b="大片",
+            title_accent="片",
+            latin="ORIENTAL BEAUTY & LUXURY",
+            slogan="<style>body{display:none}</style>",
+            mode="diag",
+        )
+        self.assertNotIn("<script>alert(1)</script>", html_xss)
+        self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", html_xss)
+        self.assertNotIn("<style>body{display:none}</style>", html_xss)
+        self.assertIn("&lt;style&gt;body{display:none}&lt;/style&gt;", html_xss)
+        self.assertNotIn("<script>alert('xss')</script>", html_xss)
+        self.assertIn("%3Cscript%3E", html_xss)
+        self.assertIn("<em>片</em>", html_xss)
 
 
 if __name__ == "__main__":
