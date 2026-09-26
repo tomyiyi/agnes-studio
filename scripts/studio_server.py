@@ -149,7 +149,8 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        if self.path == "/api/config":
+        parsed_path = urllib.parse.urlparse(self.path).path.rstrip("/")
+        if parsed_path == "/api/config":
             cfg = get_local_newapi_config()
             # 为前端提供脱敏显示的 key 和全量配置
             masked_key = ""
@@ -191,6 +192,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
+        parsed_path = urllib.parse.urlparse(self.path).path.rstrip("/")
         content_len = int(self.headers.get("Content-Length", 0))
         post_data = self.rfile.read(content_len) if content_len > 0 else b"{}"
         try:
@@ -199,7 +201,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             req_body = {}
 
         # 1. 连通性测试 API
-        if self.path == "/api/test-connection":
+        if parsed_path == "/api/test-connection":
             base_url = req_body.get("base_url", "").strip().rstrip("/")
             api_key = req_body.get("api_key", "").strip()
             if not api_key:
@@ -258,7 +260,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 return
 
         # 2. 调用 Agnes 生成留白底图
-        if self.path == "/api/generate-image":
+        if parsed_path == "/api/generate-image":
             local_cfg = get_local_newapi_config()
             default_base = local_cfg.get("base_url", "http://192.168.1.164:3000/v1") if local_cfg.get("detected") else "http://192.168.1.164:3000/v1"
             base_url = (req_body.get("base_url") or default_base).strip().rstrip("/")
@@ -328,20 +330,16 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 return
 
         # 3. 动态渲染自定义商业海报 (Render Poster)
-        if self.path == "/api/render-poster":
+        if parsed_path == "/api/render-poster":
             if not render_html_to_poster:
                 self._send_json({"success": False, "error": "排版引擎不可用，请确保已安装 playwright 及其浏览器依赖"}, status=500)
                 return
 
-            style = req_body.get("style", "swiss_01")
-            title = req_body.get("title", "苏黎世秩序")
-            subtitle = req_body.get("subtitle", "STRUCTURE & ESSENCE")
-            body = req_body.get("body", "设计不是情绪的宣泄，而是对客观秩序的精确度量。让字符锚定在理性的基准线上。")
-            author = req_body.get("author", "TOM // AGNES STUDIO")
-            title = escape(title, quote=True)
-            subtitle = escape(subtitle, quote=True)
-            body = escape(body, quote=True)
-            author = escape(author, quote=True)
+            style = req_body.get("style") or "swiss_01"
+            title = req_body.get("title") or "苏黎世秩序"
+            subtitle = req_body.get("subtitle") or "STRUCTURE & ESSENCE"
+            body = req_body.get("body") or "设计不是情绪的宣泄，而是对客观秩序的精确度量。让字符锚定在理性的基准线上。"
+            author = req_body.get("author") or "TOM // AGNES STUDIO"
 
             # 兼容前端 background_img 与历史 bg_image 两种字段名
             bg_image_rel = req_body.get("bg_image") or req_body.get("background_img") or "assets/poster_pro_swiss_01.png"
@@ -374,7 +372,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             return
 
         # 4. Gemini 智能简报与文案生成
-        if self.path == "/api/gemini/generate-brief":
+        if parsed_path == "/api/gemini/generate-brief":
             topic = req_body.get("topic", "").strip()
             platform = req_body.get("platform", "wechat")
             tone = req_body.get("tone", "luxury")
@@ -405,7 +403,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             return
 
         # 5. Gemini 物理光学 Prompt 编译与增强
-        if self.path == "/api/gemini/refine-prompt":
+        if parsed_path == "/api/gemini/refine-prompt":
             raw_prompt = req_body.get("prompt", "").strip()
             aspect_ratio = req_body.get("aspect_ratio", "1:1")
             negative_space_zone = req_body.get("negative_space", "top-left")
@@ -435,7 +433,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             return
 
         # 6. Gemini 视觉多模态审美与排版审查
-        if self.path == "/api/gemini/vision-inspect":
+        if parsed_path == "/api/gemini/vision-inspect":
             image_rel = req_body.get("image_path", "").strip()
             title = req_body.get("title", "")
             base_url = req_body.get("chat_base_url") or req_body.get("base_url")
@@ -471,7 +469,14 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
 def generate_custom_poster_html(style, title, subtitle, body, author, bg_uri):
     """根据自定义参数生成对应流派的高保真 HTML 排印代码"""
-    if "cyber" in style:
+    s = (style or "swiss_01").lower()
+    title = escape(str(title or ""), quote=True)
+    subtitle = escape(str(subtitle or ""), quote=True)
+    body = escape(str(body or ""), quote=True)
+    author = escape(str(author or ""), quote=True)
+    bg_uri = str(bg_uri or "")
+
+    if "cyber" in s:
         return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'SmileySans'; src: url('file://{FONTS_DIR}/SmileySans-Oblique.ttf') format('truetype'); }}
@@ -525,7 +530,7 @@ def generate_custom_poster_html(style, title, subtitle, body, author, bg_uri):
   </div>
 </body></html>"""
     
-    elif "chinese" in style:
+    elif "chinese" in s:
         return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'LXGWWenKai'; src: url('file://{FONTS_DIR}/LXGWWenKai-Regular.ttf') format('truetype'); }}
@@ -561,7 +566,7 @@ def generate_custom_poster_html(style, title, subtitle, body, author, bg_uri):
   <div class="footer-caption">{subtitle} // {author}</div>
 </body></html>"""
 
-    elif "cinema" in style:
+    elif "cinema" in s:
         return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'SmileySans'; src: url('file://{FONTS_DIR}/SmileySans-Oblique.ttf') format('truetype'); }}

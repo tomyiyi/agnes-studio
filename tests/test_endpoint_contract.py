@@ -1,6 +1,10 @@
+import json
 import os
 import sys
+import threading
 import unittest
+import urllib.request
+from http.server import HTTPServer
 from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
@@ -31,6 +35,79 @@ class TestEndpointContract(unittest.TestCase):
     def test_studio_server_safe_import(self):
         self.assertTrue(callable(getattr(studio_server, "ensure_venv", None)))
         self.assertTrue(callable(getattr(studio_server, "get_local_newapi_config", None)))
+
+    def test_generate_custom_poster_html_all_styles(self):
+        styles = {
+            "cyber_01": "TACTICAL HUD",
+            "chinese_01": "vertical-rl",
+            "cinema_01": "2.35:1 WIDESCREEN",
+            "swiss_01": "SWISS INTERNATIONAL STYLE",
+        }
+        for style_name, marker in styles.items():
+            with self.subTest(style=style_name):
+                html = studio_server.generate_custom_poster_html(
+                    style_name,
+                    "测试标题",
+                    "SUBTITLE",
+                    "文案内容",
+                    "AGNES TEST",
+                    "data:image/png;base64,abc",
+                )
+                self.assertIn(marker, html)
+                self.assertIn("测试标题", html)
+                self.assertIn("SUBTITLE", html)
+                self.assertIn("文案内容", html)
+                self.assertIn("AGNES TEST", html)
+
+    def test_generate_custom_poster_html_case_and_none_robustness(self):
+        # None inputs shouldn't raise TypeError
+        html_none = studio_server.generate_custom_poster_html(None, None, None, None, None, None)
+        self.assertIn("<!DOCTYPE html>", html_none)
+        self.assertIn("SWISS INTERNATIONAL STYLE", html_none)
+
+        # Case-insensitivity support
+        html_cyber_upper = studio_server.generate_custom_poster_html("CYBER_02", "赛博", "SUB", "BODY", "AUT", "")
+        self.assertIn("TACTICAL HUD", html_cyber_upper)
+        html_cinema_upper = studio_server.generate_custom_poster_html("CINEMA_PRO", "大片", "SUB", "BODY", "AUT", "")
+        self.assertIn("2.35:1 WIDESCREEN", html_cinema_upper)
+
+    def test_generate_custom_poster_html_xss_escaping(self):
+        html_xss = studio_server.generate_custom_poster_html(
+            "swiss_01",
+            "<script>alert('xss')</script>",
+            'Sub "Title"',
+            "Line1 & Line2",
+            "Author <Admin>",
+            "",
+        )
+        self.assertNotIn("<script>", html_xss)
+        self.assertIn("&lt;script&gt;", html_xss)
+        self.assertIn("&quot;Title&quot;", html_xss)
+        self.assertIn("Line1 &amp; Line2", html_xss)
+        self.assertIn("Author &lt;Admin&gt;", html_xss)
+
+    def test_api_config_endpoint_with_query_params(self):
+        server = HTTPServer(("127.0.0.1", 0), studio_server.StudioHTTPRequestHandler)
+        port = server.server_port
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        try:
+            # Query param cache-busting should not produce 404
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/config?t=123456", timeout=5) as resp:
+                self.assertEqual(resp.status, 200)
+                data = json.loads(resp.read().decode("utf-8"))
+                self.assertTrue(data.get("success"))
+                self.assertIn("image_base_url", data)
+                self.assertIn("chat_base_url", data)
+
+            # Trailing slash should also route correctly
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/config/", timeout=5) as resp:
+                self.assertEqual(resp.status, 200)
+                data = json.loads(resp.read().decode("utf-8"))
+                self.assertTrue(data.get("success"))
+        finally:
+            server.shutdown()
+            server.server_close()
 
 
 if __name__ == "__main__":
