@@ -7,7 +7,8 @@
     "start": "./start.sh",
     "serve": "python3 scripts/studio_server.py 8088",
     "render": "python3 scripts/pro_poster_renderer.py",
-    "monitor": "python3 scripts/check_upstream_updates.py"
+    "monitor": "python3 scripts/check_upstream_updates.py",
+    "test": "python3 -m unittest discover -s tests"
   },
   "engines": {
     "python": ">=3.9"
