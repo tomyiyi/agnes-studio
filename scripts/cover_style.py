@@ -27,8 +27,13 @@ import json
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-CATALOG_PATH = ROOT / "data" / "style_catalog.json"
+sys_path_scripts = Path(__file__).resolve().parent
+if str(sys_path_scripts) not in __import__("sys").path:
+    __import__("sys").path.insert(0, str(sys_path_scripts))
+
+from env_config import DATA_DIR
+
+CATALOG_PATH = DATA_DIR / "style_catalog.json"
 
 
 @dataclass

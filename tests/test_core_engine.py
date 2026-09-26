@@ -37,6 +37,8 @@ from env_config import (
     resolve_chrome_path,
     resolve_font_path,
 )
+from cover_style import resolve_style, load_catalog, CoverStyle
+from expert_poster_designer import analyze_safe_zone
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -163,7 +165,7 @@ class TestEnvConfig(unittest.TestCase):
         self.assertTrue(len(chrome_path) > 0)
 
     def test_font_resolution(self):
-        font_keys = ["smiley", "wenkai", "songti", "pingfang", "serif", "sans"]
+        font_keys = ["smiley", "wenkai", "songti", "pingfang", "serif", "sans", "lxgwwenkai", "didot", "hei", "futura", "kai"]
         for key in font_keys:
             with self.subTest(font_key=key):
                 font_path = resolve_font_path(key)
@@ -277,6 +279,93 @@ class TestPosterTypeSystem(unittest.TestCase):
             slogan="这是一个超级长毫无节制完全不适合海报金句排版的超长超长标语金句文本"
         )
         self.assertTrue(any("slogan >18 字" in msg for msg in long_slogan_issues))
+
+
+class TestCoverStyleResolver(unittest.TestCase):
+    """测试封面需求简报至样式推导引擎 (CoverStyle & StyleCatalog)"""
+
+    def setUp(self):
+        self.catalog = load_catalog()
+
+    def test_default_resolution(self):
+        st = resolve_style({})
+        self.assertIsInstance(st, CoverStyle)
+        self.assertEqual(st.mode, "diag")
+        self.assertEqual(st.hero_size, 148)
+        self.assertEqual(st.sub_size, 22)
+        self.assertEqual(st.title_zone_default, "safe")
+        self.assertTrue(len(st.gen_prompt) > 0)
+        self.assertIn("ultra sharp", st.gen_prompt)
+
+    def test_platform_tuning_and_type_scales(self):
+        st_wechat = resolve_style({"platform": "wechat", "tone": "luxury"})
+        self.assertEqual(st_wechat.hero_size, 148)
+        self.assertEqual(st_wechat.sub_size, 22)
+
+        st_xhs = resolve_style({"platform": "xhs", "tone": "minimal"})
+        # xhs base: hero=110, sub=16; minimal scale=0.92
+        self.assertEqual(st_xhs.hero_size, int(110 * 0.92))
+        self.assertEqual(st_xhs.sub_size, int(16 * 0.92))
+
+        st_wechat_sq = resolve_style({"platform": "wechat-sq", "tone": "epic"})
+        # wechat-sq base: hero=92, sub=14; epic scale=1.08
+        self.assertEqual(st_wechat_sq.hero_size, int(92 * 1.08))
+        self.assertEqual(st_wechat_sq.sub_size, int(14 * 1.08))
+
+    def test_goal_mode_mapping(self):
+        self.assertEqual(resolve_style({"goal": "ctr"}).mode, "bignews")
+        self.assertEqual(resolve_style({"goal": "editorial"}).mode, "diag")
+        self.assertEqual(resolve_style({"goal": "story"}).mode, "stack")
+        self.assertEqual(resolve_style({"goal": "vertical"}).mode, "vertical")
+
+    def test_subject_serif_override(self):
+        st_scenery = resolve_style({"subject": "scenery", "tone": "luxury"})
+        self.assertEqual(st_scenery.font_css, self.catalog["font_stacks"]["serif_east"])
+
+        st_product = resolve_style({"subject": "product", "tone": "luxury"})
+        self.assertEqual(st_product.font_css, self.catalog["font_stacks"]["serif_east"])
+
+        st_cyber_product = resolve_style({"subject": "product", "tone": "cyber"})
+        self.assertNotEqual(st_cyber_product.font_css, self.catalog["font_stacks"]["serif_east"])
+
+    def test_skill_style_injection_and_fallback(self):
+        st_s05 = resolve_style({"style_skill": "S05"})
+        self.assertEqual(st_s05.style_skill, "S05")
+        self.assertTrue(len(st_s05.skill_call_name) > 0)
+        self.assertIn("S05", st_s05.notes)
+
+        # 未知或非法 skill 不抛出异常，优雅降级
+        st_unknown = resolve_style({"style_skill": "NON_EXISTENT_SKILL_XYZ"})
+        self.assertEqual(st_unknown.style_skill, "")
+
+    def test_cover_style_to_dict_and_serialization(self):
+        st = resolve_style({"goal": "editorial", "platform": "xhs", "tone": "warm"})
+        d = st.to_dict()
+        self.assertIsInstance(d, dict)
+        self.assertIn("hero_size", d)
+        self.assertIn("sub_size", d)
+        self.assertIn("palette", d)
+        self.assertIn("gen_prompt", d)
+        serialized = json.dumps(d, ensure_ascii=False)
+        self.assertTrue(len(serialized) > 0)
+
+
+class TestSafeZoneAnalyzer(unittest.TestCase):
+    """测试多模态空间方差与负空间避障探测器"""
+
+    def test_analyze_safe_zone_sample(self):
+        sample_img = ASSETS_DIR / "agnes_1790006749_b2b755da.png"
+        self.assertTrue(sample_img.exists(), "样本图片缺失")
+        res = analyze_safe_zone(str(sample_img))
+        self.assertIsInstance(res, dict)
+        self.assertEqual(res["width"], 1024)
+        self.assertEqual(res["height"], 1024)
+        self.assertIn("best_grid", res)
+        self.assertIn("min_variance", res)
+        self.assertIsInstance(res["bg_rgb"], tuple)
+        self.assertEqual(len(res["bg_rgb"]), 3)
+        self.assertGreater(res["safe_x"], 0)
+        self.assertGreater(res["safe_y"], 0)
 
 
 class TestDataIntegrity(unittest.TestCase):

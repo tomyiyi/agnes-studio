@@ -18,6 +18,13 @@ ASSETS_DIR = PUBLIC_DIR / "assets"
 FONTS_DIR = PUBLIC_DIR / "fonts"
 DATA_DIR = PROJECT_ROOT / "data"
 
+# 自动兼容本地 .venv 环境的依赖包 (Pillow, numpy, playwright 等)
+VENV_DIR = PROJECT_ROOT / ".venv"
+if VENV_DIR.exists():
+    for site_pkg in VENV_DIR.glob("lib/python*/site-packages"):
+        if site_pkg.is_dir() and str(site_pkg) not in sys.path:
+            sys.path.insert(0, str(site_pkg))
+
 # 确保核心资源目录存在
 ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 FONTS_DIR.mkdir(parents=True, exist_ok=True)

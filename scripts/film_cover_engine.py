@@ -11,8 +11,8 @@ Agnes Studio · 电影感封面排版引擎 (Cinematic Cover Engine)
 """
 
 import os
-from PIL import Image, ImageDraw, ImageFont
 from env_config import FONTS_DIR, ASSETS_DIR, resolve_font_path
+from PIL import Image, ImageDraw, ImageFont
 FONTS_DIR = str(FONTS_DIR)
 ASSETS_DIR = str(ASSETS_DIR)
 

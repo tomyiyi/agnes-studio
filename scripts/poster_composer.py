@@ -6,8 +6,8 @@ Agnes Studio - 商业海报排版与中文字体合成引擎
 """
 
 import os
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from env_config import FONTS_DIR, ASSETS_DIR, resolve_font_path
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 FONTS_DIR = str(FONTS_DIR)
 ASSETS_DIR = str(ASSETS_DIR)

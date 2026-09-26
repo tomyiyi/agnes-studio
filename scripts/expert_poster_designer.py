@@ -10,13 +10,13 @@ Agnes Studio · 专家级动态海报排版引擎 (Expert Dynamic Poster Designe
 """
 
 import os
+from env_config import FONTS_DIR, ASSETS_DIR, resolve_font_path
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 
 # 导入专业中文字体排印学与瑞士网格系统引擎
 from typography_rules import ChineseTypographyRules, ModularScale, SwissGridSystem, SmartPosterComposer
 from vision_subject_detector import detect_faces
-from env_config import FONTS_DIR, ASSETS_DIR, resolve_font_path
 
 FONTS_DIR = str(FONTS_DIR)
 ASSETS_DIR = str(ASSETS_DIR)

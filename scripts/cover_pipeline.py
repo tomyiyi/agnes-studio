@@ -24,12 +24,21 @@ import os
 import statistics
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter
-from playwright.sync_api import sync_playwright
-
 sys_path_scripts = Path(__file__).resolve().parent
 if str(sys_path_scripts) not in __import__("sys").path:
     __import__("sys").path.insert(0, str(sys_path_scripts))
+
+from env_config import (
+    PROJECT_ROOT,
+    FONTS_DIR,
+    ASSETS_DIR,
+    resolve_chrome_path,
+    resolve_font_path,
+)
+
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
+from playwright.sync_api import sync_playwright
+
 try:
     from typography_rules import ChineseTypographyRules
     from copywriting_rules import apply_fix, lint_copy
@@ -43,11 +52,10 @@ except Exception:
     detect_faces = lambda p: []
     check_occlusion = lambda tb, zs: (False, None)
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = PROJECT_ROOT
 OUT = ROOT / "outputs" / "covers"
-FONTS = ROOT / "public" / "fonts"
+FONTS = FONTS_DIR
 ASSETS_EXP = ROOT / "experiments"
-from env_config import resolve_chrome_path
 CHROME = resolve_chrome_path()
 
 # —— 平台规格 ——
@@ -503,10 +511,20 @@ def build_contact_sheet(pngs: list[Path], out_path: Path) -> Path:
 
 def type_html_styles() -> str:
     """字体工程 + 电影感版式（克制暗角，设计感靠字阶/发丝线/错位）。"""
+    font_smiley = resolve_font_path("smiley")
+    font_wenkai = resolve_font_path("wenkai")
     return f"""
   @font-face {{
     font-family: 'SmileySans';
-    src: url('file://{FONTS}/SmileySans-Oblique.ttf') format('truetype');
+    src: url('file://{font_smiley}') format('truetype');
+  }}
+  @font-face {{
+    font-family: 'LXGWWenKai';
+    src: url('file://{font_wenkai}') format('truetype');
+  }}
+  @font-face {{
+    font-family: 'LXGW WenKai';
+    src: url('file://{font_wenkai}') format('truetype');
   }}
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
   body {{
