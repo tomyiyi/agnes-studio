@@ -11,8 +11,16 @@ Agnes Studio · 电影感封面排版引擎 (Cinematic Cover Engine)
 """
 
 import os
+import sys
+from pathlib import Path
+
+SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
 from env_config import FONTS_DIR, ASSETS_DIR, resolve_font_path
 from PIL import Image, ImageDraw, ImageFont
+
 FONTS_DIR = str(FONTS_DIR)
 ASSETS_DIR = str(ASSETS_DIR)
 
@@ -21,13 +29,28 @@ FONT_WENKAI = resolve_font_path("wenkai")
 FONT_SONGTI = resolve_font_path("songti")
 FONT_PINGFANG = resolve_font_path("pingfang")
 
+
+def _prepare_io(bg_image_path, output_path):
+    if not bg_image_path:
+        raise ValueError("Background image path cannot be empty")
+    bg_p = Path(bg_image_path)
+    if not bg_p.is_file():
+        raise FileNotFoundError(f"Source background image not found: {bg_image_path}")
+    if not output_path:
+        raise ValueError("Output path cannot be empty")
+    out_p = Path(output_path)
+    out_p.parent.mkdir(parents=True, exist_ok=True)
+    return bg_p, out_p
+
+
 def get_font(path, size):
-    if os.path.exists(path):
+    if path and os.path.exists(str(path)):
         try:
-            return ImageFont.truetype(path, size)
+            return ImageFont.truetype(str(path), size)
         except Exception:
             pass
     return ImageFont.load_default()
+
 
 # -------------------------------------------------------------
 # 1. 书生六式之【绿色刊头】：荧光绿胶囊 + 双端排字 + 底部左对齐
@@ -41,8 +64,15 @@ def render_shusheng_capsule_green(
     author_en="AGNES DESIGN",
     author_cn="书生视觉"
 ):
-    print(f"🎬 [Capsule Green] 正在渲染【绿色刊头胶囊排版】封面...")
-    base_img = Image.open(bg_image_path).convert("RGBA")
+    bg_p, out_p = _prepare_io(bg_image_path, output_path)
+    title = str(title or "")
+    sub_1 = str(sub_1 or "")
+    sub_2 = str(sub_2 or "")
+    author_en = str(author_en or "")
+    author_cn = str(author_cn or "")
+
+    print("🎬 [Capsule Green] 正在渲染【绿色刊头胶囊排版】封面...")
+    base_img = Image.open(bg_p).convert("RGBA")
     w, h = base_img.size
     scale = w / 1024.0
 
@@ -108,9 +138,10 @@ def render_shusheng_capsule_green(
     draw.text((s1_end_x + spacing, sub_y), sub_2, font=f_sub, fill=c_green)
 
     final_img = Image.alpha_composite(base_img, overlay).convert("RGB")
-    final_img.save(output_path, quality=95)
-    print(f"✅ 绿色刊头胶囊封面生成成功: {output_path}")
-    return output_path
+    final_img.save(str(out_p), quality=95)
+    print(f"✅ 绿色刊头胶囊封面生成成功: {out_p}")
+    return str(out_p)
+
 
 # -------------------------------------------------------------
 # 2. 书生六式之【红色错位】：左右竖排错位夹击 + 纯红锐角大字
@@ -123,8 +154,14 @@ def render_shusheng_split_red(
     sub_1="一张人物自拍",
     sub_2="也能排成电影海报"
 ):
-    print(f"🎬 [Split Red] 正在渲染【红色错位竖排夹击】封面...")
-    base_img = Image.open(bg_image_path).convert("RGBA")
+    bg_p, out_p = _prepare_io(bg_image_path, output_path)
+    chars_left = str(chars_left or "")
+    chars_right = str(chars_right or "")
+    sub_1 = str(sub_1 or "")
+    sub_2 = str(sub_2 or "")
+
+    print("🎬 [Split Red] 正在渲染【红色错位竖排夹击】封面...")
+    base_img = Image.open(bg_p).convert("RGBA")
     w, h = base_img.size
     scale = w / 1024.0
 
@@ -160,7 +197,6 @@ def render_shusheng_split_red(
 
     for i, ch in enumerate(chars_left):
         cy = left_y + i * char_step
-        # 阴影与纯红大字
         draw.text((left_x + 3, cy + 3), ch, font=f_vert, fill=(0, 0, 0, 160))
         draw.text((left_x, cy), ch, font=f_vert, fill=c_red)
 
@@ -180,9 +216,10 @@ def render_shusheng_split_red(
     draw.text((q_x + int(6 * scale), q_y - int(4 * scale)), "”", font=f_quote, fill=(255, 255, 255, 255))
 
     final_img = Image.alpha_composite(base_img, overlay).convert("RGB")
-    final_img.save(output_path, quality=95)
-    print(f"✅ 红色错位竖排封面生成成功: {output_path}")
-    return output_path
+    final_img.save(str(out_p), quality=95)
+    print(f"✅ 红色错位竖排封面生成成功: {out_p}")
+    return str(out_p)
+
 
 # -------------------------------------------------------------
 # 3. 书生八式之【侧边色块】：11% 贯穿黄色色带 + 2:1 超窄刊头黑体
@@ -194,8 +231,13 @@ def render_shusheng_side_yellow(
     title_bottom="封面",
     sub="一张照片 · 八种排法"
 ):
-    print(f"🎬 [Side Yellow] 正在渲染【侧边黄色贯穿带】封面...")
-    base_img = Image.open(bg_image_path).convert("RGBA")
+    bg_p, out_p = _prepare_io(bg_image_path, output_path)
+    title_top = str(title_top or "")
+    title_bottom = str(title_bottom or "")
+    sub = str(sub or "")
+
+    print("🎬 [Side Yellow] 正在渲染【侧边黄色贯穿带】封面...")
+    base_img = Image.open(bg_p).convert("RGBA")
     w, h = base_img.size
     scale = w / 1024.0
 
@@ -234,9 +276,10 @@ def render_shusheng_side_yellow(
     draw.text((text_x, int(h * 0.90)), sub, font=f_sub, fill=(255, 255, 255, 255))
 
     final_img = Image.alpha_composite(base_img, overlay).convert("RGB")
-    final_img.save(output_path, quality=95)
-    print(f"✅ 侧边黄色贯穿带封面生成成功: {output_path}")
-    return output_path
+    final_img.save(str(out_p), quality=95)
+    print(f"✅ 侧边黄色贯穿带封面生成成功: {out_p}")
+    return str(out_p)
+
 
 # -------------------------------------------------------------
 # 4. 书生八式之【绿底上下】：上 1/3 浅绿色块 + 深钴蓝剪纸美术字
@@ -248,8 +291,13 @@ def render_shusheng_top_green(
     sub="一张照片 · 八种排法",
     en_sub="ONE PHOTO · EIGHT MOODS"
 ):
-    print(f"🎬 [Top Green] 正在渲染【绿底上下 1/3 分割】封面...")
-    base_img = Image.open(bg_image_path).convert("RGBA")
+    bg_p, out_p = _prepare_io(bg_image_path, output_path)
+    title = str(title or "")
+    sub = str(sub or "")
+    en_sub = str(en_sub or "")
+
+    print("🎬 [Top Green] 正在渲染【绿底上下 1/3 分割】封面...")
+    base_img = Image.open(bg_p).convert("RGBA")
     w, h = base_img.size
     scale = w / 1024.0
 
@@ -295,9 +343,79 @@ def render_shusheng_top_green(
     draw.text((int(w * 0.65), block_h + int(24 * scale)), "COLOR / TELLS A STORY", font=f_tiny, fill=(152, 192, 100, 230))
 
     final_img = Image.alpha_composite(base_img, overlay).convert("RGB")
-    final_img.save(output_path, quality=95)
-    print(f"✅ 绿底上下 1/3 分割封面生成成功: {output_path}")
-    return output_path
+    final_img.save(str(out_p), quality=95)
+    print(f"✅ 绿底上下 1/3 分割封面生成成功: {out_p}")
+    return str(out_p)
+
+
+# -------------------------------------------------------------
+# 5. 书生六式之【电影宽银幕】：上下 12% 纯黑遮幅 + 居中大宋体
+# -------------------------------------------------------------
+def render_shusheng_letterbox(
+    bg_image_path,
+    output_path,
+    title="电影感封面",
+    subtitle="THE CINEMATIC STILL",
+    quote="一张照片 · 六种排法",
+    meta="2.35:1 LETTERBOX // AGNES STUDIO"
+):
+    bg_p, out_p = _prepare_io(bg_image_path, output_path)
+    title = str(title or "")
+    subtitle = str(subtitle or "")
+    quote = str(quote or "")
+    meta = str(meta or "")
+
+    print("🎬 [Letterbox] 正在渲染【电影宽银幕 2.35:1】封面...")
+    base_img = Image.open(bg_p).convert("RGBA")
+    w, h = base_img.size
+    scale = w / 1024.0
+
+    overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+
+    # 1. 顶部 12% 纯黑遮幅
+    bar_h = int(h * 0.12)
+    draw.rectangle([(0, 0), (w, bar_h)], fill=(0, 0, 0, 255))
+
+    # 顶部微西文标号
+    if meta:
+        f_meta = get_font(FONT_SMILEY, int(13 * scale))
+        bbox_meta = draw.textbbox((0, 0), meta, font=f_meta)
+        meta_w = bbox_meta[2] - bbox_meta[0]
+        draw.text(((w - meta_w) // 2, int(bar_h * 0.38)), meta, font=f_meta, fill=(210, 210, 210, 220))
+
+    # 2. 底部 12% 纯黑遮幅
+    draw.rectangle([(0, h - bar_h), (w, h)], fill=(0, 0, 0, 255))
+
+    # 底部格言 / 微排版
+    if quote:
+        f_quote = get_font(FONT_WENKAI, int(16 * scale))
+        bbox_q = draw.textbbox((0, 0), quote, font=f_quote)
+        qw = bbox_q[2] - bbox_q[0]
+        draw.text(((w - qw) // 2, h - bar_h + int(bar_h * 0.35)), quote, font=f_quote, fill=(225, 225, 225, 230))
+
+    # 3. 画面下部 (y: 66%~74%) 居中大宋体主标与副标
+    title_y = int(h * 0.68)
+    if subtitle:
+        f_sub = get_font(FONT_SMILEY, int(15 * scale))
+        bbox_s = draw.textbbox((0, 0), subtitle, font=f_sub)
+        sw = bbox_s[2] - bbox_s[0]
+        sub_y = title_y - int(28 * scale)
+        draw.text(((w - sw) // 2 + 1, sub_y + 1), subtitle, font=f_sub, fill=(0, 0, 0, 180))
+        draw.text(((w - sw) // 2, sub_y), subtitle, font=f_sub, fill=(240, 220, 180, 240))
+
+    if title:
+        f_title = get_font(FONT_SONGTI, int(64 * scale))
+        bbox_t = draw.textbbox((0, 0), title, font=f_title)
+        tw = bbox_t[2] - bbox_t[0]
+        draw.text(((w - tw) // 2 + 2, title_y + 2), title, font=f_title, fill=(0, 0, 0, 200))
+        draw.text(((w - tw) // 2, title_y), title, font=f_title, fill=(255, 255, 255, 255))
+
+    final_img = Image.alpha_composite(base_img, overlay).convert("RGB")
+    final_img.save(str(out_p), quality=95)
+    print(f"✅ 电影宽银幕遮幅封面生成成功: {out_p}")
+    return str(out_p)
+
 
 if __name__ == "__main__":
     src_anime = os.path.join(ASSETS_DIR, "agnes_1790006749_b2b755da.png")
@@ -306,42 +424,46 @@ if __name__ == "__main__":
 
     print("🚀 启动书生经典海报排版引擎...")
 
-    # 1. 绿色刊头胶囊
-    render_shusheng_capsule_green(
-        src_anime,
-        os.path.join(ASSETS_DIR, "cover_shusheng_capsule_green.png"),
-        title="铜钟与蒸汽城",
-        sub_1="她修时间",
-        sub_2="也修人心",
-        author_en="AGNES STUDIO // FILM",
-        author_cn="书生视觉排版"
-    )
+    if os.path.exists(src_anime):
+        # 1. 绿色刊头胶囊
+        render_shusheng_capsule_green(
+            src_anime,
+            os.path.join(ASSETS_DIR, "cover_shusheng_capsule_green.png"),
+            title="铜钟与蒸汽城",
+            sub_1="她修时间",
+            sub_2="也修人心",
+            author_en="AGNES STUDIO // FILM",
+            author_cn="书生视觉排版"
+        )
 
-    # 2. 红色错位夹击竖排
-    render_shusheng_split_red(
-        src_anime,
-        os.path.join(ASSETS_DIR, "cover_shusheng_split_red.png"),
-        chars_left="铜钟",
-        chars_right="蒸汽",
-        sub_1="普通自拍照",
-        sub_2="也能排成电影大片"
-    )
+        # 2. 红色错位夹击竖排
+        render_shusheng_split_red(
+            src_anime,
+            os.path.join(ASSETS_DIR, "cover_shusheng_split_red.png"),
+            chars_left="铜钟",
+            chars_right="蒸汽",
+            sub_1="普通自拍照",
+            sub_2="也能排成电影大片"
+        )
 
-    # 3. 侧边黄色贯穿色带
-    render_shusheng_side_yellow(
-        src_beauty,
-        os.path.join(ASSETS_DIR, "cover_shusheng_side_yellow.png"),
-        title_top="电影感",
-        title_bottom="封面",
-        sub="一张自拍 · 八种排法"
-    )
+    if os.path.exists(src_beauty):
+        # 3. 侧边黄色贯穿色带
+        render_shusheng_side_yellow(
+            src_beauty,
+            os.path.join(ASSETS_DIR, "cover_shusheng_side_yellow.png"),
+            title_top="电影感",
+            title_bottom="封面",
+            sub="一张自拍 · 八种排法"
+        )
 
-    # 4. 绿底上下 1/3 色块
-    render_shusheng_top_green(
-        src_macro,
-        os.path.join(ASSETS_DIR, "cover_shusheng_top_green.png"),
-        title="电影感人像写真",
-        sub="高审美视觉 · 矢量排版",
-        en_sub="AGNES STUDIO // SHU SHENG COVER 02"
-    )
+    if os.path.exists(src_macro):
+        # 4. 绿底上下 1/3 色块
+        render_shusheng_top_green(
+            src_macro,
+            os.path.join(ASSETS_DIR, "cover_shusheng_top_green.png"),
+            title="电影感人像写真",
+            sub="高审美视觉 · 矢量排版",
+            en_sub="AGNES STUDIO // SHU SHENG COVER 02"
+        )
+
     print("✨ 全套书生经典封面已成功渲染并落地！")

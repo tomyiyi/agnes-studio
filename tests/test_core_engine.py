@@ -56,6 +56,13 @@ from cover_pipeline import (
 import wechat_cover_ab
 from expert_poster_designer import analyze_safe_zone
 from vision_subject_detector import detect_faces, check_occlusion
+from film_cover_engine import (
+    render_shusheng_capsule_green,
+    render_shusheng_split_red,
+    render_shusheng_side_yellow,
+    render_shusheng_top_green,
+    render_shusheng_letterbox,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -689,6 +696,73 @@ class TestVisionSubjectDetector(unittest.TestCase):
                  patch("gemini_engine.detect_visual_subjects_gemini", return_value=mock_boxes):
                 detected = detect_faces(str(tmp_img))
                 self.assertEqual(detected, mock_boxes)
+
+
+class TestFilmCoverEngine(unittest.TestCase):
+    """测试电影感封面排版引擎 (Cinematic Cover Engine)"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+        self.dummy_bg = self.tmp_path / "dummy_bg.png"
+        Image.new("RGB", (600, 600), color=(30, 45, 60)).save(self.dummy_bg, "PNG")
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_render_all_five_styles(self):
+        styles = [
+            ("capsule_green.png", render_shusheng_capsule_green),
+            ("split_red.png", render_shusheng_split_red),
+            ("side_yellow.png", render_shusheng_side_yellow),
+            ("top_green.png", render_shusheng_top_green),
+            ("letterbox.png", render_shusheng_letterbox),
+        ]
+        for filename, render_fn in styles:
+            out_file = self.tmp_path / filename
+            ret = render_fn(self.dummy_bg, out_file)
+            self.assertEqual(ret, str(out_file))
+            self.assertTrue(out_file.exists())
+            with Image.open(out_file) as im:
+                self.assertEqual(im.size, (600, 600))
+                self.assertEqual(im.mode, "RGB")
+
+    def test_input_guards(self):
+        out_file = self.tmp_path / "out.png"
+
+        # 背景图为空或不存在
+        with self.assertRaises(ValueError):
+            render_shusheng_capsule_green("", out_file)
+        with self.assertRaises(ValueError):
+            render_shusheng_capsule_green(None, out_file)
+        with self.assertRaises(FileNotFoundError):
+            render_shusheng_capsule_green(self.tmp_path / "non_existent.png", out_file)
+
+        # 输出路径为空
+        with self.assertRaises(ValueError):
+            render_shusheng_capsule_green(self.dummy_bg, "")
+        with self.assertRaises(ValueError):
+            render_shusheng_capsule_green(self.dummy_bg, None)
+
+    def test_auto_create_output_directory(self):
+        nested_out = self.tmp_path / "sub" / "deep" / "letterbox_test.png"
+        ret = render_shusheng_letterbox(self.dummy_bg, nested_out)
+        self.assertEqual(ret, str(nested_out))
+        self.assertTrue(nested_out.exists())
+
+    def test_none_string_fallbacks(self):
+        # 传递 None 文本不会触发 TypeError，安全回退为空文本
+        out_file = self.tmp_path / "none_strings.png"
+        ret = render_shusheng_capsule_green(
+            self.dummy_bg,
+            out_file,
+            title=None,
+            sub_1=None,
+            sub_2=None,
+            author_en=None,
+            author_cn=None,
+        )
+        self.assertTrue(Path(ret).exists())
 
 
 if __name__ == "__main__":
