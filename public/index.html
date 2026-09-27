@@ -2959,8 +2959,7 @@ function renderSkills() {
       renderEcosystem();
       setupSlider();
       loadSamplePreset('steampunk');
-      loadStudioConfig();
-      loadGeneratedBackgrounds();
+      loadStudioConfig().finally(() => loadGeneratedBackgrounds());
       if (window.location.hash) {
         const tab = window.location.hash.replace('#', '');
         if (['gallery', 'poster-studio', 'skills', 'ecosystem', 'sentinel'].includes(tab)) {
