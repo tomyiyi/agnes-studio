@@ -39,13 +39,32 @@ def get_local_auth_key(key_path: Path | str | None = None) -> str:
     return ""
 
 
+def get_local_base_url(key_path: Path | str | None = None) -> str:
+    "Resolve the active image gateway from the same local source as Studio."
+    env_base = os.environ.get("NEW_API_BASE_URL") or os.environ.get("AGNES_BASE_URL")
+    if env_base and env_base.strip():
+        return env_base.strip().rstrip("/")
+
+    target_path = Path(key_path) if key_path else DEFAULT_KEY_PATH
+    if target_path.exists():
+        try:
+            data = json.loads(target_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                configured = str(data.get("image_base_url") or data.get("base_url") or "").strip()
+                if configured:
+                    return configured.rstrip("/")
+        except Exception:
+            pass
+    return DEFAULT_BASE_URL
+
+
 def check_new_api_health(
     base_url: str | None = None,
     api_key: str | None = None,
     timeout: float = 5.0,
 ) -> dict:
     """检测 New API 聚合网关探活状态并获取可用模型清单"""
-    raw_base = base_url or os.environ.get("NEW_API_BASE_URL") or os.environ.get("AGNES_BASE_URL") or DEFAULT_BASE_URL
+    raw_base = base_url or get_local_base_url()
     raw_base = raw_base.rstrip("/")
     if raw_base.endswith("/v1"):
         url = f"{raw_base}/models"
