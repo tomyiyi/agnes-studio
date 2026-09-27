@@ -2391,6 +2391,49 @@ class TestAutonomousFollowup(unittest.TestCase):
         self.assertIn("0.0 / 100 分", content)
 
     @patch("urllib.request.urlopen")
+    def test_check_and_heal_server_uses_image_gateway_from_config(self, mock_urlopen):
+        config_resp = MagicMock()
+        config_resp.status = 200
+        config_resp.read.return_value = json.dumps({
+            "image_base_url": "http://127.0.0.1:13000/v1",
+        }).encode("utf-8")
+        models_resp = MagicMock()
+        models_resp.status = 200
+        config_resp.__enter__.return_value = config_resp
+        models_resp.__enter__.return_value = models_resp
+        mock_urlopen.side_effect = [config_resp, models_resp]
+
+        server_alive, new_api_alive = check_and_heal_server(
+            server_url="http://127.0.0.1:8088/api/config",
+            api_key="test_key",
+            auto_heal=False,
+        )
+
+        self.assertTrue(server_alive)
+        self.assertTrue(new_api_alive)
+        models_request = mock_urlopen.call_args_list[1].args[0]
+        self.assertEqual(models_request.full_url, "http://127.0.0.1:13000/v1/models")
+
+    @patch("autonomous_followup.get_local_auth_key", return_value="")
+    @patch("urllib.request.urlopen")
+    def test_check_and_heal_server_does_not_use_embedded_api_key(self, mock_urlopen, _mock_local_auth):
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = b"{}"
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        with patch.dict("os.environ", {"AGNES_API_KEY": "", "NEW_API_KEY": ""}, clear=False):
+            check_and_heal_server(
+                server_url="http://127.0.0.1:8088/api/config",
+                api_base="http://127.0.0.1:13000/v1",
+                auto_heal=False,
+            )
+
+        models_request = mock_urlopen.call_args_list[1].args[0]
+        self.assertNotIn("Authorization", models_request.headers)
+
+    @patch("urllib.request.urlopen")
     def test_check_and_heal_server_healthy(self, mock_urlopen):
         mock_resp = MagicMock()
         mock_resp.status = 200
@@ -8141,4 +8184,3 @@ class TestComposeBeautyCovers(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
