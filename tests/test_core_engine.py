@@ -61,6 +61,12 @@ from cover_pipeline import (
     qa_thumbnail_ok,
     classify_generation_error as cover_classify_error,
     generate_cover_subject,
+    preflight_source_asset,
+    preflight_source_assets,
+    resolve_source_asset_for_platform,
+    resolve_required_source_assets,
+    run_brief_batch,
+    run_platform,
 )
 import check_upstream_updates
 from check_upstream_updates import (
@@ -1173,6 +1179,108 @@ class TestCoverPipeline(unittest.TestCase):
             with patch("cover_pipeline.generate_cover_subject", side_effect=mock_failing_gen):
                 with self.assertRaises(SystemExit):
                     cover_pipeline.main(["--brief", str(brief_file), "--generate"])
+
+    def test_preflight_source_asset_checks(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            # 1. 空路径防护
+            self.assertFalse(preflight_source_asset(None)["ok"])
+            self.assertEqual(preflight_source_asset("")["error_class"], "MISSING_SOURCE_ASSET")
+            self.assertEqual(preflight_source_asset("   ")["error_class"], "MISSING_SOURCE_ASSET")
+
+            # 2. 文件不存在防护
+            non_existent = tmp_path / "absent.png"
+            res_absent = preflight_source_asset(non_existent)
+            self.assertFalse(res_absent["ok"])
+            self.assertEqual(res_absent["error_class"], "MISSING_SOURCE_ASSET")
+            self.assertIn("does not exist", res_absent["err"])
+
+            # 3. 目录路径防护（非普通文件）
+            a_dir = tmp_path / "subdir"
+            a_dir.mkdir()
+            res_dir = preflight_source_asset(a_dir)
+            self.assertFalse(res_dir["ok"])
+            self.assertEqual(res_dir["error_class"], "MISSING_SOURCE_ASSET")
+            self.assertIn("not a regular file", res_dir["err"])
+
+            # 4. 正常文件通过
+            real_file = tmp_path / "valid.png"
+            real_file.write_bytes(b"image-data")
+            res_ok = preflight_source_asset(real_file)
+            self.assertTrue(res_ok["ok"])
+            self.assertEqual(res_ok["path"], str(real_file))
+
+            # 5. 不可读权限防护
+            with patch("os.access", return_value=False):
+                res_unreadable = preflight_source_asset(real_file)
+                self.assertFalse(res_unreadable["ok"])
+                self.assertEqual(res_unreadable["error_class"], "MISSING_SOURCE_ASSET")
+                self.assertIn("not readable", res_unreadable["err"])
+
+            # 6. 批量 preflight_source_assets
+            valid_file2 = tmp_path / "valid2.png"
+            valid_file2.write_bytes(b"image-data-2")
+            self.assertTrue(preflight_source_assets([real_file, valid_file2])["ok"])
+            self.assertFalse(preflight_source_assets([real_file, non_existent])["ok"])
+
+    def test_resolve_source_asset_for_platform(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            custom_src = tmp_path / "universal.png"
+            brief_with_source_asset = {"source_asset": str(custom_src)}
+            self.assertEqual(resolve_source_asset_for_platform("wechat", brief=brief_with_source_asset), custom_src)
+            self.assertEqual(resolve_source_asset_for_platform("xhs", brief=brief_with_source_asset), custom_src)
+
+            brief_with_subj = {"subject_src": str(custom_src)}
+            self.assertEqual(resolve_source_asset_for_platform("xhs", brief=brief_with_subj), custom_src)
+
+            brief_with_src = {"src": str(custom_src)}
+            self.assertEqual(resolve_source_asset_for_platform("wechat", brief=brief_with_src), custom_src)
+
+            # platform 规格差异化解析
+            xhs_custom = tmp_path / "xhs_pic.png"
+            wechat_custom = tmp_path / "wechat_pic.png"
+            brief_split = {"xhs_src": str(xhs_custom), "wechat_src": str(wechat_custom)}
+            self.assertEqual(resolve_source_asset_for_platform("xhs", brief=brief_split), xhs_custom)
+            self.assertEqual(resolve_source_asset_for_platform("xhs-sq", brief=brief_split), xhs_custom)
+            # wechat (2.35:1) 引用 wechat_src；而 wechat-sq (1:1) 在规格表定义中使用 portrait/xhs 源
+            self.assertEqual(resolve_source_asset_for_platform("wechat", brief=brief_split), wechat_custom)
+            self.assertEqual(resolve_source_asset_for_platform("wechat-sq", brief=brief_split), xhs_custom)
+
+            # 检查 resolve_required_source_assets
+            all_assets = resolve_required_source_assets(brief=brief_split, platform="all")
+            self.assertEqual(set(all_assets), {xhs_custom, wechat_custom})
+            single_assets = resolve_required_source_assets(brief=brief_split, platform="xhs")
+            self.assertEqual(single_assets, [xhs_custom])
+            fixed_assets = resolve_required_source_assets(brief=brief_with_source_asset, platform="all")
+            self.assertEqual(fixed_assets, [custom_src])
+
+    def test_run_brief_batch_and_platform_preflight(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            # 1. run_platform 入口前置校验
+            non_existent = tmp_path / "does_not_exist.png"
+            with self.assertRaisesRegex(SystemExit, "MISSING_SOURCE_ASSET"):
+                run_platform("xhs", subject_src=non_existent)
+
+            # 2. run_brief_batch 遇到缺失源素材时记录结构化报告而不是崩溃
+            brief_file = tmp_path / "brief_missing.json"
+            brief_file.write_text(
+                json.dumps({
+                    "goal": "时尚封面",
+                    "subject": "东方面孔",
+                    "tone": "冷艳",
+                    "mode": "diag",
+                    "source_asset": str(non_existent),
+                }, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            reports = run_brief_batch(brief_file, platforms=["xhs", "wechat"])
+            self.assertEqual(len(reports), 2)
+            for r in reports:
+                self.assertFalse(r["ok"])
+                self.assertEqual(r["error_class"], "MISSING_SOURCE_ASSET")
+                self.assertIn("does not exist", r["error"])
 
 
 class TestVisionSubjectDetector(unittest.TestCase):

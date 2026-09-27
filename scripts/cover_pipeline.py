@@ -1010,7 +1010,7 @@ def export_pair(png_path: Path | str) -> dict:
 def run_platform(
     platform: str,
     *,
-    subject_src: Path,
+    subject_src: Path | str,
     mode: str = "diag",
     title_a: str = "东方",
     title_b: str = "神颜",
@@ -1020,11 +1020,15 @@ def run_platform(
     title_zone: str = "safe",
     slug: str = "oriental-beauty",
 ) -> dict:
+    preflight = preflight_source_asset(subject_src)
+    if not preflight.get("ok"):
+        raise SystemExit(preflight["err"])
+
     spec = PLATFORMS[platform]
     place = spec.get("place", (0.6, 0.4))
     stem = f"{platform}_{mode}_{title_zone}"
     crop_path = OUT / f"{stem}_subject.png"
-    crop_subject(subject_src, crop_path, spec["ratio"], place=place)
+    crop_subject(Path(subject_src), crop_path, spec["ratio"], place=place)
 
     crop_im = Image.open(crop_path)
     faces_after = detect_faces(str(crop_path))
@@ -1187,15 +1191,18 @@ def run_brief_batch(brief_path: Path, platforms: list[str] | None = None) -> lis
     mode = style.mode if brief.get("mode", "auto") in (None, "auto") else brief.get("mode", style.mode)
     zone = brief.get("title_zone") or style.title_zone_default
 
-    # 底图：优先 brief 指定，否则按规格选已生成源
-    wechat_src = Path(brief["wechat_src"]) if brief.get("wechat_src") else ASSETS_EXP / "_beauty_hero.png"
-    xhs_src = Path(brief["xhs_src"]) if brief.get("xhs_src") else ASSETS_EXP / "_beauty_xhs.png"
-
     reports = []
     for name in plats:
-        src = wechat_src if (PLATFORMS[name].get("src") == "wechat") else xhs_src
-        if not src.exists():
-            print(f"· skip {name}: missing {src}")
+        src = resolve_source_asset_for_platform(name, brief=brief)
+        preflight = preflight_source_asset(src)
+        if not preflight.get("ok"):
+            print(f"· skip {name}: {preflight.get('err')}")
+            reports.append({
+                "platform": name,
+                "ok": False,
+                "error": preflight.get("err"),
+                "error_class": preflight.get("error_class", "MISSING_SOURCE_ASSET"),
+            })
             continue
         try:
             reports.append(run_platform(
@@ -1297,11 +1304,12 @@ def main(argv: list[str] | None = None) -> None:
     platforms = list(PLATFORMS) if args.platform == "all" else [args.platform]
     reports = []
     for name in platforms:
-        src_kind = PLATFORMS[name].get("src", "wechat")
-        if src_kind == "xhs":
-            src = Path(args.xhs_src)
-        else:
-            src = Path(args.wechat_src)
+        src = resolve_source_asset_for_platform(
+            name,
+            brief=brief,
+            wechat_src=args.wechat_src,
+            xhs_src=args.xhs_src,
+        )
         preflight = preflight_source_asset(src)
         if not preflight.get("ok"):
             raise SystemExit(preflight["err"])
