@@ -16,7 +16,7 @@ from pathlib import Path
 
 STUDIO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_KEY_PATH = Path.home() / ".new-api" / "local_key.json"
-DEFAULT_BASE_URL = "http://127.0.0.1:3000/v1"
+DEFAULT_BASE_URL = "http://127.0.0.1:13000/v1"
 UPDATES_PATH = str(STUDIO_ROOT / "data" / "updates.json")
 
 
@@ -45,7 +45,7 @@ def check_new_api_health(
     timeout: float = 5.0,
 ) -> dict:
     """检测 New API 聚合网关探活状态并获取可用模型清单"""
-    raw_base = base_url or os.environ.get("NEW_API_BASE_URL") or DEFAULT_BASE_URL
+    raw_base = base_url or os.environ.get("NEW_API_BASE_URL") or os.environ.get("AGNES_BASE_URL") or DEFAULT_BASE_URL
     raw_base = raw_base.rstrip("/")
     if raw_base.endswith("/v1"):
         url = f"{raw_base}/models"
