@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """纪念碑式高级字排：思源宋/黑 Black + 阿里普惠 Heavy + 真西文。
 
 字当建筑，不只当标签。
@@ -6,58 +7,103 @@
 from __future__ import annotations
 
 import base64
+from html import escape
 import os
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-FONTS = ROOT / "public" / "fonts"
+sys.path.insert(0, str(ROOT / "scripts"))
 
-PUHUI_H = FONTS / "Alibaba-PuHuiTi-Heavy.ttf"
-PUHUI_B = FONTS / "Alibaba-PuHuiTi-Bold.ttf"
-NOTO_SERIF_BLACK = FONTS / "NotoSerifCJKsc-Black.otf"
-NOTO_SANS_BLACK = FONTS / "NotoSansCJKsc-Black.otf"
-NOTO_SERIF_BOLD = FONTS / "NotoSerifCJKsc-Bold.otf"
-SMILEY = FONTS / "SmileySans-Oblique.ttf"
-LXGW = FONTS / "LXGWWenKai-Regular.ttf"
-BODONI = "/System/Library/Fonts/Supplemental/Bodoni 72.ttc"
-DIDOT = "/System/Library/Fonts/Supplemental/Didot.ttc"
-FUTURA = "/System/Library/Fonts/Supplemental/Futura.ttc"
-BASK = "/System/Library/Fonts/Supplemental/Baskerville.ttc"
+from env_config import (
+    PROJECT_ROOT,
+    FONTS_DIR,
+    resolve_chrome_path,
+    resolve_font_path,
+)
 
 
-def b64(p: Path) -> str:
-    data = p.read_bytes()
-    mime = "png" if p.suffix.lower() == ".png" else "jpeg"
-    return f"data:image/{mime};base64,{base64.b64encode(data).decode()}"
+def b64(p: str | Path) -> str:
+    """将图片文件转化为 base64 数据 URI；若已经是 data URI 则直接返回。"""
+    if isinstance(p, str) and p.startswith("data:image/"):
+        return p
+    path = Path(p)
+    if not path.is_file():
+        raise FileNotFoundError(f"Image file not found: {p}")
+    suffix = path.suffix.lower()
+    mime = "png"
+    if suffix in (".jpg", ".jpeg"):
+        mime = "jpeg"
+    elif suffix == ".webp":
+        mime = "webp"
+    elif suffix == ".svg":
+        mime = "svg+xml"
+    elif suffix == ".gif":
+        mime = "gif"
+    return f"data:image/{mime};base64," + base64.b64encode(path.read_bytes()).decode("ascii")
 
 
-def render_html(html: str, out: Path, size=(864, 1152)):
+def sanitize_img_uri(uri: str) -> str:
+    """过滤 URI 中可能引起 CSS 注入的换行与闭合字符。"""
+    return (
+        str(uri or "")
+        .replace("\r", "")
+        .replace("\n", "")
+        .replace("'", "%27")
+        .replace('"', "%22")
+        .replace("<", "%3C")
+        .replace(">", "%3E")
+    )
+
+
+def render_html(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 600) -> Path:
+    """使用 Playwright 渲染 HTML 为高清海报 PNG。"""
+    out_path = Path(out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     from playwright.sync_api import sync_playwright
-    sys.path.insert(0, str(ROOT / "scripts"))
-    from pro_poster_renderer import CHROME_PATH
+
+    chrome_path = resolve_chrome_path()
+    kw = {"headless": True}
+    if chrome_path:
+        kw["executable_path"] = chrome_path
     w, h = size
     with sync_playwright() as p:
-        kw = {"headless": True}
-        if CHROME_PATH:
-            kw["executable_path"] = CHROME_PATH
         browser = p.chromium.launch(**kw)
         page = browser.new_page(viewport={"width": w, "height": h}, device_scale_factor=2)
         page.set_content(html)
-        page.wait_for_timeout(600)
-        page.screenshot(path=str(out), type="png")
+        if timeout_ms > 0:
+            page.wait_for_timeout(timeout_ms)
+        page.screenshot(path=str(out_path), type="png")
         browser.close()
-    print(f"  ✓ {out.name} ({out.stat().st_size//1024} KB)")
+    size_kb = out_path.stat().st_size // 1024 if out_path.exists() else 0
+    print(f"  ✓ {out_path.name} ({size_kb} KB)")
+    return out_path
 
 
-# ---------- 三套「大气」构图 ----------
+# ---------- 三套「大气」构图 HTML 构建器 ----------
 
-def style_monument(image: Path, out: Path, title="夜航", latin="NIGHT VOYAGE", sub="一部还没写完的电影"):
-    """思源宋 Black · 电影纪念碑：巨字顶满宽度，西文细带，竖线分隔。"""
-    img = b64(image)
-    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-      @font-face{{font-family:'NS';src:url('file://{NOTO_SERIF_BLACK}') format('opentype');}}
-      @font-face{{font-family:'PB';src:url('file://{PUHUI_B}') format('truetype');}}
+def build_monument_html(
+    image: str,
+    title: str = "夜航",
+    latin: str = "NIGHT VOYAGE",
+    sub: str = "一部还没写完的电影",
+    year: str = "2026",
+    meta: str = "Agnes Studio · Monument",
+    extra_css: str = "",
+) -> str:
+    """构建【电影纪念碑】海报 HTML。"""
+    safe_title = escape(str(title if title is not None else "夜航"))
+    safe_latin = escape(str(latin if latin is not None else "NIGHT VOYAGE"))
+    safe_sub = escape(str(sub if sub is not None else "一部还没写完的电影"))
+    safe_year = escape(str(year if year is not None else "2026"))
+    safe_meta = escape(str(meta if meta is not None else "Agnes Studio · Monument"))
+
+    ns_font = resolve_font_path("serif")
+    pb_font = resolve_font_path("sans")
+
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+      @font-face{{font-family:'NS';src:url('file://{ns_font}') format('opentype'), url('file://{ns_font}') format('truetype');}}
+      @font-face{{font-family:'PB';src:url('file://{pb_font}') format('truetype'), url('file://{pb_font}') format('opentype');}}
       *{{margin:0;padding:0;box-sizing:border-box}}
       body{{width:864px;height:1152px;overflow:hidden;background:#0B0B0E}}
       .s{{position:relative;width:864px;height:1152px;overflow:hidden}}
@@ -89,23 +135,37 @@ def style_monument(image: Path, out: Path, title="夜航", latin="NIGHT VOYAGE",
         font-size:11px;letter-spacing:.42em;color:rgba(244,240,232,.45);text-transform:uppercase;
       }}
       .year{{position:absolute;right:8%;bottom:8%;font-family:Didot,serif;font-size:28px;letter-spacing:.12em;color:rgba(212,184,150,.9)}}
+      {extra_css}
     </style></head><body><div class="s">
-      <img class="bg" src="{img}"><div class="veil"></div>
-      <div class="latin">{latin}</div>
-      <div class="title">{title}</div>
+      <img class="bg" src="{image}"><div class="veil"></div>
+      <div class="latin">{safe_latin}</div>
+      <div class="title">{safe_title}</div>
       <div class="bar"></div>
-      <div class="sub">{sub}</div>
-      <div class="meta">Agnes Studio · Monument</div>
-      <div class="year">2026</div>
+      <div class="sub">{safe_sub}</div>
+      <div class="meta">{safe_meta}</div>
+      <div class="year">{safe_year}</div>
     </div></body></html>"""
-    render_html(html, out)
 
 
-def style_puhui_mega(image: Path, out: Path, title="夜航", latin="NIGHT VOYAGE"):
-    """阿里普惠 Heavy · 巨字建筑：字占下半屏当图形。"""
-    img = b64(image)
-    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-      @font-face{{font-family:'PH';src:url('file://{PUHUI_H}') format('truetype');}}
+def build_puhui_mega_html(
+    image: str,
+    title: str = "夜航",
+    latin: str = "NIGHT VOYAGE",
+    en_bottom: str | None = None,
+    extra_css: str = "",
+) -> str:
+    """构建【巨字建筑】海报 HTML。"""
+    safe_title = escape(str(title if title is not None else "夜航"))
+    safe_latin = escape(str(latin if latin is not None else "NIGHT VOYAGE"))
+    if en_bottom is None:
+        safe_en = safe_latin
+    else:
+        safe_en = escape(str(en_bottom))
+
+    ph_font = resolve_font_path("sans")
+
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+      @font-face{{font-family:'PH';src:url('file://{ph_font}') format('truetype'), url('file://{ph_font}') format('opentype');}}
       *{{margin:0;padding:0;box-sizing:border-box}}
       body{{width:864px;height:1152px;overflow:hidden;background:#0A0A0C}}
       .s{{position:relative;width:864px;height:1152px;overflow:hidden}}
@@ -130,21 +190,35 @@ def style_puhui_mega(image: Path, out: Path, title="夜航", latin="NIGHT VOYAGE
         font-family:Futura,Avenir,sans-serif;
         font-size:14px;letter-spacing:.52em;color:rgba(212,184,150,.95);text-transform:uppercase;
       }}
+      {extra_css}
     </style></head><body><div class="s">
-      <img class="bg" src="{img}"><div class="fade"></div>
-      <div class="latin">{latin}</div>
-      <div class="title">{title}</div>
-      <div class="en">{latin}</div>
+      <img class="bg" src="{image}"><div class="fade"></div>
+      <div class="latin">{safe_latin}</div>
+      <div class="title">{safe_title}</div>
+      <div class="en">{safe_en}</div>
     </div></body></html>"""
-    render_html(html, out)
 
 
-def style_vertical_epic(image: Path, out: Path, title="夜航", latin="NIGHT VOYAGE", slogan="她把城市调成静音"):
-    """思源宋 · 中轴竖排东方史诗。"""
-    img = b64(image)
-    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-      @font-face{{font-family:'NS';src:url('file://{NOTO_SERIF_BLACK}') format('opentype');}}
-      @font-face{{font-family:'PH';src:url('file://{PUHUI_B}') format('truetype');}}
+def build_vertical_epic_html(
+    image: str,
+    title: str = "夜航",
+    latin: str = "NIGHT VOYAGE",
+    slogan: str = "她把城市调成静音",
+    seal_char: str = "航",
+    extra_css: str = "",
+) -> str:
+    """构建【中轴竖排东方史诗】海报 HTML。"""
+    safe_title = escape(str(title if title is not None else "夜航"))
+    safe_latin = escape(str(latin if latin is not None else "NIGHT VOYAGE"))
+    safe_slogan = escape(str(slogan if slogan is not None else "她把城市调成静音"))
+    safe_seal = escape(str(seal_char if seal_char is not None else "航"))
+
+    ns_font = resolve_font_path("serif")
+    ph_font = resolve_font_path("sans")
+
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+      @font-face{{font-family:'NS';src:url('file://{ns_font}') format('opentype'), url('file://{ns_font}') format('truetype');}}
+      @font-face{{font-family:'PH';src:url('file://{ph_font}') format('truetype'), url('file://{ph_font}') format('opentype');}}
       *{{margin:0;padding:0;box-sizing:border-box}}
       body{{width:864px;height:1152px;overflow:hidden;background:#0A0A0C}}
       .s{{position:relative;width:864px;height:1152px;overflow:hidden}}
@@ -175,27 +249,120 @@ def style_vertical_epic(image: Path, out: Path, title="夜航", latin="NIGHT VOY
         display:flex;align-items:center;justify-content:center;
         font-family:'NS','Songti SC',serif;font-size:20px;
       }}
+      {extra_css}
     </style></head><body><div class="s">
-      <img class="bg" src="{img}"><div class="veil"></div>
-      <div class="lat">{latin}</div>
-      <div class="vtitle">{title}</div>
-      <div class="sl">{slogan}</div>
+      <img class="bg" src="{image}"><div class="veil"></div>
+      <div class="lat">{safe_latin}</div>
+      <div class="vtitle">{safe_title}</div>
+      <div class="sl">{safe_slogan}</div>
       <div class="line"></div>
-      <div class="seal">航</div>
+      <div class="seal">{safe_seal}</div>
     </div></body></html>"""
-    render_html(html, out)
 
 
-def main():
-    base = ROOT / "outputs" / "epic_compare" / "clean_base.png"
-    out = ROOT / "outputs" / "epic_compare"
+# ---------- 三套「大气」构图渲染对外接口 ----------
+
+def style_monument(
+    image: str | Path,
+    out: str | Path,
+    title: str = "夜航",
+    latin: str = "NIGHT VOYAGE",
+    sub: str = "一部还没写完的电影",
+    year: str = "2026",
+    meta: str = "Agnes Studio · Monument",
+    extra_css: str = "",
+    size=(864, 1152),
+    timeout_ms: int = 600,
+) -> Path:
+    """思源宋 Black · 电影纪念碑：巨字顶满宽度，西文细带，竖线分隔。"""
+    img = sanitize_img_uri(b64(image))
+    html = build_monument_html(
+        img,
+        title=title,
+        latin=latin,
+        sub=sub,
+        year=year,
+        meta=meta,
+        extra_css=extra_css,
+    )
+    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+
+
+def style_puhui_mega(
+    image: str | Path,
+    out: str | Path,
+    title: str = "夜航",
+    latin: str = "NIGHT VOYAGE",
+    en_bottom: str | None = None,
+    extra_css: str = "",
+    size=(864, 1152),
+    timeout_ms: int = 600,
+) -> Path:
+    """阿里普惠 Heavy · 巨字建筑：字占下半屏当图形。"""
+    img = sanitize_img_uri(b64(image))
+    html = build_puhui_mega_html(
+        img,
+        title=title,
+        latin=latin,
+        en_bottom=en_bottom,
+        extra_css=extra_css,
+    )
+    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+
+
+def style_vertical_epic(
+    image: str | Path,
+    out: str | Path,
+    title: str = "夜航",
+    latin: str = "NIGHT VOYAGE",
+    slogan: str = "她把城市调成静音",
+    seal_char: str = "航",
+    extra_css: str = "",
+    size=(864, 1152),
+    timeout_ms: int = 600,
+) -> Path:
+    """思源宋 · 中轴竖排东方史诗。"""
+    img = sanitize_img_uri(b64(image))
+    html = build_vertical_epic_html(
+        img,
+        title=title,
+        latin=latin,
+        slogan=slogan,
+        seal_char=seal_char,
+        extra_css=extra_css,
+    )
+    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+
+
+def main(argv=None) -> int:
+    import argparse
+    parser = argparse.ArgumentParser(description="纪念碑式高级字排渲染器")
+    parser.add_argument("--input", "-i", type=str, default=None, help="底图路径")
+    parser.add_argument("--out-dir", "-o", type=str, default=None, help="输出目录")
+    parser.add_argument("--title", type=str, default="夜航", help="主标题")
+    parser.add_argument("--latin", type=str, default="NIGHT VOYAGE", help="西文大标")
+    args = parser.parse_args(argv)
+
+    if args.input:
+        base = Path(args.input)
+    else:
+        base = ROOT / "outputs" / "epic_compare" / "clean_base.png"
+        if not base.exists():
+            base = ROOT / "public" / "assets" / "agnes_1789995698_9987.png"
+
     if not base.exists():
-        raise SystemExit("need clean_base.png")
-    style_monument(base, out / "type_monument_song.png")
-    style_puhui_mega(base, out / "type_puhui_mega.png")
-    style_vertical_epic(base, out / "type_vertical_epic.png")
+        print(f"⚠️ 未找到可用底图: {base}")
+        return 1
+
+    out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "epic_compare")
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    style_monument(base, out_dir / "type_monument_song.png", title=args.title, latin=args.latin)
+    style_puhui_mega(base, out_dir / "type_puhui_mega.png", title=args.title, latin=args.latin)
+    style_vertical_epic(base, out_dir / "type_vertical_epic.png", title=args.title, latin=args.latin)
     print("done")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

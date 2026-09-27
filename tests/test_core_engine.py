@@ -165,6 +165,18 @@ from render_drama_poster import (
     build_chinese_corner_html,
     chinese_corner,
 )
+import render_cn_type_poster
+from render_cn_type_poster import (
+    b64 as cn_b64,
+    sanitize_img_uri as cn_sanitize_img_uri,
+    render_html as cn_render_html,
+    build_monument_html,
+    style_monument,
+    build_puhui_mega_html,
+    style_puhui_mega,
+    build_vertical_epic_html,
+    style_vertical_epic,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -2617,6 +2629,218 @@ class TestRenderDramaPoster(unittest.TestCase):
         mock_shot.return_value = self.tmp_path / "mock_drama.png"
         render_drama_poster.main()
         self.assertEqual(mock_shot.call_count, 3)
+
+
+class TestRenderCnTypePoster(unittest.TestCase):
+    """测试高级中文字排渲染器 render_cn_type_poster 及其三大纪念碑式构图与输入安全防御"""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_b64_with_data_uri(self):
+        raw_uri = "data:image/png;base64,mocked_cn_type_data"
+        result = cn_b64(raw_uri)
+        self.assertEqual(result, raw_uri)
+
+    def test_b64_mime_types(self):
+        types = [
+            ("sample.png", "image/png"),
+            ("sample.jpg", "image/jpeg"),
+            ("sample.jpeg", "image/jpeg"),
+            ("sample.webp", "image/webp"),
+            ("sample.svg", "image/svg+xml"),
+            ("sample.gif", "image/gif"),
+        ]
+        for filename, expected_mime in types:
+            file_p = self.tmp_path / filename
+            file_p.write_bytes(b"\x00\x01\x02\x03")
+            uri = cn_b64(file_p)
+            self.assertTrue(uri.startswith(f"data:{expected_mime};base64,"))
+            uri_str = cn_b64(str(file_p))
+            self.assertTrue(uri_str.startswith(f"data:{expected_mime};base64,"))
+
+    def test_b64_missing_file_raises_filenotfound(self):
+        with self.assertRaises(FileNotFoundError):
+            cn_b64(self.tmp_path / "non_existent_poster.png")
+
+    def test_sanitize_img_uri(self):
+        malicious = "data:image/png;base64,abc\r\ndef'\"<script>"
+        sanitized = cn_sanitize_img_uri(malicious)
+        self.assertNotIn("\r", sanitized)
+        self.assertNotIn("\n", sanitized)
+        self.assertNotIn("'", sanitized)
+        self.assertNotIn('"', sanitized)
+        self.assertNotIn("<", sanitized)
+        self.assertNotIn(">", sanitized)
+        self.assertIn("%27", sanitized)
+        self.assertIn("%22", sanitized)
+        self.assertIn("%3C", sanitized)
+        self.assertIn("%3E", sanitized)
+
+    def test_build_monument_html_escaping_and_custom_text(self):
+        # 1. 默认参数
+        html_default = build_monument_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("NIGHT VOYAGE", html_default)
+        self.assertIn("一部还没写完的电影", html_default)
+        self.assertIn("2026", html_default)
+        self.assertIn("Agnes Studio · Monument", html_default)
+        self.assertIn("font-size:148px", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_monument_html(
+            "data:image/png;base64,abc",
+            title="<纪念碑字体>",
+            latin="MONUMENT & ARCHITECTURE",
+            sub="“空间与文字”",
+            year="2027",
+            meta="Custom <Meta>",
+            extra_css=".custom{opacity:0.9;}",
+        )
+        self.assertNotIn("<纪念碑字体>", html_custom)
+        self.assertIn("&lt;纪念碑字体&gt;", html_custom)
+        self.assertIn("MONUMENT &amp; ARCHITECTURE", html_custom)
+        self.assertIn("“空间与文字”", html_custom)
+        self.assertIn("Custom &lt;Meta&gt;", html_custom)
+        self.assertIn(".custom{opacity:0.9;}", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_monument_html("data:image/png;base64,abc", title=None, latin=None, sub=None, year=None, meta=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("NIGHT VOYAGE", html_none)
+        self.assertIn("一部还没写完的电影", html_none)
+        self.assertIn("2026", html_none)
+        self.assertIn("Agnes Studio · Monument", html_none)
+
+    def test_build_puhui_mega_html_escaping_and_custom_text(self):
+        # 1. 默认参数
+        html_default = build_puhui_mega_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("NIGHT VOYAGE", html_default)
+        self.assertIn("font-size:168px", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_puhui_mega_html(
+            "data:image/png;base64,abc",
+            title="<巨字建筑>",
+            latin="MEGA & BOLD",
+            en_bottom="BOTTOM <LABEL>",
+            extra_css=".mega{display:block;}",
+        )
+        self.assertNotIn("<巨字建筑>", html_custom)
+        self.assertIn("&lt;巨字建筑&gt;", html_custom)
+        self.assertIn("MEGA &amp; BOLD", html_custom)
+        self.assertIn("BOTTOM &lt;LABEL&gt;", html_custom)
+        self.assertIn(".mega{display:block;}", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_puhui_mega_html("data:image/png;base64,abc", title=None, latin=None, en_bottom=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("NIGHT VOYAGE", html_none)
+
+    def test_build_vertical_epic_html_escaping_and_custom_text(self):
+        # 1. 默认参数
+        html_default = build_vertical_epic_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("NIGHT VOYAGE", html_default)
+        self.assertIn("她把城市调成静音", html_default)
+        self.assertIn("航", html_default)
+        self.assertIn("writing-mode:vertical-rl", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_vertical_epic_html(
+            "data:image/png;base64,abc",
+            title="<东方史诗>",
+            latin="EPIC & ORIENT",
+            slogan="千山暮雪 · 寂寥无声",
+            seal_char="印",
+            extra_css=".epic{color:#fff;}",
+        )
+        self.assertNotIn("<东方史诗>", html_custom)
+        self.assertIn("&lt;东方史诗&gt;", html_custom)
+        self.assertIn("EPIC &amp; ORIENT", html_custom)
+        self.assertIn("千山暮雪 · 寂寥无声", html_custom)
+        self.assertIn("印", html_custom)
+        self.assertIn(".epic{color:#fff;}", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_vertical_epic_html("data:image/png;base64,abc", title=None, latin=None, slogan=None, seal_char=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("NIGHT VOYAGE", html_none)
+        self.assertIn("她把城市调成静音", html_none)
+        self.assertIn("航", html_none)
+
+    def test_render_html_mkdir_and_invocation(self):
+        out_target = self.tmp_path / "deep" / "nested" / "cn_type.png"
+        fake_page = MagicMock()
+        fake_browser = MagicMock()
+        fake_browser.new_page.return_value = fake_page
+        fake_chromium = MagicMock()
+        fake_chromium.launch.return_value = fake_browser
+        fake_playwright_ctx = MagicMock()
+        fake_playwright_ctx.chromium = fake_chromium
+        fake_playwright_cm = MagicMock()
+        fake_playwright_cm.__enter__.return_value = fake_playwright_ctx
+
+        def fake_screenshot(path, type="png"):
+            Path(path).write_bytes(b"\x89PNGfake_cn_type")
+
+        fake_page.screenshot.side_effect = fake_screenshot
+
+        with patch("playwright.sync_api.sync_playwright", return_value=fake_playwright_cm):
+            res_path = cn_render_html("<html><body>CnType</body></html>", out_target, timeout_ms=10)
+            self.assertEqual(res_path, out_target)
+            self.assertTrue(out_target.exists())
+            fake_page.set_content.assert_called_once_with("<html><body>CnType</body></html>")
+            fake_page.wait_for_timeout.assert_called_once_with(10)
+            fake_browser.close.assert_called_once()
+
+    @patch("render_cn_type_poster.render_html")
+    def test_style_monument_mega_vertical_integration(self, mock_render):
+        sample_img = self.tmp_path / "base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out.png"
+        mock_render.return_value = out_p
+
+        # 1. style_monument
+        res_m = style_monument(sample_img, out_p, title="纪念碑测试", latin="MONUMENT TEST", sub="副标测试")
+        self.assertEqual(res_m, out_p)
+        mock_render.assert_called()
+        call_html_m = mock_render.call_args[0][0]
+        self.assertIn("纪念碑测试", call_html_m)
+        self.assertIn("MONUMENT TEST", call_html_m)
+        self.assertIn("副标测试", call_html_m)
+
+        # 2. style_puhui_mega
+        res_p = style_puhui_mega(sample_img, out_p, title="巨字测试", latin="MEGA TEST")
+        self.assertEqual(res_p, out_p)
+        call_html_p = mock_render.call_args[0][0]
+        self.assertIn("巨字测试", call_html_p)
+        self.assertIn("MEGA TEST", call_html_p)
+
+        # 3. style_vertical_epic
+        res_v = style_vertical_epic(sample_img, out_p, title="竖排测试", latin="VERTICAL TEST", slogan="标语测试", seal_char="章")
+        self.assertEqual(res_v, out_p)
+        call_html_v = mock_render.call_args[0][0]
+        self.assertIn("竖排测试", call_html_v)
+        self.assertIn("VERTICAL TEST", call_html_v)
+        self.assertIn("标语测试", call_html_v)
+        self.assertIn("章", call_html_v)
+
+    @patch("render_cn_type_poster.render_html")
+    def test_main_execution(self, mock_render):
+        mock_render.return_value = self.tmp_path / "mock_cn_type.png"
+        ret = render_cn_type_poster.main([])
+        self.assertEqual(ret, 0)
+        self.assertEqual(mock_render.call_count, 3)
+
+    def test_main_missing_input_returns_nonzero(self):
+        ret = render_cn_type_poster.main(["--input", str(self.tmp_path / "does_not_exist.png")])
+        self.assertEqual(ret, 1)
 
 
 if __name__ == "__main__":
