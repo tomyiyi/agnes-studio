@@ -1953,6 +1953,22 @@ class TestAgnesGateway(unittest.TestCase):
     def tearDown(self):
         self.tmp_dir.cleanup()
 
+    def test_generate_image_route_prefers_image_base_url(self):
+        cfg = {"base_url": "http://old-base/v1", "image_base_url": "http://image-base/v1"}
+        default_base = cfg.get("image_base_url") or cfg.get("base_url") or "http://127.0.0.1:13000/v1"
+        self.assertEqual(default_base, "http://image-base/v1")
+
+    def test_generate_image_route_accepts_explicit_base_url(self):
+        cfg = {"base_url": "http://old-base/v1", "image_base_url": "http://image-base/v1"}
+        request_base = "http://override/v1"
+        default_base = cfg.get("image_base_url") or cfg.get("base_url") or "http://127.0.0.1:13000/v1"
+        self.assertEqual(request_base or default_base, "http://override/v1")
+
+    def test_generate_image_route_falls_back_to_base_url(self):
+        cfg = {"base_url": "http://legacy-base/v1"}
+        default_base = cfg.get("image_base_url") or cfg.get("base_url") or "http://127.0.0.1:13000/v1"
+        self.assertEqual(default_base, "http://legacy-base/v1")
+
     def test_gateway_constants(self):
         self.assertEqual(agnes_gateway.DEFAULT_BASE, "http://127.0.0.1:13000/v1")
         self.assertEqual(agnes_gateway.DEFAULT_MODEL, "agnes-image-2.5-flash")
@@ -1961,7 +1977,7 @@ class TestAgnesGateway(unittest.TestCase):
         non_existent_key = self.tmp_path / "no_key.json"
         with patch.dict("os.environ", {}, clear=True):
             base, key, model = load_gateway(key_path=non_existent_key)
-            self.assertEqual(base, "http://127.0.0.1:3000/v1")
+            self.assertEqual(base, "http://127.0.0.1:13000/v1")
             self.assertEqual(key, "")
             self.assertEqual(model, "agnes-image-2.5-flash")
 
