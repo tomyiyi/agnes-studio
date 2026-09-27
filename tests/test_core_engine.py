@@ -177,6 +177,20 @@ from render_cn_type_poster import (
     build_vertical_epic_html,
     style_vertical_epic,
 )
+import render_layout_poster
+from render_layout_poster import (
+    b64 as layout_b64,
+    sanitize_img_uri as layout_sanitize_img_uri,
+    render_html as layout_render_html,
+    build_swiss_asym_html,
+    layout_swiss_asym,
+    build_type_band_html,
+    layout_type_band,
+    build_axis_tension_html,
+    layout_axis_tension,
+    build_window_editorial_html,
+    layout_window_editorial,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -2840,6 +2854,288 @@ class TestRenderCnTypePoster(unittest.TestCase):
 
     def test_main_missing_input_returns_nonzero(self):
         ret = render_cn_type_poster.main(["--input", str(self.tmp_path / "does_not_exist.png")])
+        self.assertEqual(ret, 1)
+
+
+class TestRenderLayoutPoster(unittest.TestCase):
+    """测试海报「设计排版」范式库渲染器 render_layout_poster 及其 4 大版式系统与安全防御"""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_b64_with_data_uri(self):
+        raw_uri = "data:image/png;base64,mocked_layout_data"
+        result = layout_b64(raw_uri)
+        self.assertEqual(result, raw_uri)
+
+    def test_b64_mime_types(self):
+        types = [
+            ("sample.png", "image/png"),
+            ("sample.jpg", "image/jpeg"),
+            ("sample.jpeg", "image/jpeg"),
+            ("sample.webp", "image/webp"),
+            ("sample.svg", "image/svg+xml"),
+            ("sample.gif", "image/gif"),
+        ]
+        for filename, expected_mime in types:
+            file_p = self.tmp_path / filename
+            file_p.write_bytes(b"\x00\x01\x02\x03")
+            uri = layout_b64(file_p)
+            self.assertTrue(uri.startswith(f"data:{expected_mime};base64,"))
+            uri_str = layout_b64(str(file_p))
+            self.assertTrue(uri_str.startswith(f"data:{expected_mime};base64,"))
+
+    def test_b64_missing_file_raises_filenotfound(self):
+        with self.assertRaises(FileNotFoundError):
+            layout_b64(self.tmp_path / "non_existent_layout.png")
+
+    def test_sanitize_img_uri(self):
+        malicious = "data:image/png;base64,layout\r\ndef'\"<script>"
+        sanitized = layout_sanitize_img_uri(malicious)
+        self.assertNotIn("\r", sanitized)
+        self.assertNotIn("\n", sanitized)
+        self.assertNotIn("'", sanitized)
+        self.assertNotIn('"', sanitized)
+        self.assertNotIn("<", sanitized)
+        self.assertNotIn(">", sanitized)
+        self.assertIn("%27", sanitized)
+        self.assertIn("%22", sanitized)
+        self.assertIn("%3C", sanitized)
+        self.assertIn("%3E", sanitized)
+
+    def test_build_swiss_asym_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_swiss_asym_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage", html_default)
+        self.assertIn("她把城市调成静音", html_default)
+        self.assertIn("Swiss · Asym", html_default)
+        self.assertIn("01", html_default)
+        self.assertIn(".colL", html_default)
+        self.assertIn(".colR", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_swiss_asym_html(
+            "data:image/png;base64,abc",
+            title="<瑞士非对称>",
+            latin="SWISS & ASYM",
+            slogan="“网格与秩序”",
+            system_tag="Tag <Special>",
+            num="99",
+            extra_css=".custom_swiss{opacity:0.8;}",
+        )
+        self.assertNotIn("<瑞士非对称>", html_custom)
+        self.assertIn("&lt;瑞士非对称&gt;", html_custom)
+        self.assertIn("SWISS &amp; ASYM", html_custom)
+        self.assertIn("“网格与秩序”", html_custom)
+        self.assertIn("Tag &lt;Special&gt;", html_custom)
+        self.assertIn("99", html_custom)
+        self.assertIn(".custom_swiss{opacity:0.8;}", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_swiss_asym_html(
+            "data:image/png;base64,abc",
+            title=None,
+            latin=None,
+            slogan=None,
+            system_tag=None,
+            num=None,
+        )
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage", html_none)
+        self.assertIn("她把城市调成静音", html_none)
+        self.assertIn("Swiss · Asym", html_none)
+        self.assertIn("01", html_none)
+
+    def test_build_type_band_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_type_band_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage", html_default)
+        self.assertIn("一部还没写完的电影", html_default)
+        self.assertIn("Layout 02<br>Band / Field", html_default)
+        self.assertIn(".band", html_default)
+        self.assertIn(".field", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_type_band_html(
+            "data:image/png;base64,abc",
+            title="<上字带>",
+            latin="TYPE & BAND",
+            slogan="视觉与信息的分区<测试>",
+            tag="Custom Band<br>Sub & Line",
+            extra_css=".band_custom{top:10%;}",
+        )
+        self.assertNotIn("<上字带>", html_custom)
+        self.assertIn("&lt;上字带&gt;", html_custom)
+        self.assertIn("TYPE &amp; BAND", html_custom)
+        self.assertIn("视觉与信息的分区&lt;测试&gt;", html_custom)
+        self.assertIn("Custom Band<br>Sub &amp; Line", html_custom)
+        self.assertIn(".band_custom{top:10%;}", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_type_band_html(
+            "data:image/png;base64,abc",
+            title=None,
+            latin=None,
+            slogan=None,
+            tag=None,
+        )
+        self.assertIn("夜航", html_none)
+        self.assertIn("一部还没写完的电影", html_none)
+
+    def test_build_axis_tension_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_axis_tension_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage", html_default)
+        self.assertIn("她把城市调成静音", html_default)
+        self.assertIn("MMXXVI", html_default)
+        self.assertIn("Agnes Layout · Diagonal", html_default)
+        self.assertIn(".veil", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_axis_tension_html(
+            "data:image/png;base64,abc",
+            title="<对角张力>",
+            latin="AXIS & TENSION",
+            slogan="城市声浪 · 极速留白",
+            year_text="2027",
+            tag="Diagonal <V2>",
+            extra_css=".diag{color:gold;}",
+        )
+        self.assertNotIn("<对角张力>", html_custom)
+        self.assertIn("&lt;对角张力&gt;", html_custom)
+        self.assertIn("AXIS &amp; TENSION", html_custom)
+        self.assertIn("2027", html_custom)
+        self.assertIn("Diagonal &lt;V2&gt;", html_custom)
+        self.assertIn(".diag{color:gold;}", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_axis_tension_html(
+            "data:image/png;base64,abc",
+            title=None,
+            latin=None,
+            slogan=None,
+            year_text=None,
+            tag=None,
+        )
+        self.assertIn("夜航", html_none)
+        self.assertIn("MMXXVI", html_none)
+        self.assertIn("Agnes Layout · Diagonal", html_none)
+
+    def test_build_window_editorial_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_window_editorial_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage", html_default)
+        self.assertIn("一部还没写完的电影", html_default)
+        self.assertIn("No.01", html_default)
+        self.assertIn("writing-mode:vertical-rl", html_default)
+        self.assertIn(".paper", html_default)
+        self.assertIn(".spine", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_window_editorial_html(
+            "data:image/png;base64,abc",
+            title="<杂志开窗>",
+            latin="WINDOW & EDITORIAL",
+            slogan="书脊与版心",
+            idx_text="Vol.<05>",
+            extra_css=".win_custom{padding:10px;}",
+        )
+        self.assertNotIn("<杂志开窗>", html_custom)
+        self.assertIn("&lt;杂志开窗&gt;", html_custom)
+        self.assertIn("WINDOW &amp; EDITORIAL", html_custom)
+        self.assertIn("书脊与版心", html_custom)
+        self.assertIn("Vol.&lt;05&gt;", html_custom)
+        self.assertIn(".win_custom{padding:10px;}", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_window_editorial_html(
+            "data:image/png;base64,abc",
+            title=None,
+            latin=None,
+            slogan=None,
+            idx_text=None,
+        )
+        self.assertIn("夜航", html_none)
+        self.assertIn("No.01", html_none)
+
+    def test_render_html_mkdir_and_invocation(self):
+        out_target = self.tmp_path / "deep" / "nested" / "layout.png"
+        fake_page = MagicMock()
+        fake_browser = MagicMock()
+        fake_browser.new_page.return_value = fake_page
+        fake_chromium = MagicMock()
+        fake_chromium.launch.return_value = fake_browser
+        fake_playwright_ctx = MagicMock()
+        fake_playwright_ctx.chromium = fake_chromium
+        fake_playwright_cm = MagicMock()
+        fake_playwright_cm.__enter__.return_value = fake_playwright_ctx
+
+        def fake_screenshot(path, type="png"):
+            Path(path).write_bytes(b"\x89PNGfake_layout")
+
+        fake_page.screenshot.side_effect = fake_screenshot
+
+        with patch("playwright.sync_api.sync_playwright", return_value=fake_playwright_cm):
+            res_path = layout_render_html("<html><body>Layout</body></html>", out_target, timeout_ms=10)
+            self.assertEqual(res_path, out_target)
+            self.assertTrue(out_target.exists())
+            fake_page.set_content.assert_called_once_with("<html><body>Layout</body></html>")
+            fake_page.wait_for_timeout.assert_called_once_with(10)
+            fake_browser.close.assert_called_once()
+
+    @patch("render_layout_poster.render_html")
+    def test_all_layout_functions_integration(self, mock_render):
+        sample_img = self.tmp_path / "base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out.png"
+        mock_render.return_value = out_p
+
+        # 1. layout_swiss_asym
+        res1 = layout_swiss_asym(sample_img, out_p, title="瑞士测试", latin="SWISS TEST")
+        self.assertEqual(res1, out_p)
+        mock_render.assert_called()
+        call_html1 = mock_render.call_args[0][0]
+        self.assertIn("瑞士测试", call_html1)
+        self.assertIn("SWISS TEST", call_html1)
+
+        # 2. layout_type_band
+        res2 = layout_type_band(sample_img, out_p, title="字带测试", latin="BAND TEST")
+        self.assertEqual(res2, out_p)
+        call_html2 = mock_render.call_args[0][0]
+        self.assertIn("字带测试", call_html2)
+        self.assertIn("BAND TEST", call_html2)
+
+        # 3. layout_axis_tension
+        res3 = layout_axis_tension(sample_img, out_p, title="张力测试", latin="TENSION TEST")
+        self.assertEqual(res3, out_p)
+        call_html3 = mock_render.call_args[0][0]
+        self.assertIn("张力测试", call_html3)
+        self.assertIn("TENSION TEST", call_html3)
+
+        # 4. layout_window_editorial
+        res4 = layout_window_editorial(sample_img, out_p, title="开窗测试", latin="WINDOW TEST")
+        self.assertEqual(res4, out_p)
+        call_html4 = mock_render.call_args[0][0]
+        self.assertIn("开窗测试", call_html4)
+        self.assertIn("WINDOW TEST", call_html4)
+
+    @patch("render_layout_poster.render_html")
+    def test_main_execution(self, mock_render):
+        mock_render.return_value = self.tmp_path / "mock_layout.png"
+        ret = render_layout_poster.main([])
+        self.assertEqual(ret, 0)
+        self.assertEqual(mock_render.call_count, 4)
+
+    def test_main_missing_input_returns_nonzero(self):
+        ret = render_layout_poster.main(["--input", str(self.tmp_path / "does_not_exist.png")])
         self.assertEqual(ret, 1)
 
 
