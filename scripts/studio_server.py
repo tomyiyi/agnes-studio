@@ -37,6 +37,28 @@ def ensure_venv():
 PUBLIC_DIR = DIR / "public"
 ASSETS_DIR = PUBLIC_DIR / "assets"
 
+SKILLS_71_PATH = DIR / "data" / "skills_71_index.json"
+SKILLS_DATA_PATH = DIR / "data" / "skills.json"
+
+def load_skills_catalog():
+    with SKILLS_71_PATH.open(encoding="utf-8") as handle:
+        skills = json.load(handle)
+    with SKILLS_DATA_PATH.open(encoding="utf-8") as handle:
+        categories = json.load(handle)
+    normalized = []
+    for item in skills.get("skills", []):
+        normalized.append({
+            "id": item["id"],
+            "name": item.get("display_name") or item["id"],
+            "call": item.get("declared_skill_name") or item.get("repo_name") or item["id"],
+            "group": item.get("group") or "未分类",
+            "style": item.get("style") or "",
+            "scope": item.get("scope") or "",
+            "thumb": None,
+            "hifi": False,
+        })
+    return {"success": True, "skills71": normalized, "categories": categories.get("categories", [])}
+
 def list_rendered_posters(root=ASSETS_DIR, limit=20):
     items = []
     root = Path(root)
@@ -212,6 +234,13 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         if parsed_path == "/api/rendered-posters":
             self._send_json({"success": True, "items": list_rendered_posters()})
+            return
+
+        if parsed_path == "/api/skills-catalog":
+            try:
+                self._send_json(load_skills_catalog())
+            except (OSError, KeyError, TypeError, ValueError) as exc:
+                self._send_json({"success": False, "error": f"技能目录读取失败: {exc}"}, status=500)
             return
         if parsed_path == "/api/config":
             cfg = get_local_newapi_config()

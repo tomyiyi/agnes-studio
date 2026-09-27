@@ -1715,6 +1715,8 @@
     const SKILL71_GALLERY = [];
     const MASTER_CATEGORIES = [{"id": "all", "name": "全部作品全景", "count": 96}, {"id": "asian-portraits", "name": "亚洲美人写真", "count": 26}, {"id": "character-consistency", "name": "角色一致性 (同一人跨场景)", "count": 4}, {"id": "fullbody-fashion", "name": "全身站姿与高级时装", "count": 4}, {"id": "commercial-posters", "name": "动漫概念海报 (中文矢量排版)", "count": 14}, {"id": "infographics", "name": "Bento 便当格信息图", "count": 1}, {"id": "product-commercial", "name": "商业静物与产品摄影", "count": 1}, {"id": "3d-assets", "name": "3D 黏土资产与盲盒", "count": 1}, {"id": "gpt-portrait", "name": "GPT 人像写真", "count": 28}, {"id": "gpt-commercial", "name": "GPT 商业广告", "count": 14}, {"id": "gpt-poster", "name": "GPT 海报", "count": 2}, {"id": "gpt-infographic", "name": "GPT 信息图", "count": 1}];
     const ALL_GALLERY = [...GPT_AGNES_GALLERY, ...MASTER_GALLERY, ...(typeof SKILL71_GALLERY !== 'undefined' ? SKILL71_GALLERY : [])];
+    let SKILLS71 = [];
+    let SKILLS_DATA = [];
     const ECOSYSTEM_DATA = [{"id": "understand_anything", "name": "Understand-Anything", "category": "多模态理解 · 万能解析", "version": "community", "status": "listed", "github": "https://github.com/tomyiyi/Understand-Anything", "features": ["任意模态内容理解与结构化解析", "与 Agent 工作流/知识库协同", "可作为封面简报理解与素材入库前置"]}, {"id": "new_api_gateway", "name": "New API 聚合网关", "category": "模型路由与负载均衡", "version": "v1.0.0-rc.34", "status": "healthy", "github": "https://github.com/QuantumNous/new-api", "endpoint": "http://127.0.0.1:3000", "upstream_count": 6, "upstream_type": "Agnes 免费/官方多 Key 聚合池（Hub-01..06）", "features": ["6 渠道阶梯权重动态分发 (Weight 5~1)", "连续 3 次失败自动熔断 (Auto-Disable)", "自动探活自愈 (Auto-Enable)", "全局重试优化 (RetryTimes: 3)", "封面流水线统一走此网关轮换生图"], "docs": "local-newapi-agnes-setup.md"}, {"id": "agent_reach", "name": "Agent Reach 联网采集", "category": "数据与信息检索", "version": "v0.3.0", "status": "installed", "github": "https://github.com/Panniantong/Agent-Reach", "repo": "Panniantong/Agent-Reach", "local_path": "/Users/tom/.zcode/skills/agent-reach", "features": ["Jina Reader 免 Key 网页深度解析", "YouTube / Bilibili 跨平台视频字幕抓取", "全网热点与知识信息流自动汇聚"]}, {"id": "graphify", "name": "Graphify 代码知识图谱", "category": "AST 分析与知识图谱", "version": "v0.4.5", "status": "installed", "github": "https://github.com/Graphify-Labs/graphify", "repo": "Graphify-Labs/graphify", "local_path": "/Users/tom/.zcode/skills/graphify", "features": ["Tree-sitter 确定性语法树解析", "Leiden 算法无向量社区聚类", "架构上帝节点与潜在坏味道探测"]}, {"id": "browser_use", "name": "Browser-Use 自动化代理", "category": "浏览器自主运行智能体", "version": "v0.1.37", "status": "installed", "github": "https://github.com/browser-use/browser-use", "venv_path": "/Users/tom/.browser-use/venv", "features": ["Playwright 浏览器异步底层接管", "DOM 树视觉多模态定位与交互", "端到端自动化表单填写与截图验证"]}, {"id": "tabbit_devtools", "name": "Tabbit Native 控制桥", "category": "宿主浏览器零侵入控制", "version": "v1.0.0", "status": "active", "github": null, "app_path": "/Applications/Tabbit Browser.app", "features": ["AppleScript / CLI 零侵入读取活跃标签页", "macOS Accessibility 辅助功能精准交互", "本地 HTML 画廊实时一键加载展示"], "note": "本机 App，暂无公开 GitHub 仓库"}, {"id": "copywriting", "name": "中文文案排版指北", "category": "排印规范 · 工艺源", "version": "15k+ ★", "status": "wired", "github": "https://github.com/sparanoid/chinese-copywriting-guidelines", "features": ["中英文之间加空格", "全形中文标点", "直角引号「」"], "wired_to": "scripts/copywriting_rules.py"}, {"id": "pangu", "name": "pangu.js 盘古之白", "category": "排印规范 · 自动化", "version": "auto-spacing", "status": "wired", "github": "https://github.com/vinta/pangu.js", "features": ["CJK 与英文数字自动插空", "cover_pipeline 出图前 lint/fix"], "wired_to": "scripts/copywriting_rules.py"}, {"id": "smiley_sans", "name": "得意黑 Smiley Sans", "category": "中文字体 · 显示体", "version": "14k+ ★ SIL OFL", "status": "in_use", "github": "https://github.com/atelier-anchor/smiley-sans", "features": ["窄斜体高冲击主标", "电影感/大字报适用"]}, {"id": "lxgw_wenkai", "name": "霞鹜文楷 LXGW WenKai", "category": "中文字体 · 诗性正文", "version": "26k+ ★ SIL OFL", "status": "in_use", "github": "https://github.com/lxgw/LxgwWenKai", "features": ["日系温润楷体", "slogan / 新中式"]}, {"id": "posterdown", "name": "posterdown · HTML 海报", "category": "HTML/CSS 海报生成工艺", "version": "881 ★", "status": "method", "github": "https://github.com/brentthorne/posterdown", "features": ["Rmd/HTML→PDF 海报", "可打印栅格排版参考"]}, {"id": "posterly", "name": "posterly · 单文件海报", "category": "HTML/CSS 海报生成工艺", "version": "410 ★", "status": "method", "github": "https://github.com/Chenruishuo/posterly", "features": ["单 HTML/CSS 成稿", "学术/工作坊版式参考"]}, {"id": "pagedjs", "name": "paged.js 分页排版", "category": "印刷级分页引擎", "version": "1.5k+ ★", "status": "method", "github": "https://github.com/pagedjs/pagedjs", "features": ["浏览器分页/出血/天头地脚", "长图/册页扩展方向"]}, {"id": "muller_brockmann", "name": "ResponsiveMullerBrockmann", "category": "瑞士网格 · 构图源", "version": "教学用", "status": "method", "github": "https://github.com/laurasandoval/ResponsiveMullerBrockmann", "features": ["12 栏栅格", "非对称留白"]}, {"id": "article_poster", "name": "article-poster-generator", "category": "杂志信息图 · 构图源", "version": "实战", "status": "method", "github": "https://github.com/tengj/article-poster-generator", "features": ["长文封面构图", "信息层级"]}];
 
     let currentCategory = 'all';
@@ -2306,6 +2308,15 @@
       navigator.clipboard.writeText(text).then(() => alert('转译提示词已成功复制！'));
     }
 
+
+    async function loadSkillsCatalog() {
+      const res = await fetch('/api/skills-catalog');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'skills catalog load failed');
+      SKILLS71 = Array.isArray(data.skills71) ? data.skills71 : [];
+      SKILLS_DATA = Array.isArray(data.categories) ? data.categories : [];
+      renderSkills();
+    }
 
     function renderSkills71() {
       const grid = document.getElementById('skills71-grid');
@@ -2984,11 +2995,11 @@ function renderSkills() {
     window.onload = function() {
       renderCategoryTabs();
       renderGallery();
-      renderSkills();
       renderEcosystem();
       setupSlider();
       loadSamplePreset('steampunk');
       loadStudioConfig().finally(() => loadGeneratedBackgrounds());
+      loadSkillsCatalog().catch(err => console.error('loadSkillsCatalog', err));
       if (window.location.hash) {
         const tab = window.location.hash.replace('#', '');
         if (['gallery', 'poster-studio', 'skills', 'ecosystem', 'sentinel'].includes(tab)) {
