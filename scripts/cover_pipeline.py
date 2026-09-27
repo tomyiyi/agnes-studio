@@ -126,6 +126,8 @@ PALETTE = {
 def classify_generation_error(error: object) -> str:
     """将网关/认证/业务失败分层，避免把 502 误报成底图生图失败。"""
     text = str(error or "").lower()
+    if "missing_source_asset" in text:
+        return "MISSING_SOURCE_ASSET"
     if "http 502" in text or "bad gateway" in text:
         return "gateway_502"
     if any(token in text for token in ("http 401", "http 403", "unauthorized", "forbidden", "token_rejected")):
@@ -133,6 +135,107 @@ def classify_generation_error(error: object) -> str:
     if "timeout" in text or "timed out" in text:
         return "timeout"
     return "generation_error"
+
+
+def preflight_source_asset(path: Path | str | None) -> dict[str, Any]:
+    """检查本地源素材是否存在、为普通文件且具备可读权限。"""
+    if path is None or not str(path).strip():
+        missing = str(path or "")
+        return {
+            "ok": False,
+            "error_class": "MISSING_SOURCE_ASSET",
+            "err": "MISSING_SOURCE_ASSET: empty path",
+            "missing_path": missing,
+        }
+    p = Path(path)
+    if not p.exists():
+        return {
+            "ok": False,
+            "error_class": "MISSING_SOURCE_ASSET",
+            "err": f"MISSING_SOURCE_ASSET: {p} does not exist",
+            "missing_path": str(p),
+        }
+    if not p.is_file():
+        return {
+            "ok": False,
+            "error_class": "MISSING_SOURCE_ASSET",
+            "err": f"MISSING_SOURCE_ASSET: {p} is not a regular file",
+            "missing_path": str(p),
+        }
+    if not os.access(p, os.R_OK):
+        return {
+            "ok": False,
+            "error_class": "MISSING_SOURCE_ASSET",
+            "err": f"MISSING_SOURCE_ASSET: {p} is not readable",
+            "missing_path": str(p),
+        }
+    return {
+        "ok": True,
+        "path": str(p),
+    }
+
+
+def preflight_source_assets(paths: list[Path | str]) -> dict[str, Any]:
+    """批量检查源素材文件列表。"""
+    for p in paths:
+        res = preflight_source_asset(p)
+        if not res.get("ok"):
+            return res
+    return {"ok": True}
+
+
+def resolve_source_asset_for_platform(
+    platform: str,
+    brief: dict | None = None,
+    wechat_src: Path | str | None = None,
+    xhs_src: Path | str | None = None,
+) -> Path:
+    """解析指定平台实际引用的本地源素材路径。"""
+    brief = brief or {}
+    for key in ("source_asset", "subject_src", "src"):
+        if brief.get(key):
+            return Path(brief[key])
+
+    spec = PLATFORMS.get(platform, {})
+    src_kind = spec.get("src", "wechat") if platform != "all" else "wechat"
+    if src_kind == "xhs":
+        if brief.get("xhs_src"):
+            return Path(brief["xhs_src"])
+        if xhs_src:
+            return Path(xhs_src)
+        return ASSETS_EXP / "_beauty_xhs.png"
+    else:
+        if brief.get("wechat_src"):
+            return Path(brief["wechat_src"])
+        if wechat_src:
+            return Path(wechat_src)
+        return ASSETS_EXP / "_beauty_hero.png"
+
+
+def resolve_required_source_assets(
+    brief: dict | None = None,
+    platform: str | None = "all",
+    wechat_src: Path | str | None = None,
+    xhs_src: Path | str | None = None,
+) -> list[Path]:
+    """解析当前 brief 或平台集合实际需要引用的全部本地源素材路径。"""
+    brief = brief or {}
+    for key in ("source_asset", "subject_src", "src"):
+        if brief.get(key):
+            return [Path(brief[key])]
+
+    target_plats = [platform] if platform and platform != "all" else (
+        [brief["platform"]] if brief.get("platform") and brief["platform"] in PLATFORMS else list(PLATFORMS)
+    )
+
+    resolved: list[Path] = []
+    seen = set()
+    for p in target_plats:
+        src_path = resolve_source_asset_for_platform(p, brief=brief, wechat_src=wechat_src, xhs_src=xhs_src)
+        if str(src_path) not in seen:
+            seen.add(str(src_path))
+            resolved.append(src_path)
+    return resolved
 
 
 def generate_cover_subject(
@@ -145,6 +248,7 @@ def generate_cover_subject(
     dry_run: bool = False,
     generate_fn: Any = None,
     save_image_fn: Any = None,
+    source_asset: Path | str | None = None,
 ) -> dict[str, Any]:
     """生成单张封面底图人物摄影样张。"""
     if not prompt or not str(prompt).strip():
@@ -163,8 +267,8 @@ def generate_cover_subject(
         }
 
     target_path = Path(out_path)
-    target_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # 1. 已有大目标文件 skip 语义保持 (仅在 not force 且文件存在时)
     if target_path.is_file() and not force:
         size_bytes = target_path.stat().st_size
         if size_bytes > 20_000:
@@ -175,6 +279,14 @@ def generate_cover_subject(
                 "size_kb": size_bytes // 1024,
             }
 
+    # 2. preflight 源素材校验 (在 subject generation/statistics 之前)
+    # dry-run、真实执行、force 共用同一 preflight
+    if source_asset is not None:
+        pre = preflight_source_asset(source_asset)
+        if not pre.get("ok"):
+            return pre
+
+    # 3. dry-run (必须在 preflight 通过之后)
     if dry_run:
         return {
             "ok": True,
@@ -182,6 +294,9 @@ def generate_cover_subject(
             "path": str(target_path),
             "size_kb": 0,
         }
+
+    # 4. 创建目标目录 (在 preflight 通过之后，避免缺素材时创建输出)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
 
     gen = generate_fn or generate
     saver = save_image_fn or save_image
@@ -1138,6 +1253,12 @@ def main(argv: list[str] | None = None) -> None:
                 size=size_hint,
                 force=args.force,
                 dry_run=args.dry_run,
+                source_asset=resolve_source_asset_for_platform(
+                    brief.get("platform") or args.platform,
+                    brief=brief,
+                    wechat_src=args.wechat_src,
+                    xhs_src=args.xhs_src,
+                ),
             )
             if not res.get("ok"):
                 print(f"❌ [generate] {res.get('err')} ({res.get('error_class')})", file=sys.stderr)
@@ -1181,8 +1302,9 @@ def main(argv: list[str] | None = None) -> None:
             src = Path(args.xhs_src)
         else:
             src = Path(args.wechat_src)
-        if not src.exists():
-            raise SystemExit(f"missing subject: {src}")
+        preflight = preflight_source_asset(src)
+        if not preflight.get("ok"):
+            raise SystemExit(preflight["err"])
         mode = (style.mode if style and brief.get("mode", "auto") == "auto" else args.mode) if style else args.mode
         # 简报文案覆盖
         kwargs = {'slug': args.slug}

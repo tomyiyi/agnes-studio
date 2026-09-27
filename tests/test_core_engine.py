@@ -1154,8 +1154,17 @@ class TestCoverPipeline(unittest.TestCase):
                 }, ensure_ascii=False),
                 encoding="utf-8",
             )
-            # 测试 --generate --dry-run 正常完成退出
-            cover_pipeline.main(["--brief", str(brief_file), "--generate", "--dry-run"])
+            # 缺少平台源素材时，dry-run 也必须在生成前稳定失败
+            with self.assertRaisesRegex(SystemExit, "MISSING_SOURCE_ASSET"):
+                cover_pipeline.main(["--brief", str(brief_file), "--generate", "--dry-run"])
+
+            # 提供可读源素材后，dry-run 才能正常完成且不创建目标
+            source_file = tmp_path / "source.png"
+            source_file.write_bytes(b"source")
+            cover_pipeline.main([
+                "--brief", str(brief_file), "--xhs-src", str(source_file),
+                "--generate", "--dry-run",
+            ])
 
             # 测试 --generate 失败时干净退出
             def mock_failing_gen(*args, **kwargs):
