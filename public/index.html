@@ -2387,13 +2387,27 @@ function renderSkills() {
     }
 
     // ==================== 模型网关与后台设置控制器 ====================
+    const DEFAULT_IMAGE_BASE_URL = 'http://127.0.0.1:13000/v1';
+
     let studioConfig = {
-      base_url: 'http://192.168.1.164:3000/v1',
+      base_url: DEFAULT_IMAGE_BASE_URL,
+      image_base_url: DEFAULT_IMAGE_BASE_URL,
       chat_base_url: 'http://127.0.0.1:18045/v1',
       api_key: '',
       model: 'agnes-image-2.5-flash',
       image_size: '1024x1024'
     };
+
+    function resolveFrontendImageBase(serverConfig = {}, savedConfig = null) {
+      const saved = savedConfig || {};
+      return (
+        saved.image_base_url ||
+        saved.base_url ||
+        serverConfig.image_base_url ||
+        serverConfig.base_url ||
+        DEFAULT_IMAGE_BASE_URL
+      ).replace(/\/+$/, '');
+    }
 
     function openSettingsModal() {
       const saved = localStorage.getItem('agnes_studio_config');
@@ -2477,9 +2491,13 @@ function renderSkills() {
           const data = await res.json();
           const localSaved = localStorage.getItem('agnes_studio_config');
           if (localSaved) {
-            studioConfig = Object.assign({}, data, JSON.parse(localSaved));
+            const savedConfig = JSON.parse(localSaved);
+            studioConfig = Object.assign({}, data, savedConfig);
+            studioConfig.image_base_url = resolveFrontendImageBase(data, savedConfig);
+            if (!savedConfig.base_url) studioConfig.base_url = studioConfig.image_base_url;
           } else {
-            studioConfig.base_url = data.image_base_url || data.base_url || 'http://192.168.1.164:3000/v1';
+            studioConfig.image_base_url = resolveFrontendImageBase(data);
+            studioConfig.base_url = studioConfig.image_base_url;
             studioConfig.chat_base_url = data.chat_base_url || 'http://127.0.0.1:18045/v1';
             studioConfig.api_key = '';
             studioConfig.has_api_key = !!data.has_api_key;
@@ -2591,7 +2609,9 @@ function renderSkills() {
       const elModel = document.getElementById('setting-default-model');
       const elSize = document.getElementById('setting-image-size');
 
-      studioConfig.base_url = elBase ? elBase.value.trim() : 'http://127.0.0.1:3000/v1';
+      const enteredBase = elBase ? elBase.value.trim() : DEFAULT_IMAGE_BASE_URL;
+      studioConfig.base_url = enteredBase;
+      studioConfig.image_base_url = enteredBase;
       studioConfig.api_key = elKey ? elKey.value.trim() : '';
       studioConfig.model = elModel ? elModel.value : 'agnes-image-2.5-flash';
       studioConfig.image_size = elSize ? elSize.value : '1024x1024';
@@ -2767,7 +2787,7 @@ function renderSkills() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            base_url: studioConfig.base_url || 'http://192.168.1.164:3000/v1',
+            base_url: studioConfig.image_base_url || studioConfig.base_url || DEFAULT_IMAGE_BASE_URL,
             api_key: studioConfig.api_key || '',
             model: studioConfig.model || 'agnes-image-2.5-flash',
             prompt: prompt,
