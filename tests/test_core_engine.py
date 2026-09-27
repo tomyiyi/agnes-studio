@@ -213,6 +213,27 @@ from render_title_design import (
     TITLE_DESIGN_REGISTRY,
     render_all_title_designs,
 )
+import render_title_refined
+from render_title_refined import (
+    b64 as refined_b64,
+    sanitize_img_uri as refined_sanitize_img_uri,
+    get_base_css as refined_get_base_css,
+    render_html as refined_render_html,
+    shot as refined_shot,
+    build_r1_oriental_center_html,
+    render_r1_oriental_center,
+    build_r2_left_big_html,
+    render_r2_left_big,
+    build_r3_vertical_spine_html,
+    render_r3_vertical_spine,
+    build_r4_sky_field_html,
+    render_r4_sky_field,
+    build_r5_film_bottom_html,
+    render_r5_film_bottom,
+    REFINED_TITLE_REGISTRY,
+    render_refined_variant,
+    render_all_refined_titles,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -3537,6 +3558,216 @@ class TestRenderTitleDesign(unittest.TestCase):
 
     def test_main_missing_input_returns_nonzero(self):
         ret = render_title_design.main(["--input", str(self.tmp_path / "does_not_exist.png")])
+        self.assertEqual(ret, 1)
+
+
+class TestRenderTitleRefined(unittest.TestCase):
+    """测试高级中文海报标题字设（Refined Title Typography）渲染器 render_title_refined 及其 5 大设计范式"""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_b64_with_data_uri(self):
+        raw_uri = "data:image/png;base64,mocked_refined_data"
+        result = refined_b64(raw_uri)
+        self.assertEqual(result, raw_uri)
+
+    def test_b64_mime_types(self):
+        types = [
+            ("sample.png", "image/png"),
+            ("sample.jpg", "image/jpeg"),
+            ("sample.jpeg", "image/jpeg"),
+            ("sample.webp", "image/webp"),
+            ("sample.svg", "image/svg+xml"),
+            ("sample.gif", "image/gif"),
+        ]
+        for filename, expected_mime in types:
+            file_p = self.tmp_path / filename
+            file_p.write_bytes(b"\x00\x01\x02\x03")
+            uri = refined_b64(file_p)
+            self.assertTrue(uri.startswith(f"data:{expected_mime};base64,"))
+            uri_str = refined_b64(str(file_p))
+            self.assertTrue(uri_str.startswith(f"data:{expected_mime};base64,"))
+
+    def test_b64_missing_file_raises_filenotfound(self):
+        with self.assertRaises(FileNotFoundError):
+            refined_b64(self.tmp_path / "non_existent_refined.png")
+
+    def test_sanitize_img_uri(self):
+        malicious = "data:image/png;base64,refined\r\ndef'\"<script>"
+        sanitized = refined_sanitize_img_uri(malicious)
+        self.assertNotIn("\r", sanitized)
+        self.assertNotIn("\n", sanitized)
+        self.assertNotIn("'", sanitized)
+        self.assertNotIn('"', sanitized)
+        self.assertNotIn("<", sanitized)
+        self.assertNotIn(">", sanitized)
+        self.assertIn("%27", sanitized)
+
+    def test_get_base_css(self):
+        css = refined_get_base_css()
+        self.assertIn("NSB", css)
+        self.assertIn("NSBO", css)
+        self.assertIn("PHM", css)
+        self.assertIn("PHH", css)
+        self.assertIn("Didot", css)
+
+    def test_build_r1_oriental_center_html(self):
+        html = build_r1_oriental_center_html(
+            "data:image/png;base64,sample",
+            title="夜航<测试>",
+            latin="Night Voyage & Agnes",
+            slogan="她把城市调成静音 <Slogan>",
+            seal_text="航",
+        )
+        self.assertIn("夜航&lt;测试&gt;", html)
+        self.assertNotIn("<测试>", html)
+        self.assertIn("Night Voyage &amp; Agnes", html)
+        self.assertIn("radial-gradient", html)
+        self.assertIn('class="seal"', html)
+        self.assertIn("航", html)
+
+    def test_build_r2_left_big_html(self):
+        html = build_r2_left_big_html(
+            "data:image/png;base64,sample",
+            title="黑宋<大标>",
+            latin="Left Big & Minimal",
+            slogan="城市夜景",
+        )
+        self.assertIn("黑宋&lt;大标&gt;", html)
+        self.assertIn("Left Big &amp; Minimal", html)
+        self.assertIn('class="wrap"', html)
+
+    def test_build_r3_vertical_spine_html(self):
+        html = build_r3_vertical_spine_html(
+            "data:image/png;base64,sample",
+            title="书脊<竖排>",
+            latin="Spine & Agnes",
+            slogan="画册扉页",
+        )
+        self.assertIn("书脊&lt;竖排&gt;", html)
+        self.assertIn("writing-mode:vertical-rl", html)
+        self.assertIn("Spine &amp; Agnes", html)
+
+    def test_build_r4_sky_field_html(self):
+        html = build_r4_sky_field_html(
+            "data:image/png;base64,sample",
+            title="天 幕",
+            latin="Sky Field",
+            slogan="黄金分割留白",
+        )
+        self.assertIn("天 幕", html)
+        self.assertIn("Sky Field", html)
+        self.assertIn("top:18%", html)
+
+    def test_build_r5_film_bottom_html(self):
+        html = build_r5_film_bottom_html(
+            "data:image/png;base64,sample",
+            title="院线大片",
+            latin="Film Release",
+            slogan="全国上映",
+        )
+        self.assertIn("院线大片", html)
+        self.assertIn("Film Release", html)
+        self.assertIn('class="top"', html)
+        self.assertIn('class="bot"', html)
+
+    def test_registry_and_render_refined_variant(self):
+        self.assertEqual(len(REFINED_TITLE_REGISTRY), 5)
+        for key in ("r1_oriental_center", "r2_left_big", "r3_vertical_spine", "r4_sky_field", "r5_film_bottom"):
+            self.assertIn(key, REFINED_TITLE_REGISTRY)
+
+        sample_img = self.tmp_path / "base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out.png"
+
+        with self.assertRaises(ValueError):
+            render_refined_variant("unknown_variant", sample_img, out_p)
+
+    @patch("render_title_refined.render_html")
+    def test_render_individual_variants(self, mock_render):
+        sample_img = self.tmp_path / "base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out.png"
+        mock_render.side_effect = lambda html, out, **kw: Path(out)
+
+        # 1. render_r1_oriental_center
+        res1 = render_r1_oriental_center(sample_img, out_p, title="东方海报", latin="ORIENTAL TEST", seal_text="印")
+        self.assertEqual(res1, out_p)
+        call_html1 = mock_render.call_args[0][0]
+        self.assertIn("东方海报", call_html1)
+        self.assertIn("ORIENTAL TEST", call_html1)
+        self.assertIn("印", call_html1)
+
+        # 2. render_r2_left_big
+        res2 = render_r2_left_big(sample_img, out_p, title="左大标", latin="LEFT BIG TEST")
+        self.assertEqual(res2, out_p)
+        call_html2 = mock_render.call_args[0][0]
+        self.assertIn("左大标", call_html2)
+        self.assertIn("LEFT BIG TEST", call_html2)
+
+        # 3. render_r3_vertical_spine
+        res3 = render_r3_vertical_spine(sample_img, out_p, title="竖排书脊", latin="SPINE TEST")
+        self.assertEqual(res3, out_p)
+        call_html3 = mock_render.call_args[0][0]
+        self.assertIn("竖排书脊", call_html3)
+        self.assertIn("SPINE TEST", call_html3)
+
+        # 4. render_r4_sky_field
+        res4 = render_r4_sky_field(sample_img, out_p, title="天幕字", latin="SKY TEST")
+        self.assertEqual(res4, out_p)
+        call_html4 = mock_render.call_args[0][0]
+        self.assertIn("天幕字", call_html4)
+        self.assertIn("SKY TEST", call_html4)
+
+        # 5. render_r5_film_bottom
+        res5 = render_r5_film_bottom(sample_img, out_p, title="院线结构", latin="FILM BOTTOM TEST")
+        self.assertEqual(res5, out_p)
+        call_html5 = mock_render.call_args[0][0]
+        self.assertIn("院线结构", call_html5)
+        self.assertIn("FILM BOTTOM TEST", call_html5)
+
+        # 6. shot alias test
+        res_shot = refined_shot("<html>test</html>", out_p)
+        self.assertEqual(res_shot, out_p)
+
+        # 7. render_refined_variant helper
+        res_var = render_refined_variant("r1_oriental_center", sample_img, out_p, title="通用变体")
+        self.assertEqual(res_var, out_p)
+
+    @patch("render_title_refined.render_html")
+    def test_render_all_refined_titles(self, mock_render):
+        sample_img = self.tmp_path / "base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_d = self.tmp_path / "refined_batch"
+        mock_render.side_effect = lambda html, out, **kw: Path(out)
+
+        results = render_all_refined_titles(sample_img, out_dir=out_d, title="全量测试")
+        self.assertEqual(len(results), 5)
+        self.assertEqual(mock_render.call_count, 5)
+        for key in ("r1_oriental_center", "r2_left_big", "r3_vertical_spine", "r4_sky_field", "r5_film_bottom"):
+            self.assertIn(key, results)
+            self.assertEqual(results[key].parent, out_d)
+
+    @patch("render_title_refined.render_html")
+    def test_main_execution(self, mock_render):
+        mock_render.side_effect = lambda html, out, **kw: Path(out)
+        ret = render_title_refined.main([])
+        self.assertEqual(ret, 0)
+        self.assertEqual(mock_render.call_count, 5)
+
+        # Test single variant via CLI
+        mock_render.reset_mock()
+        ret_single = render_title_refined.main(["--variant", "r1_oriental_center"])
+        self.assertEqual(ret_single, 0)
+        self.assertEqual(mock_render.call_count, 1)
+
+    def test_main_missing_input_returns_nonzero(self):
+        ret = render_title_refined.main(["--input", str(self.tmp_path / "does_not_exist.png")])
         self.assertEqual(ret, 1)
 
 
