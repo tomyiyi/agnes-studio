@@ -316,6 +316,7 @@ from batch_skill71_hifi_p0 import (
     get_hifi_preset,
     render_single_hifi,
     run_batch_hifi,
+    classify_generation_error as hifi_classify_error,
 )
 import batch_skill71_samples
 from batch_skill71_samples import (
@@ -5335,6 +5336,12 @@ class TestBatchSkill71HifiP0(unittest.TestCase):
         self.assertFalse(res_force.get("skipped", False))
         self.assertEqual(len(calls), 2)
 
+    def test_classify_generation_error(self):
+        self.assertEqual(hifi_classify_error("HTTP 502: Bad Gateway"), "gateway_502")
+        self.assertEqual(hifi_classify_error("HTTP 401: Unauthorized"), "auth")
+        self.assertEqual(hifi_classify_error("upstream timed out"), "timeout")
+        self.assertEqual(hifi_classify_error("invalid prompt"), "generation_error")
+
     def test_render_single_hifi_errors(self):
         # 1. 生成器返回失败字典
         def fake_fail_gen(*args, **kwargs):
@@ -5347,6 +5354,7 @@ class TestBatchSkill71HifiP0(unittest.TestCase):
         )
         self.assertFalse(res_fail["ok"])
         self.assertIn("Quota rate limit reached", res_fail["err"])
+        self.assertEqual(res_fail.get("error_class"), "generation_error")
 
         # 2. 生成器抛出异常
         def fake_throw_gen(*args, **kwargs):
@@ -5359,8 +5367,21 @@ class TestBatchSkill71HifiP0(unittest.TestCase):
         )
         self.assertFalse(res_throw["ok"])
         self.assertIn("Gateway network timeout", res_throw["err"])
+        self.assertEqual(res_throw.get("error_class"), "timeout")
 
-        # 3. 生成器不可调用
+        # 3. 网关 502 错误分类
+        def fake_502_gen(*args, **kwargs):
+            return {"ok": False, "error": "HTTP 502: Bad Gateway"}
+
+        res_502 = render_single_hifi(
+            "S05",
+            out_dir=self.tmp_path,
+            generate_fn=fake_502_gen,
+        )
+        self.assertFalse(res_502["ok"])
+        self.assertEqual(res_502.get("error_class"), "gateway_502")
+
+        # 4. 生成器不可调用
         with patch("batch_skill71_hifi_p0.generate", None):
             res_no_gen = render_single_hifi(
                 "S05",

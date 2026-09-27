@@ -22,6 +22,18 @@ OUT = DEFAULT_OUT_DIR
 DEFAULT_MODEL = "agnes-image-2.5-flash"
 DEFAULT_RETRIES = 2
 
+
+def classify_generation_error(error: object) -> str:
+    """将网关/认证/业务失败分层，避免报告把 502 误报成 Hifi 样张失败。"""
+    text = str(error or "").lower()
+    if "http 502" in text or "bad gateway" in text:
+        return "gateway_502"
+    if any(token in text for token in ("http 401", "http 403", "unauthorized", "forbidden", "token_rejected")):
+        return "auth"
+    if "timeout" in text or "timed out" in text:
+        return "timeout"
+    return "generation_error"
+
 # 统一源图事实（来自 1013 美妆人像：亚麻裙亚裔女子·咖啡馆绿植·自然光）
 SOURCE_FACTS = (
     "SOURCE PHOTO FACTS (preserve identity and scene): "
@@ -298,6 +310,7 @@ def render_single_hifi(
             "name": name,
             "ok": False,
             "err": err_msg or "Unknown generation error",
+            "error_class": classify_generation_error(err_msg),
         }
     except Exception as exc:
         return {
@@ -305,6 +318,7 @@ def render_single_hifi(
             "name": name,
             "ok": False,
             "err": str(exc),
+            "error_class": classify_generation_error(exc),
         }
 
 
