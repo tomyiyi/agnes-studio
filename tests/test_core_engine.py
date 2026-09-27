@@ -376,6 +376,22 @@ from install_skills_71 import (
     build_arg_parser as skills_71_build_arg_parser,
     main as skills_71_main,
 )
+import gen_agnes_samples
+from gen_agnes_samples import (
+    DEFAULT_LIB_PATH as GEN_AGNES_DEFAULT_LIB,
+    DEFAULT_OUT_DIR as GEN_AGNES_DEFAULT_OUT,
+    DEFAULT_REPORT_NAME as GEN_AGNES_DEFAULT_REPORT_NAME,
+    slugify as gen_agnes_slugify,
+    load_prompts_library as gen_agnes_load_lib,
+    build_item_prompt as gen_agnes_build_prompt,
+    run_one as gen_agnes_run_one,
+    filter_items as gen_agnes_filter_items,
+    run_batch_gen as gen_agnes_run_batch,
+    list_items as gen_agnes_list_items,
+    build_arg_parser as gen_agnes_build_arg_parser,
+    main as gen_agnes_main,
+)
+
 
 
 
@@ -6544,6 +6560,249 @@ class TestInstallSkills71(unittest.TestCase):
         # 4. CLI 不存在 manifest 报错
         ret_err = skills_71_main(["--manifest", str(self.tmp_path / "not_found.json")])
         self.assertEqual(ret_err, 1)
+
+
+class TestGenAgnesSamples(unittest.TestCase):
+    """测试 GPT Image 转 Agnes 单条与批量生成引擎 gen_agnes_samples"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_slugify(self):
+        self.assertEqual(gen_agnes_slugify("室内棚拍-烟雾缭绕(Vol:1)"), "室内棚拍-烟雾缭绕-Vol-1")
+        self.assertEqual(gen_agnes_slugify("test_item_title! 123"), "test_item_title-123")
+        self.assertEqual(gen_agnes_slugify(""), "item")
+        self.assertEqual(gen_agnes_slugify(None), "item")
+        self.assertEqual(gen_agnes_slugify(999), "item")
+        self.assertEqual(gen_agnes_slugify("x" * 50, max_len=20), "x" * 20)
+
+    def test_load_prompts_library_default(self):
+        items = gen_agnes_load_lib()
+        self.assertGreaterEqual(len(items), 40)
+        self.assertEqual(items[0]["id"], "1001")
+        self.assertTrue(all("id" in it for it in items))
+
+    def test_load_prompts_library_custom_and_errors(self):
+        custom_lib = self.tmp_path / "custom_lib.json"
+        custom_lib.write_text(json.dumps({
+            "items": [
+                {"id": "G01", "title": "自定义样张", "category": "test", "agnes_prompt": "Test prompt text."}
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        loaded = gen_agnes_load_lib(custom_lib)
+        self.assertEqual(len(loaded), 1)
+        self.assertEqual(loaded[0]["id"], "G01")
+
+        with self.assertRaises(FileNotFoundError):
+            gen_agnes_load_lib(self.tmp_path / "not_found.json")
+
+        invalid_lib = self.tmp_path / "invalid.json"
+        invalid_lib.write_text(json.dumps({"wrong": []}), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            gen_agnes_load_lib(invalid_lib)
+
+    def test_build_item_prompt(self):
+        # 1. 优先 agnes_prompt
+        item1 = {"agnes_prompt": "Agnes prompt value", "gpt_image_prompt": "Fallback prompt"}
+        self.assertEqual(gen_agnes_build_prompt(item1), "Agnes prompt value")
+
+        # 2. 回退 gpt_image_prompt
+        item2 = {"gpt_image_prompt": "Fallback prompt only"}
+        self.assertEqual(gen_agnes_build_prompt(item2), "Fallback prompt only")
+
+        # 3. 非字典
+        self.assertEqual(gen_agnes_build_prompt("not a dict"), "")
+
+    def test_filter_items(self):
+        items = [
+            {"id": "1001", "title": "人像1", "category": "portrait"},
+            {"id": "1002", "title": "人像2", "category": "portrait"},
+            {"id": "2001", "title": "商业1", "category": "commercial"},
+            {"id": "3002", "title": "海报1", "category": "poster"},
+        ]
+
+        # 字符串筛选
+        f1 = gen_agnes_filter_items(items, ids="1001,2001")
+        self.assertEqual([x["id"] for x in f1], ["1001", "2001"])
+
+        # 列表筛选
+        f2 = gen_agnes_filter_items(items, ids=["1002", "3002"])
+        self.assertEqual([x["id"] for x in f2], ["1002", "3002"])
+
+        # 分类筛选
+        f3 = gen_agnes_filter_items(items, category="commercial")
+        self.assertEqual([x["id"] for x in f3], ["2001"])
+
+        # 限制数量
+        f4 = gen_agnes_filter_items(items, limit=2)
+        self.assertEqual(len(f4), 2)
+        self.assertEqual([x["id"] for x in f4], ["1001", "1002"])
+
+    def test_run_one_validation_and_errors(self):
+        # 非 dict
+        r1 = gen_agnes_run_one("not a dict", out_dir=self.tmp_path)
+        self.assertFalse(r1["ok"])
+        self.assertIn("expected dict", r1["error"])
+
+        # 空 ID
+        r2 = gen_agnes_run_one({"title": "无 ID"}, out_dir=self.tmp_path)
+        self.assertFalse(r2["ok"])
+        self.assertIn("Item ID cannot be empty", r2["error"])
+
+        # 空 prompt
+        r3 = gen_agnes_run_one({"id": "1001", "title": "空 Prompt"}, out_dir=self.tmp_path)
+        self.assertFalse(r3["ok"])
+        self.assertIn("prompt is empty", r3["error"])
+
+    def test_run_one_dry_run(self):
+        item = {
+            "id": "1001",
+            "title": "测试人像",
+            "agnes_prompt": "A beautiful cinematic portrait of a dancer in golden hour.",
+            "agnes_size": "1088x1456",
+        }
+        res = gen_agnes_run_one(item, out_dir=self.tmp_path, dry_run=True)
+        self.assertTrue(res["ok"])
+        self.assertTrue(res.get("dry_run"))
+        self.assertEqual(res["id"], "1001")
+        self.assertIn("1001_测试人像.png", res["file"])
+
+    def test_run_one_skip_existing(self):
+        item = {
+            "id": "1001",
+            "title": "测试跳过",
+            "agnes_prompt": "A beautiful cinematic portrait.",
+        }
+        # 创建大于 20KB 的占位文件
+        target_file = self.tmp_path / "1001_测试跳过.png"
+        target_file.write_bytes(b"x" * 25_000)
+
+        res = gen_agnes_run_one(item, out_dir=self.tmp_path, force=False)
+        self.assertTrue(res["ok"])
+        self.assertTrue(res.get("skipped"))
+        self.assertEqual(res["kb"], 24)
+
+    def test_run_one_with_mock_generate(self):
+        item = {
+            "id": "1001",
+            "title": "测试生成",
+            "agnes_prompt": "A stunning visual piece.",
+        }
+
+        def mock_generate(prompt, **kwargs):
+            return {"ok": True, "cost_s": 1.25, "via": "mock_gateway", "model": "agnes-mock"}
+
+        def mock_save_image(res, path):
+            Path(path).write_bytes(b"MOCK_PNG_DATA" * 2000)
+
+        res = gen_agnes_run_one(
+            item,
+            out_dir=self.tmp_path,
+            generate_fn=mock_generate,
+            save_image_fn=mock_save_image,
+        )
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["id"], "1001")
+        self.assertEqual(res["via"], "mock_gateway")
+        self.assertTrue((self.tmp_path / "1001_测试生成.png").is_file())
+
+    def test_run_one_generate_error_handling(self):
+        item = {
+            "id": "1001",
+            "title": "测试错误",
+            "agnes_prompt": "Prompt for error check.",
+        }
+
+        # 1. generate 返回 ok=False
+        def mock_gen_fail(prompt, **kwargs):
+            return {"ok": False, "error": "Quota limit reached"}
+
+        r1 = gen_agnes_run_one(item, out_dir=self.tmp_path, generate_fn=mock_gen_fail)
+        self.assertFalse(r1["ok"])
+        self.assertIn("Quota limit reached", r1["error"])
+
+        # 2. generate 抛出异常
+        def mock_gen_raise(prompt, **kwargs):
+            raise ConnectionResetError("Connection reset by peer")
+
+        r2 = gen_agnes_run_one(item, out_dir=self.tmp_path, generate_fn=mock_gen_raise)
+        self.assertFalse(r2["ok"])
+        self.assertIn("Connection reset by peer", r2["error"])
+
+    def test_run_batch_gen_execution(self):
+        items = [
+            {"id": "1001", "title": "批量1", "agnes_prompt": "Prompt 1"},
+            {"id": "1002", "title": "批量2", "agnes_prompt": "Prompt 2"},
+        ]
+
+        def mock_gen(prompt, **kwargs):
+            return {"ok": True, "cost_s": 0.5, "via": "mock"}
+
+        def mock_save(res, path):
+            Path(path).write_bytes(b"OK" * 100)
+
+        report = gen_agnes_run_batch(
+            items_to_run=items,
+            out_dir=self.tmp_path,
+            workers=2,
+            generate_fn=mock_gen,
+            save_image_fn=mock_save,
+        )
+        self.assertEqual(report["total"], 2)
+        self.assertEqual(report["ok"], 2)
+        self.assertTrue((self.tmp_path / "_batch_report.json").is_file())
+
+    def test_list_items(self):
+        items = gen_agnes_list_items()
+        self.assertGreaterEqual(len(items), 40)
+        self.assertIn("id", items[0])
+        self.assertIn("title", items[0])
+        self.assertIn("category", items[0])
+
+    def test_cli_positional_and_options(self):
+        custom_lib = self.tmp_path / "cli_lib.json"
+        custom_lib.write_text(json.dumps({
+            "items": [
+                {"id": "1001", "title": "样张1", "category": "portrait", "agnes_prompt": "Prompt 1001"},
+                {"id": "1002", "title": "样张2", "category": "commercial", "agnes_prompt": "Prompt 1002"},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        # 1. --list-items
+        ret_list = gen_agnes_main(["--lib", str(custom_lib), "--list-items"])
+        self.assertEqual(ret_list, 0)
+
+        # 2. positional IDs with --dry-run
+        ret_pos = gen_agnes_main([
+            "1001",
+            "--lib", str(custom_lib),
+            "--out", str(self.tmp_path / "out_pos"),
+            "--dry-run",
+            "-w", "1",
+        ])
+        self.assertEqual(ret_pos, 0)
+        self.assertTrue((self.tmp_path / "out_pos" / "_batch_report.json").is_file())
+
+        # 3. --ids and --category with --dry-run
+        ret_flags = gen_agnes_main([
+            "--ids", "1002",
+            "--category", "commercial",
+            "--lib", str(custom_lib),
+            "--out", str(self.tmp_path / "out_flags"),
+            "--dry-run",
+        ])
+        self.assertEqual(ret_flags, 0)
+        self.assertTrue((self.tmp_path / "out_flags" / "_batch_report.json").is_file())
+
+    def test_cli_error_exit_code(self):
+        # 不存在的 lib 文件导致报错退出
+        ret = gen_agnes_main(["--lib", str(self.tmp_path / "non_existent.json")])
+        self.assertEqual(ret, 1)
 
 
 if __name__ == "__main__":
