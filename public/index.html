@@ -2489,7 +2489,9 @@ function renderSkills() {
             studioConfig.model = data.default_model || 'agnes-image-2.5-flash';
           }
           applyConfigToModalInputs();
-          updateHeaderStatus(true, "网关就绪 · " + (studioConfig.base_url.includes('127.0.0.1') ? '本地 New API' : '自定义端点'));
+          // 配置被读取只证明前端拿到了配置，不代表网关或上游模型可用。
+          // 只有 testConnection() 的真实 /models 探测成功后，才允许显示“网关就绪”。
+          updateHeaderStatus(false, "配置已加载 · 待探测");
         }
       } catch (err) {
         console.warn("Studio Server API 不可用（静态 Pages 模式）:", err);
@@ -2570,7 +2572,8 @@ function renderSkills() {
 
       localStorage.setItem('agnes_studio_config', JSON.stringify(studioConfig));
       alert('✓ 配置已成功持久化至浏览器 LocalStorage！在任意设备启动均可自动生效。');
-      updateHeaderStatus(true, "网关已就绪 · " + studioConfig.model);
+      // 保存配置不等于连接成功；避免把 3000 的 401/502 隐藏成绿色 ready。
+      updateHeaderStatus(false, "配置已保存 · 待探测");
       forceCloseSettingsModal();
     }
 
