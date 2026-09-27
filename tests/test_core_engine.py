@@ -286,6 +286,16 @@ from batch_layout_variants import (
     generate_layout_variant,
     run_batch_layout_variants,
 )
+import batch_type_behind
+from batch_type_behind import (
+    PRESET_WORDS as TYPE_BEHIND_PRESETS,
+    get_preset_words as get_type_behind_presets,
+    detect_language as detect_type_behind_lang,
+    build_type_behind_prompt,
+    prompt as type_behind_prompt,
+    generate_type_behind,
+    run_batch_type_behind,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -4601,6 +4611,235 @@ class TestBatchLayoutVariants(unittest.TestCase):
         ret_dry = batch_layout_variants.main([
             "--dry-run",
             "--stems", "01,02",
+            "--out", str(cli_out),
+        ])
+        self.assertEqual(ret_dry, 0)
+        self.assertTrue((cli_out / "batch_report.json").is_file())
+
+
+class TestBatchTypeBehind(unittest.TestCase):
+    """测试「字在人后」(Type Behind Person) 时尚海报批量生成引擎"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_detect_language(self):
+        self.assertEqual(detect_type_behind_lang("MODE"), "en")
+        self.assertEqual(detect_type_behind_lang("SILK_123"), "en")
+        self.assertEqual(detect_type_behind_lang("留白"), "cn")
+        self.assertEqual(detect_type_behind_lang("清欢_A"), "cn")
+        self.assertEqual(detect_type_behind_lang("12345"), "en")
+
+    def test_get_preset_words(self):
+        fashion = get_type_behind_presets("fashion")
+        self.assertIn("MODE", fashion)
+        self.assertIn("CHIC", fashion)
+
+        zen = get_type_behind_presets("zen")
+        self.assertIn("留白", zen)
+        self.assertIn("风骨", zen)
+
+        cinema = get_type_behind_presets("cinema")
+        self.assertIn("NOIR", cinema)
+
+        all_words = get_type_behind_presets()
+        self.assertTrue(len(all_words) >= 15)
+        self.assertIn("MODE", all_words)
+        self.assertIn("留白", all_words)
+
+    def test_build_type_behind_prompt_en(self):
+        p = build_type_behind_prompt("MODE")
+        self.assertIn("PRIMARY: young Asian woman", p)
+        self.assertIn("giant English condensed word MODE", p)
+        self.assertIn("ABSOLUTE LAYER ORDER: BACKGROUND then TYPE then PERSON", p)
+        self.assertIn("Letters MODE pass BEHIND her head and body", p)
+        self.assertIn("Exactly ONE word MODE. No other text.", p)
+        self.assertIn("#F3EDE3", p)
+
+    def test_build_type_behind_prompt_cn(self):
+        p = build_type_behind_prompt("留白")
+        self.assertIn("PRIMARY: young Asian woman", p)
+        self.assertIn("giant Chinese characters 留白", p)
+        self.assertIn("ABSOLUTE LAYER ORDER: BACKGROUND then TYPE then PERSON", p)
+        self.assertIn("Characters 留白 pass BEHIND her head and body", p)
+        self.assertIn("Exactly the characters 留白. No other text.", p)
+
+    def test_build_type_behind_prompt_custom(self):
+        custom_primary = "cyberpunk model with silver hair, neon rain reflections"
+        p = build_type_behind_prompt(
+            "CYBER",
+            primary=custom_primary,
+            ink_color="#00FFCC",
+            lang="en",
+        )
+        self.assertIn("PRIMARY: cyberpunk model with silver hair", p)
+        self.assertIn("in cream #00FFCC as BACKDROP architecture", p)
+
+        # 强制指定 lang='cn'
+        p_cn = build_type_behind_prompt(
+            "CYBER",
+            primary=custom_primary,
+            lang="cn",
+        )
+        self.assertIn("giant Chinese characters CYBER", p_cn)
+
+    def test_build_type_behind_prompt_validation(self):
+        with self.assertRaises(ValueError):
+            build_type_behind_prompt("")
+        with self.assertRaises(ValueError):
+            build_type_behind_prompt("   ")
+
+    def test_prompt_backward_compatibility(self):
+        p_compat = type_behind_prompt("MODE")
+        p_standard = build_type_behind_prompt("MODE")
+        self.assertEqual(p_compat, p_standard)
+
+    def test_generate_type_behind_success(self):
+        def fake_generate(prompt, size, model, retries):
+            self.assertIn("MODE", prompt)
+            return {"ok": True, "cost_s": 0.42, "via": "mock"}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"mock_png_data_" * 2000)
+
+        res = generate_type_behind(
+            "MODE",
+            out_dir=self.tmp_path,
+            generate_fn=fake_generate,
+            save_image_fn=fake_save,
+        )
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["word"], "MODE")
+        self.assertEqual(res["clean_word"], "MODE")
+        self.assertTrue(Path(res["path"]).is_file())
+        self.assertGreaterEqual(res["size_kb"], 20)
+        self.assertEqual(res.get("via"), "mock")
+
+    def test_generate_type_behind_skip_existing(self):
+        existing_file = self.tmp_path / "behind_CHIC.png"
+        existing_file.write_bytes(b"x" * 25000)
+
+        called = []
+        def fake_gen(*args, **kwargs):
+            called.append(True)
+            return {"ok": True}
+
+        # 1. 默认应跳过
+        res_skip = generate_type_behind(
+            "CHIC",
+            out_dir=self.tmp_path,
+            generate_fn=fake_gen,
+            force=False,
+        )
+        self.assertTrue(res_skip["ok"])
+        self.assertTrue(res_skip.get("skipped"))
+        self.assertEqual(len(called), 0)
+
+        # 2. force=True 应重新调用
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"x" * 25000)
+
+        res_force = generate_type_behind(
+            "CHIC",
+            out_dir=self.tmp_path,
+            generate_fn=fake_gen,
+            save_image_fn=fake_save,
+            force=True,
+        )
+        self.assertTrue(res_force["ok"])
+        self.assertFalse(res_force.get("skipped", False))
+        self.assertEqual(len(called), 1)
+
+    def test_generate_type_behind_dry_run(self):
+        res = generate_type_behind(
+            "SILK",
+            out_dir=self.tmp_path,
+            dry_run=True,
+        )
+        self.assertTrue(res["ok"])
+        self.assertTrue(res.get("dry_run"))
+        self.assertIn("behind_SILK.png", res["path"])
+        self.assertGreater(res["prompt_len"], 100)
+
+    def test_generate_type_behind_errors(self):
+        # 1. 空字
+        res_empty = generate_type_behind("", out_dir=self.tmp_path)
+        self.assertFalse(res_empty["ok"])
+        self.assertIn("Word cannot be empty", res_empty["err"])
+
+        # 2. 生成器返回失败
+        def fake_fail_gen(*args, **kwargs):
+            return {"ok": False, "error": "Rate limit exceeded"}
+
+        res_fail = generate_type_behind(
+            "FAIL",
+            out_dir=self.tmp_path,
+            generate_fn=fake_fail_gen,
+        )
+        self.assertFalse(res_fail["ok"])
+        self.assertIn("Rate limit exceeded", res_fail["err"])
+
+        # 3. 模拟异常
+        def fake_throw_gen(*args, **kwargs):
+            raise ConnectionResetError("Socket reset")
+
+        res_throw = generate_type_behind(
+            "ERR",
+            out_dir=self.tmp_path,
+            generate_fn=fake_throw_gen,
+        )
+        self.assertFalse(res_throw["ok"])
+        self.assertIn("Socket reset", res_throw["err"])
+
+        # 4. 生成器不可调用
+        with patch("batch_type_behind.generate", None):
+            res_no_gen = generate_type_behind(
+                "NOGEN",
+                out_dir=self.tmp_path,
+                generate_fn=None,
+            )
+            self.assertFalse(res_no_gen["ok"])
+            self.assertIn("not available or not callable", res_no_gen["err"])
+
+    def test_run_batch_type_behind(self):
+        def fake_gen(prompt, size, model, retries):
+            return {"ok": True}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"y" * 22000)
+
+        out_dir = self.tmp_path / "batch_test"
+        results = run_batch_type_behind(
+            words=["MODE", "留白"],
+            out_dir=out_dir,
+            generate_fn=fake_gen,
+            save_image_fn=fake_save,
+        )
+        self.assertEqual(len(results), 2)
+        self.assertTrue(all(r["ok"] for r in results))
+
+        # 验证 report
+        report_file = out_dir / "batch_report.json"
+        self.assertTrue(report_file.is_file())
+        report_data = json.loads(report_file.read_text(encoding="utf-8"))
+        self.assertEqual(report_data["total"], 2)
+        self.assertEqual(report_data["ok"], 2)
+        self.assertEqual(report_data["failed"], 0)
+
+    def test_main_cli_execution(self):
+        # 1. --list-presets
+        ret_list = batch_type_behind.main(["--list-presets"])
+        self.assertEqual(ret_list, 0)
+
+        # 2. --dry-run
+        cli_out = self.tmp_path / "cli_dry"
+        ret_dry = batch_type_behind.main([
+            "--dry-run",
+            "--words", "MODE,CHIC",
             "--out", str(cli_out),
         ])
         self.assertEqual(ret_dry, 0)
