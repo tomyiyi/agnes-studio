@@ -23,7 +23,9 @@ from html import escape
 import json
 import os
 import statistics
+import sys
 from pathlib import Path
+from typing import Any
 
 sys_path_scripts = Path(__file__).resolve().parent
 if str(sys_path_scripts) not in __import__("sys").path:
@@ -52,6 +54,11 @@ try:
 except Exception:
     detect_faces = lambda p: []
     check_occlusion = lambda tb, zs: (False, None)
+try:
+    from agnes_gateway import generate, save_image
+except Exception:
+    generate = None
+    save_image = None
 
 ROOT = PROJECT_ROOT
 OUT = ROOT / "outputs" / "covers"
@@ -115,6 +122,109 @@ PALETTE = {
 # =============================================================================
 # 1) 人物工作流 Subject
 # =============================================================================
+
+def classify_generation_error(error: object) -> str:
+    """将网关/认证/业务失败分层，避免把 502 误报成底图生图失败。"""
+    text = str(error or "").lower()
+    if "http 502" in text or "bad gateway" in text:
+        return "gateway_502"
+    if any(token in text for token in ("http 401", "http 403", "unauthorized", "forbidden", "token_rejected")):
+        return "auth"
+    if "timeout" in text or "timed out" in text:
+        return "timeout"
+    return "generation_error"
+
+
+def generate_cover_subject(
+    prompt: str,
+    out_path: Path | str,
+    size: str = "1088x1456",
+    model: str = "agnes-image-2.5-flash",
+    retries: int = 3,
+    force: bool = False,
+    dry_run: bool = False,
+    generate_fn: Any = None,
+    save_image_fn: Any = None,
+) -> dict[str, Any]:
+    """生成单张封面底图人物摄影样张。"""
+    if not prompt or not str(prompt).strip():
+        err = "Prompt cannot be empty"
+        return {
+            "ok": False,
+            "err": err,
+            "error_class": classify_generation_error(err),
+        }
+    if not out_path or not str(out_path).strip():
+        err = "Output path cannot be empty"
+        return {
+            "ok": False,
+            "err": err,
+            "error_class": classify_generation_error(err),
+        }
+
+    target_path = Path(out_path)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if target_path.is_file() and not force:
+        size_bytes = target_path.stat().st_size
+        if size_bytes > 20_000:
+            return {
+                "ok": True,
+                "skipped": True,
+                "path": str(target_path),
+                "size_kb": size_bytes // 1024,
+            }
+
+    if dry_run:
+        return {
+            "ok": True,
+            "dry_run": True,
+            "path": str(target_path),
+            "size_kb": 0,
+        }
+
+    gen = generate_fn or generate
+    saver = save_image_fn or save_image
+
+    if not callable(gen):
+        err = "agnes_gateway.generate is not available or not callable"
+        return {
+            "ok": False,
+            "err": err,
+            "error_class": classify_generation_error(err),
+        }
+
+    try:
+        r = gen(prompt, size=size, model=model, retries=retries)
+        if isinstance(r, dict) and r.get("ok"):
+            if callable(saver):
+                saver(r, target_path)
+            size_kb = target_path.stat().st_size // 1024 if target_path.exists() else 0
+            return {
+                "ok": True,
+                "path": str(target_path),
+                "size_kb": size_kb,
+                "cost_s": r.get("cost_s", 0),
+                "via": r.get("via", "unknown"),
+            }
+        else:
+            err_msg = (
+                r.get("error")
+                if isinstance(r, dict) and r.get("error")
+                else (str(r)[:200] if r is not None else "Empty response")
+            )
+            return {
+                "ok": False,
+                "err": err_msg or "Unknown generation error",
+                "error_class": classify_generation_error(err_msg),
+            }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "err": str(exc),
+            "error_class": classify_generation_error(exc),
+        }
+
 
 def skin_centroid(im: Image.Image) -> tuple[float, float, int]:
     """粗定位肤色质心，用于构图避让。"""
@@ -988,7 +1098,7 @@ def run_brief_batch(brief_path: Path, platforms: list[str] | None = None) -> lis
             reports.append({"platform": name, "ok": False, "error": str(e)})
     return reports
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description="微信 / 小红书 封面流水线")
     ap.add_argument("--platform", choices=list(PLATFORMS) + ["all"], default="all")
     ap.add_argument("--mode", choices=["diag", "bignews", "stack", "vertical"], default="diag")
@@ -1002,7 +1112,11 @@ def main() -> None:
     ap.add_argument("--platforms", help="批量时平台列表，逗号分隔，默认全部")
     ap.add_argument("--generate", action="store_true",
                     help="经 New API 轮换池生成底图（scripts/agnes_gateway.py）")
-    args = ap.parse_args()
+    ap.add_argument("--dry-run", action="store_true",
+                    help="仅演练生图流程，不发起实际网络请求")
+    ap.add_argument("--force", action="store_true",
+                    help="强制重新生成底图，即使已存在")
+    args = ap.parse_args(argv)
 
     brief = {}
     style = None
@@ -1013,17 +1127,30 @@ def main() -> None:
         print(f"· brief style {style.name}")
         print(f"· font/mode {style.mode} hero={style.hero_size}")
         if args.generate:
-            from agnes_gateway import generate, save_image
             size_hint = brief.get("size") or (
                 "2352x1008" if (brief.get("platform") or args.platform).startswith("wechat")
                 and "sq" not in (brief.get("platform") or args.platform) else "1088x1456"
             )
             gen_out = OUT / f"_gen_{style.name.replace('/', '_')}.png"
-            res = generate(style.gen_prompt, size=size_hint)
+            res = generate_cover_subject(
+                prompt=style.gen_prompt,
+                out_path=gen_out,
+                size=size_hint,
+                force=args.force,
+                dry_run=args.dry_run,
+            )
             if not res.get("ok"):
-                raise SystemExit(f"[generate] {res}")
-            save_image(res, gen_out)
-            print(f"· generated subject → {gen_out} ({res['cost_s']}s via {res['via']})")
+                print(f"❌ [generate] {res.get('err')} ({res.get('error_class')})", file=sys.stderr)
+                raise SystemExit(f"[generate] {res.get('err')}")
+            if res.get("skipped"):
+                print(f"· reused existing subject → {gen_out} ({res.get('size_kb', 0)} KB)")
+            elif res.get("dry_run"):
+                print(f"· dry_run subject target → {gen_out}")
+            else:
+                print(f"· generated subject → {gen_out} ({res.get('cost_s', 0)}s via {res.get('via', 'unknown')})")
+            if args.dry_run:
+                print("✓ dry_run complete for cover subject generation")
+                return
             # 按平台源类型回填
             plat = brief.get("platform") or args.platform
             if plat.startswith("wechat") and "sq" not in plat:

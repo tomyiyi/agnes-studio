@@ -48,6 +48,7 @@ from env_config import (
     resolve_font_path,
 )
 from cover_style import resolve_style, load_catalog, CoverStyle
+import cover_pipeline
 from cover_pipeline import (
     validate_copy,
     build_filename,
@@ -58,6 +59,8 @@ from cover_pipeline import (
     render_wechat_list_sim,
     build_contact_sheet,
     qa_thumbnail_ok,
+    classify_generation_error as cover_classify_error,
+    generate_cover_subject,
 )
 import check_upstream_updates
 from check_upstream_updates import (
@@ -1011,6 +1014,156 @@ class TestCoverPipeline(unittest.TestCase):
             with Image.open(dummy_dst) as im:
                 self.assertEqual(im.size[0], 1000)
                 self.assertEqual(im.size[1], int(round(1000 / 2.35)))
+
+    def test_classify_generation_error(self):
+        self.assertEqual(cover_classify_error("HTTP 502: Bad Gateway"), "gateway_502")
+        self.assertEqual(cover_classify_error("HTTP 401: Unauthorized"), "auth")
+        self.assertEqual(cover_classify_error("HTTP 403: Forbidden"), "auth")
+        self.assertEqual(cover_classify_error("Connection timed out"), "timeout")
+        self.assertEqual(cover_classify_error("some prompt error"), "generation_error")
+
+    def test_generate_cover_subject_validation_and_dry_run(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            out_target = tmp_path / "subject.png"
+
+            # 1. 验证空 prompt 防护
+            res_no_prompt = generate_cover_subject("", out_target)
+            self.assertFalse(res_no_prompt["ok"])
+            self.assertEqual(res_no_prompt["error_class"], "generation_error")
+
+            # 2. 验证空 out_path 防护
+            res_no_out = generate_cover_subject("fashion portrait", "")
+            self.assertFalse(res_no_out["ok"])
+            self.assertEqual(res_no_out["error_class"], "generation_error")
+
+            # 3. 验证 dry_run 演练模式
+            res_dry = generate_cover_subject("fashion portrait", out_target, dry_run=True)
+            self.assertTrue(res_dry["ok"])
+            self.assertTrue(res_dry["dry_run"])
+            self.assertEqual(res_dry["size_kb"], 0)
+            self.assertFalse(out_target.exists())
+
+            # 4. 验证已存在大文件跳过逻辑 (>20KB)
+            out_target.write_bytes(b"x" * 25_000)
+            res_skip = generate_cover_subject("fashion portrait", out_target)
+            self.assertTrue(res_skip["ok"])
+            self.assertTrue(res_skip["skipped"])
+            self.assertEqual(res_skip["size_kb"], 24)
+
+            # 5. force=True 覆盖已存在跳过
+            def mock_gen_force(prompt, **kwargs):
+                return {"ok": True, "cost_s": 1.2, "via": "mock"}
+
+            def mock_save_force(res, target):
+                Path(target).write_bytes(b"y" * 26_000)
+
+            res_force = generate_cover_subject(
+                "fashion portrait",
+                out_target,
+                force=True,
+                generate_fn=mock_gen_force,
+                save_image_fn=mock_save_force,
+            )
+            self.assertTrue(res_force["ok"])
+            self.assertFalse(res_force.get("skipped", False))
+
+            # 6. 未提供可调用生成函数且 gateway 为空
+            res_no_gen = generate_cover_subject(
+                "fashion portrait",
+                tmp_path / "another.png",
+                generate_fn=None,
+            )
+            if cover_pipeline.generate is None:
+                self.assertFalse(res_no_gen["ok"])
+                self.assertEqual(res_no_gen["error_class"], "generation_error")
+
+    def test_generate_cover_subject_gateway_classification_and_success(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            out_target = tmp_path / "gen_subject.png"
+
+            # 1. 成功生成
+            def mock_gen_success(prompt, **kwargs):
+                return {"ok": True, "cost_s": 2.5, "via": "mock_engine"}
+
+            def mock_save(res, target):
+                Path(target).write_bytes(b"z" * 22_000)
+
+            res_ok = generate_cover_subject(
+                "portrait prompt",
+                out_target,
+                generate_fn=mock_gen_success,
+                save_image_fn=mock_save,
+            )
+            self.assertTrue(res_ok["ok"])
+            self.assertEqual(res_ok["cost_s"], 2.5)
+            self.assertEqual(res_ok["via"], "mock_engine")
+            self.assertTrue(out_target.exists())
+
+            # 2. 502 错误分类
+            target_502 = tmp_path / "subject_502.png"
+            def mock_gen_502(prompt, **kwargs):
+                return {"ok": False, "error": "HTTP 502: Bad Gateway upstream unavailable"}
+
+            res_502 = generate_cover_subject(
+                "portrait prompt",
+                target_502,
+                generate_fn=mock_gen_502,
+            )
+            self.assertFalse(res_502["ok"])
+            self.assertEqual(res_502["error_class"], "gateway_502")
+
+            # 3. 403 认证错误分类
+            target_403 = tmp_path / "subject_403.png"
+            def mock_gen_403(prompt, **kwargs):
+                return {"ok": False, "error": "HTTP 403: Forbidden - token_rejected"}
+
+            res_403 = generate_cover_subject(
+                "portrait prompt",
+                target_403,
+                generate_fn=mock_gen_403,
+            )
+            self.assertFalse(res_403["ok"])
+            self.assertEqual(res_403["error_class"], "auth")
+
+            # 4. 超时错误分类
+            target_timeout = tmp_path / "subject_timeout.png"
+            def mock_gen_timeout(prompt, **kwargs):
+                raise TimeoutError("Request timed out after 30s")
+
+            res_timeout = generate_cover_subject(
+                "portrait prompt",
+                target_timeout,
+                generate_fn=mock_gen_timeout,
+            )
+            self.assertFalse(res_timeout["ok"])
+            self.assertEqual(res_timeout["error_class"], "timeout")
+
+    def test_cover_pipeline_main_generate_cli(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            brief_file = tmp_path / "test_brief.json"
+            brief_file.write_text(
+                json.dumps({
+                    "goal": "时尚杂志封面",
+                    "subject": "东方面孔",
+                    "tone": "高级冷艳",
+                    "mode": "diag",
+                    "platform": "xhs",
+                }, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            # 测试 --generate --dry-run 正常完成退出
+            cover_pipeline.main(["--brief", str(brief_file), "--generate", "--dry-run"])
+
+            # 测试 --generate 失败时干净退出
+            def mock_failing_gen(*args, **kwargs):
+                return {"ok": False, "err": "HTTP 502 Bad Gateway", "error_class": "gateway_502"}
+
+            with patch("cover_pipeline.generate_cover_subject", side_effect=mock_failing_gen):
+                with self.assertRaises(SystemExit):
+                    cover_pipeline.main(["--brief", str(brief_file), "--generate"])
 
 
 class TestVisionSubjectDetector(unittest.TestCase):
