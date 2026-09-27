@@ -85,11 +85,12 @@ LOCAL_KEY_PATH = Path.home() / ".new-api" / "local_key.json"
 IMAGE_BASE_DEFAULT = "http://192.168.1.164:3000/v1"
 CHAT_BASE_DEFAULT = "http://127.0.0.1:18045/v1"
 
-def get_local_newapi_config():
+def get_local_newapi_config(key_path: Path | str | None = None) -> dict:
     """读取本地 New API 配置文件（如果存在）"""
-    if LOCAL_KEY_PATH.exists():
+    target_path = Path(key_path) if key_path is not None else LOCAL_KEY_PATH
+    if target_path.exists():
         try:
-            with open(LOCAL_KEY_PATH, "r", encoding="utf-8") as f:
+            with open(target_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             return {
                 "detected": True,
