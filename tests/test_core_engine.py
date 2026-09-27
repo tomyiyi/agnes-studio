@@ -19,6 +19,8 @@ import sys
 import tempfile
 import unittest
 import urllib.error
+import tarfile
+import zipfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -355,6 +357,26 @@ from batch_agnes_samples import (
     one as agnes_samples_one,
     main as agnes_samples_main,
 )
+import install_skills_71
+from install_skills_71 import (
+    LICENSE_NOTES as SKILLS_71_LICENSE_NOTES,
+    sha256_bytes as skills_71_sha256_bytes,
+    sha256_file as skills_71_sha256_file,
+    repo_tarball_url as skills_71_repo_tarball_url,
+    raw_url_from_blob as skills_71_raw_url_from_blob,
+    safe_extract_tar as skills_71_safe_extract_tar,
+    safe_extract_zip as skills_71_safe_extract_zip,
+    copy_skill_tree as skills_71_copy_skill_tree,
+    write_meta as skills_71_write_meta,
+    verify_skill_md as skills_71_verify_skill_md,
+    load_manifest as skills_71_load_manifest,
+    filter_entries as skills_71_filter_entries,
+    install_one as skills_71_install_one,
+    run_install as skills_71_run_install,
+    build_arg_parser as skills_71_build_arg_parser,
+    main as skills_71_main,
+)
+
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -6164,6 +6186,364 @@ class TestBatchAgnesSamples(unittest.TestCase):
         res = agnes_samples_render_single(mock_item, out_dir=self.tmp_path, dry_run=True)
         self.assertTrue(res["ok"])
         self.assertEqual(res["id"], "9999")
+
+
+class TestInstallSkills71(unittest.TestCase):
+    """测试 71 项生图 Skill 全局安装引擎 install_skills_71"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+        self.cache_dir = self.tmp_path / "cache"
+        self.out_root = self.tmp_path / "skills"
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.out_root.mkdir(parents=True, exist_ok=True)
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_sha256_bytes_and_file(self):
+        data = b"hello agnes studio"
+        expected = "9d3b137adb92d3d7b83662896ff2117032cb750fb34693a11f59abdfd4bee80d"
+        self.assertEqual(skills_71_sha256_bytes(data), expected)
+
+        test_file = self.tmp_path / "test.txt"
+        test_file.write_bytes(data)
+        self.assertEqual(skills_71_sha256_file(test_file), expected)
+
+    def test_url_helpers(self):
+        tar_url = skills_71_repo_tarball_url("owner/repo", "abcdef123456")
+        self.assertEqual(tar_url, "https://codeload.github.com/owner/repo/tar.gz/abcdef123456")
+
+        blob_url = "https://github.com/owner/repo/blob/main/skills/archive.zip"
+        raw_url = skills_71_raw_url_from_blob(blob_url)
+        self.assertEqual(raw_url, "https://raw.githubusercontent.com/owner/repo/main/skills/archive.zip")
+
+    def test_load_manifest_and_errors(self):
+        # 1. 成功解析自定义 manifest
+        manifest_file = self.tmp_path / "test_manifest.json"
+        manifest_file.write_text(json.dumps({
+            "entries": [
+                {
+                    "id": "ST01",
+                    "display_name": "星年四象重构",
+                    "group": "照片抽象转译",
+                    "install": {"target_directory_name": "starryear-abstract-quartet", "kind": "directory"}
+                }
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        data = skills_71_load_manifest(manifest_file)
+        self.assertIn("entries", data)
+        self.assertEqual(len(data["entries"]), 1)
+        self.assertEqual(data["entries"][0]["id"], "ST01")
+
+        # 2. 文件不存在
+        with self.assertRaises(FileNotFoundError):
+            skills_71_load_manifest(self.tmp_path / "non_existent.json")
+
+        # 3. 结构不合法
+        invalid_file = self.tmp_path / "invalid.json"
+        invalid_file.write_text(json.dumps({"wrong_key": []}), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            skills_71_load_manifest(invalid_file)
+
+    def test_filter_entries(self):
+        entries = [
+            {"id": "ST01", "display_name": "四象", "group": "照片抽象转译"},
+            {"id": "ST03", "display_name": "奥德赛", "group": "照片转超现实叙事"},
+            {"id": "S05", "display_name": "少色", "group": "照片转编辑海报"},
+            {"id": "N01", "display_name": "工业夜景", "group": "光色与氛围改造"},
+        ]
+
+        # 1. 按 ID 字符串筛选
+        f1 = skills_71_filter_entries(entries, ids="ST01,S05")
+        self.assertEqual([e["id"] for e in f1], ["ST01", "S05"])
+
+        # 2. 按 ID 列表筛选
+        f2 = skills_71_filter_entries(entries, ids=["ST03", "N01"])
+        self.assertEqual([e["id"] for e in f2], ["ST03", "N01"])
+
+        # 3. 按分组筛选
+        f3 = skills_71_filter_entries(entries, group="照片抽象转译")
+        self.assertEqual([e["id"] for e in f3], ["ST01"])
+
+        # 4. limit 限制
+        f4 = skills_71_filter_entries(entries, limit=2)
+        self.assertEqual(len(f4), 2)
+        self.assertEqual([e["id"] for e in f4], ["ST01", "ST03"])
+
+    def test_safe_extract_zip(self):
+        import zipfile
+
+        # 1. 正常 zip 提取
+        valid_zip_path = self.tmp_path / "valid.zip"
+        with zipfile.ZipFile(valid_zip_path, "w") as zf:
+            zf.writestr("root_dir/SKILL.md", "# Skill Document\n")
+            zf.writestr("root_dir/sub/file.txt", "content\n")
+
+        dest = self.tmp_path / "extracted_valid_zip"
+        top = skills_71_safe_extract_zip(zipfile.ZipFile(valid_zip_path), dest)
+        self.assertTrue((dest / "root_dir" / "SKILL.md").is_file())
+        self.assertEqual(top.name, "root_dir")
+
+        # 2. 恶意路径穿越 zip 拦截
+        bad_zip_path = self.tmp_path / "bad.zip"
+        with zipfile.ZipFile(bad_zip_path, "w") as zf:
+            zf.writestr("../evil.txt", "hack")
+
+        dest_bad = self.tmp_path / "extracted_bad_zip"
+        with self.assertRaises(RuntimeError):
+            skills_71_safe_extract_zip(zipfile.ZipFile(bad_zip_path), dest_bad)
+
+    def test_safe_extract_tar(self):
+        import tarfile
+
+        # 1. 正常 tar 提取
+        valid_tar_path = self.tmp_path / "valid.tar"
+        with tarfile.open(valid_tar_path, "w") as tf:
+            info1 = tarfile.TarInfo(name="repo_top/SKILL.md")
+            content1 = b"# Tar Skill\n"
+            info1.size = len(content1)
+            tf.addfile(info1, io.BytesIO(content1))
+
+        dest = self.tmp_path / "extracted_valid_tar"
+        with tarfile.open(valid_tar_path) as tf:
+            top = skills_71_safe_extract_tar(tf, dest)
+        self.assertTrue((dest / "repo_top" / "SKILL.md").is_file())
+        self.assertEqual(top.name, "repo_top")
+
+        # 2. 恶意路径穿越 tar 拦截
+        bad_tar_path = self.tmp_path / "bad.tar"
+        with tarfile.open(bad_tar_path, "w") as tf:
+            info_bad = tarfile.TarInfo(name="../escape.txt")
+            bad_content = b"escape"
+            info_bad.size = len(bad_content)
+            tf.addfile(info_bad, io.BytesIO(bad_content))
+
+        dest_bad = self.tmp_path / "extracted_bad_tar"
+        with tarfile.open(bad_tar_path) as tf:
+            with self.assertRaises(RuntimeError):
+                skills_71_safe_extract_tar(tf, dest_bad)
+
+    def test_verify_skill_md(self):
+        skill_dir = self.tmp_path / "test_skill"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        md_file = skill_dir / "SKILL.md"
+        content = b"# Verified Skill\n"
+        md_file.write_bytes(content)
+        expected_hash = skills_71_sha256_bytes(content)
+
+        # 1. 匹配成功
+        ok, res = skills_71_verify_skill_md(skill_dir, "SKILL.md", expected_hash)
+        self.assertTrue(ok)
+        self.assertEqual(res, expected_hash)
+
+        # 2. 哈希不匹配
+        ok, res = skills_71_verify_skill_md(skill_dir, "SKILL.md", "wrong_hash")
+        self.assertFalse(ok)
+        self.assertIn("sha256 mismatch", res)
+
+        # 3. 文件不存在
+        ok, res = skills_71_verify_skill_md(skill_dir, "MISSING.md", expected_hash)
+        self.assertFalse(ok)
+        self.assertIn("missing MISSING.md", res)
+
+    def test_copy_skill_tree_and_backup(self):
+        src = self.tmp_path / "src_skill"
+        src.mkdir()
+        (src / "file.txt").write_text("v1", encoding="utf-8")
+
+        target = self.tmp_path / "installed_skill"
+        skills_71_copy_skill_tree(src, target)
+        self.assertTrue((target / "file.txt").is_file())
+        self.assertEqual((target / "file.txt").read_text(encoding="utf-8"), "v1")
+
+        # 再次复制应生成备份
+        (src / "file.txt").write_text("v2", encoding="utf-8")
+        skills_71_copy_skill_tree(src, target)
+        self.assertEqual((target / "file.txt").read_text(encoding="utf-8"), "v2")
+        backups = list(self.tmp_path.glob("installed_skill.bak.*"))
+        self.assertGreaterEqual(len(backups), 1)
+
+    def test_write_meta_and_license_notes(self):
+        target = self.tmp_path / "meta_skill"
+        target.mkdir()
+        entry = {
+            "id": "ST09",
+            "display_name": "星年影像成标",
+            "declared_skill_name": "s-008-starryear-visual-mark",
+            "repository": "owner/repo",
+            "group": "照片转编辑海报",
+        }
+        skills_71_write_meta(target, entry, "commit123")
+        meta_file = target / "INSTALL_META.json"
+        self.assertTrue(meta_file.is_file())
+        meta = json.loads(meta_file.read_text(encoding="utf-8"))
+        self.assertEqual(meta["entry_id"], "ST09")
+        self.assertEqual(meta["verified_ref"], "commit123")
+        self.assertIn("Starryear Personal", meta["license_note"])
+
+        license_file = target / "LICENSE_NOTE.md"
+        self.assertTrue(license_file.is_file())
+        self.assertIn("ST09", license_file.read_text(encoding="utf-8"))
+
+    def test_install_one_dry_run_and_errors(self):
+        # 1. dry-run
+        entry = {
+            "id": "ST03",
+            "display_name": "星年奥德赛",
+            "install": {
+                "target_directory_name": "odyssey-photo-diptych",
+                "kind": "zip",
+            },
+        }
+        res = skills_71_install_one(entry, out_root=self.out_root, cache_dir=self.cache_dir, dry_run=True)
+        self.assertEqual(res["status"], "dry_run")
+        self.assertEqual(res["id"], "ST03")
+
+        # 2. invalid entry dict
+        err1 = skills_71_install_one("not a dict")
+        self.assertEqual(err1["status"], "error")
+
+        # 3. missing install
+        err2 = skills_71_install_one({"id": "X01"})
+        self.assertEqual(err2["status"], "error")
+
+    def test_install_one_with_mock_fetch_zip(self):
+        skill_content = b"# Mock Zip Skill\n"
+        skill_hash = skills_71_sha256_bytes(skill_content)
+
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, "w") as zf:
+            zf.writestr("my-skill-pack/SKILL.md", skill_content)
+        zip_bytes = zip_buf.getvalue()
+        zip_hash = skills_71_sha256_bytes(zip_bytes)
+
+        entry = {
+            "id": "TEST_ZIP",
+            "display_name": "测试ZIP技能",
+            "repository": "test/repo",
+            "verified_ref": "v1.0.0",
+            "source_url": "https://github.com/test/repo/blob/main/skill.zip",
+            "install": {
+                "target_directory_name": "test-zip-skill",
+                "kind": "zip",
+                "zip_path": "skill.zip",
+                "zip_sha256": zip_hash,
+                "source_directory": "my-skill-pack",
+                "skill_md_path": "SKILL.md",
+                "skill_md_sha256": skill_hash,
+            }
+        }
+
+        def mock_fetch(url, dest):
+            dest.write_bytes(zip_bytes)
+
+        res = skills_71_install_one(
+            entry,
+            out_root=self.out_root,
+            cache_dir=self.cache_dir,
+            dry_run=False,
+            fetch_fn=mock_fetch,
+        )
+        self.assertEqual(res["status"], "ok")
+        self.assertEqual(res["id"], "TEST_ZIP")
+        target_dir = self.out_root / "test-zip-skill"
+        self.assertTrue((target_dir / "SKILL.md").is_file())
+        self.assertTrue((target_dir / "INSTALL_META.json").is_file())
+
+    def test_install_one_with_mock_fetch_directory_tarball(self):
+        skill_content = b"# Mock Tarball Skill\n"
+        skill_hash = skills_71_sha256_bytes(skill_content)
+
+        tar_buf = io.BytesIO()
+        with tarfile.open(fileobj=tar_buf, mode="w") as tf:
+            info = tarfile.TarInfo(name="repo_root/sub/SKILL.md")
+            info.size = len(skill_content)
+            tf.addfile(info, io.BytesIO(skill_content))
+        tar_bytes = tar_buf.getvalue()
+
+        entry = {
+            "id": "TEST_DIR",
+            "display_name": "测试目录技能",
+            "repository": "test/tar_repo",
+            "verified_ref": "v2.0.0",
+            "install": {
+                "target_directory_name": "test-tar-skill",
+                "kind": "directory",
+                "source_directory": "sub",
+                "skill_md_path": "SKILL.md",
+                "skill_md_sha256": skill_hash,
+            }
+        }
+
+        def mock_fetch(url, dest):
+            dest.write_bytes(tar_bytes)
+
+        res = skills_71_install_one(
+            entry,
+            out_root=self.out_root,
+            cache_dir=self.cache_dir,
+            dry_run=False,
+            fetch_fn=mock_fetch,
+        )
+        self.assertEqual(res["status"], "ok")
+        self.assertEqual(res["id"], "TEST_DIR")
+        target_dir = self.out_root / "test-tar-skill"
+        self.assertTrue((target_dir / "SKILL.md").is_file())
+        self.assertTrue((target_dir / "INSTALL_META.json").is_file())
+
+    def test_run_install_and_cli(self):
+        manifest_file = self.tmp_path / "skills-manifest.json"
+        manifest_file.write_text(json.dumps({
+            "entries": [
+                {
+                    "id": "ST01",
+                    "display_name": "技能一",
+                    "group": "照片抽象转译",
+                    "install": {"target_directory_name": "skill-01", "kind": "zip"}
+                },
+                {
+                    "id": "ST02",
+                    "display_name": "技能二",
+                    "group": "光色与氛围改造",
+                    "install": {"target_directory_name": "skill-02", "kind": "directory"}
+                }
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        # 1. run_install dry_run
+        report = skills_71_run_install(
+            manifest_path=manifest_file,
+            cache_dir=self.cache_dir,
+            out_root=self.out_root,
+            dry_run=True,
+            workers=2,
+        )
+        self.assertEqual(report["total"], 2)
+        self.assertEqual(report["dry_run"], 2)
+        self.assertEqual(report["error"], 0)
+        self.assertTrue((self.cache_dir / "install_report.json").is_file())
+
+        # 2. CLI --list
+        ret_list = skills_71_main(["--manifest", str(manifest_file), "--list"])
+        self.assertEqual(ret_list, 0)
+
+        # 3. CLI --dry-run with --ids
+        ret_dry = skills_71_main([
+            "--manifest", str(manifest_file),
+            "--cache-dir", str(self.cache_dir),
+            "--out-dir", str(self.out_root),
+            "--ids", "ST01",
+            "--dry-run",
+            "-w", "1"
+        ])
+        self.assertEqual(ret_dry, 0)
+
+        # 4. CLI 不存在 manifest 报错
+        ret_err = skills_71_main(["--manifest", str(self.tmp_path / "not_found.json")])
+        self.assertEqual(ret_err, 1)
 
 
 if __name__ == "__main__":
