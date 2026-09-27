@@ -314,6 +314,20 @@ from batch_skill71_hifi_p0 import (
     render_single_hifi,
     run_batch_hifi,
 )
+import batch_skill71_samples
+from batch_skill71_samples import (
+    DEFAULT_INDEX_PATH as SKILL71_DEFAULT_INDEX,
+    BASE_SUBJECT as SKILL71_BASE_SUBJECT,
+    CLEAN as SKILL71_CLEAN,
+    slugify as skill71_slugify,
+    load_skills_index as skill71_load_index,
+    build_prompt as skill71_build_prompt,
+    render_single_skill_sample as skill71_render_single,
+    filter_skills as skill71_filter_skills,
+    run_batch_skill_samples as skill71_run_batch,
+    list_skills as skill71_list_skills,
+    one as skill71_one,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -5301,6 +5315,290 @@ class TestBatchSkill71HifiP0(unittest.TestCase):
         ])
         self.assertEqual(ret_dry, 0)
         self.assertTrue((cli_out / "hifi_report.json").is_file())
+
+
+class TestBatchSkill71Samples(unittest.TestCase):
+    """测试 71 项生图 Skill 批量样张生成引擎 batch_skill71_samples"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_slugify(self):
+        self.assertEqual(skill71_slugify("星年奥德赛"), "星年奥德赛")
+        self.assertEqual(skill71_slugify("hello_world! 123"), "hello_world-123")
+        self.assertEqual(skill71_slugify(""), "item")
+        self.assertEqual(skill71_slugify(None), "item")
+        self.assertEqual(skill71_slugify("a" * 50), "a" * 28)
+
+    def test_load_skills_index_default(self):
+        skills = skill71_load_index()
+        self.assertEqual(len(skills), 71)
+        self.assertEqual(skills[0]["id"], "ST03")
+        self.assertTrue(all("id" in s and "display_name" in s for s in skills))
+
+    def test_load_skills_index_custom_and_errors(self):
+        # 1. 正常自定义 index
+        dummy_index = self.tmp_path / "custom_index.json"
+        dummy_index.write_text(json.dumps({
+            "skills": [
+                {"id": "TEST01", "display_name": "测试技能01", "group": "测试组", "declared_skill_name": "test-01"}
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        loaded = skill71_load_index(dummy_index)
+        self.assertEqual(len(loaded), 1)
+        self.assertEqual(loaded[0]["id"], "TEST01")
+
+        # 2. 文件不存在
+        with self.assertRaises(FileNotFoundError):
+            skill71_load_index(self.tmp_path / "not_found.json")
+
+        # 3. 结构不合法
+        invalid_index = self.tmp_path / "invalid_index.json"
+        invalid_index.write_text(json.dumps({"invalid_key": []}), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            skill71_load_index(invalid_index)
+
+    def test_build_prompt(self):
+        # 1. 默认 keep_text = False
+        s1 = {
+            "id": "ST03",
+            "style": "抽象叙事双联",
+            "scope": "9:16画幅",
+            "ages": {"keep_text": False},
+        }
+        p1 = skill71_build_prompt(s1)
+        self.assertIn(SKILL71_BASE_SUBJECT, p1)
+        self.assertIn("Visual style transform: 抽象叙事双联", p1)
+        self.assertIn("Constraints: 9:16画幅", p1)
+        self.assertIn(SKILL71_CLEAN, p1)
+
+        # 2. keep_text = True
+        s2 = {
+            "id": "S01",
+            "style": "千禧海报",
+            "scope": "排版海报",
+            "ages": {"keep_text": True},
+        }
+        p2 = skill71_build_prompt(s2)
+        self.assertIn("intentional poster lettering allowed", p2)
+        self.assertNotIn(SKILL71_CLEAN, p2)
+
+        # 3. 自定义 base_subject
+        p3 = skill71_build_prompt(s1, base_subject="A minimalist ceramic vase on a wooden table")
+        self.assertTrue(p3.startswith("A minimalist ceramic vase on a wooden table."))
+
+        # 4. 非 dict 抛出 ValueError
+        with self.assertRaises(ValueError):
+            skill71_build_prompt("not a dict")
+
+    def test_filter_skills(self):
+        skills = [
+            {"id": "ST03", "group": "照片转超现实叙事"},
+            {"id": "ST07", "group": "照片转超现实叙事"},
+            {"id": "S11", "group": "光色与氛围改造"},
+            {"id": "S23", "group": "照片转插画与材质"},
+        ]
+
+        # 1. 按 ID 字符串筛选
+        f_ids = skill71_filter_skills(skills, skills="st03,s11")
+        self.assertEqual([s["id"] for s in f_ids], ["ST03", "S11"])
+
+        # 2. 按 ID 列表筛选
+        f_id_list = skill71_filter_skills(skills, skills=["st07"])
+        self.assertEqual([s["id"] for s in f_id_list], ["ST07"])
+
+        # 3. 按 Group 筛选
+        f_grp = skill71_filter_skills(skills, group="超现实")
+        self.assertEqual([s["id"] for s in f_grp], ["ST03", "ST07"])
+
+        # 4. 按 limit 筛选
+        f_lim = skill71_filter_skills(skills, limit=2)
+        self.assertEqual(len(f_lim), 2)
+
+        # 5. 组合筛选
+        f_comb = skill71_filter_skills(skills, group="超现实", limit=1)
+        self.assertEqual([s["id"] for s in f_comb], ["ST03"])
+
+    def test_list_skills(self):
+        items = skill71_list_skills()
+        self.assertEqual(len(items), 71)
+        first = items[0]
+        self.assertIn("id", first)
+        self.assertIn("display_name", first)
+        self.assertIn("group", first)
+        self.assertIn("declared_skill_name", first)
+        self.assertEqual(first["id"], "ST03")
+
+    def test_render_single_skill_sample_validation(self):
+        # 1. 非 dict
+        res_invalid = skill71_render_single("not-a-dict", out_dir=self.tmp_path)
+        self.assertFalse(res_invalid["ok"])
+        self.assertIn("Invalid skill format", res_invalid["error"])
+
+        # 2. id 为空
+        res_no_id = skill71_render_single({"display_name": "No ID"}, out_dir=self.tmp_path)
+        self.assertFalse(res_no_id["ok"])
+        self.assertIn("Skill ID cannot be empty", res_no_id["error"])
+
+    def test_render_single_skill_sample_dry_run(self):
+        sample_skill = {
+            "id": "ST03",
+            "display_name": "星年奥德赛",
+            "style": "双联叙事",
+        }
+        res = skill71_render_single(sample_skill, out_dir=self.tmp_path, dry_run=True)
+        self.assertTrue(res["ok"])
+        self.assertTrue(res["dry_run"])
+        self.assertEqual(res["id"], "ST03")
+        self.assertTrue(res["path"].endswith(".png"))
+        self.assertGreater(res["prompt_len"], 50)
+
+    def test_render_single_skill_sample_success_and_skip(self):
+        calls = []
+
+        def fake_gen(prompt, size, model, retries):
+            calls.append({"prompt": prompt, "model": model})
+            return {"ok": True, "cost_s": 0.35, "via": "mock_gw"}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"data_sample_png_" * 2000)
+
+        sample_skill = {
+            "id": "ST03",
+            "display_name": "星年奥德赛",
+            "style": "双联叙事",
+        }
+
+        # 1. 成功生成
+        res = skill71_render_single(
+            sample_skill,
+            out_dir=self.tmp_path,
+            generate_fn=fake_gen,
+            save_image_fn=fake_save,
+        )
+        self.assertTrue(res["ok"])
+        self.assertFalse(res.get("skipped", False))
+        self.assertEqual(res["id"], "ST03")
+        self.assertEqual(res.get("via"), "mock_gw")
+        self.assertTrue(Path(res["path"]).is_file())
+        self.assertGreaterEqual(res["kb"], 20)
+        self.assertEqual(len(calls), 1)
+
+        # 2. 再次执行（未开启 force）：跳过
+        res_skip = skill71_render_single(
+            sample_skill,
+            out_dir=self.tmp_path,
+            generate_fn=fake_gen,
+            save_image_fn=fake_save,
+            force=False,
+        )
+        self.assertTrue(res_skip["ok"])
+        self.assertTrue(res_skip.get("skipped"))
+        self.assertEqual(len(calls), 1)
+
+        # 3. 第三次执行（开启 force）：重新生成
+        res_force = skill71_render_single(
+            sample_skill,
+            out_dir=self.tmp_path,
+            generate_fn=fake_gen,
+            save_image_fn=fake_save,
+            force=True,
+        )
+        self.assertTrue(res_force["ok"])
+        self.assertFalse(res_force.get("skipped", False))
+        self.assertEqual(len(calls), 2)
+
+    def test_render_single_skill_sample_errors(self):
+        sample_skill = {"id": "ST03", "display_name": "测试"}
+
+        # 1. 生成器返回失败字典
+        def fake_fail_gen(*args, **kwargs):
+            return {"ok": False, "error": "Rate limit exceeded"}
+
+        res_fail = skill71_render_single(
+            sample_skill,
+            out_dir=self.tmp_path,
+            generate_fn=fake_fail_gen,
+        )
+        self.assertFalse(res_fail["ok"])
+        self.assertIn("Rate limit exceeded", res_fail["error"])
+
+        # 2. 生成器抛出异常
+        def fake_throw_gen(*args, **kwargs):
+            raise TimeoutError("Network connection timed out")
+
+        res_throw = skill71_render_single(
+            sample_skill,
+            out_dir=self.tmp_path,
+            generate_fn=fake_throw_gen,
+        )
+        self.assertFalse(res_throw["ok"])
+        self.assertIn("Network connection timed out", res_throw["error"])
+
+        # 3. 生成器不可调用
+        with patch("batch_skill71_samples.generate", None):
+            res_no_gen = skill71_render_single(
+                sample_skill,
+                out_dir=self.tmp_path,
+                generate_fn=None,
+            )
+            self.assertFalse(res_no_gen["ok"])
+            self.assertIn("not available or not callable", res_no_gen["error"])
+
+    def test_run_batch_skill_samples(self):
+        def fake_gen(prompt, size, model, retries):
+            return {"ok": True, "cost_s": 0.22, "via": "mock"}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"batch_sample_content" * 2000)
+
+        out_dir = self.tmp_path / "batch_samples_test"
+        results = skill71_run_batch(
+            skills="ST03,st07",
+            limit=2,
+            out_dir=out_dir,
+            generate_fn=fake_gen,
+            save_image_fn=fake_save,
+        )
+        self.assertEqual(len(results), 2)
+        self.assertTrue(all(r["ok"] for r in results))
+        self.assertEqual({r["id"] for r in results}, {"ST03", "ST07"})
+
+        # 校验 batch_report.json 写入
+        report_file = out_dir / "batch_report.json"
+        self.assertTrue(report_file.is_file())
+        report_data = json.loads(report_file.read_text(encoding="utf-8"))
+        self.assertEqual(len(report_data), 2)
+        self.assertTrue(all(r["ok"] for r in report_data))
+
+    def test_main_cli_execution(self):
+        # 1. --list-skills
+        ret_list = batch_skill71_samples.main(["--list-skills"])
+        self.assertEqual(ret_list, 0)
+
+        # 2. --dry-run CLI
+        cli_out = self.tmp_path / "cli_dry_skills"
+        ret_dry = batch_skill71_samples.main([
+            "--dry-run",
+            "-s", "ST03,ST08",
+            "-n", "2",
+            "--out", str(cli_out),
+        ])
+        self.assertEqual(ret_dry, 0)
+        self.assertTrue((cli_out / "batch_report.json").is_file())
+
+    def test_one_compatibility(self):
+        sample_skill = {"id": "TEST_ONE", "display_name": "兼容测试"}
+        with patch("batch_skill71_samples.render_single_skill_sample") as mock_render:
+            mock_render.return_value = {"id": "TEST_ONE", "ok": True}
+            res = skill71_one(sample_skill)
+            self.assertEqual(res["id"], "TEST_ONE")
+            mock_render.assert_called_once_with(sample_skill, out_dir=batch_skill71_samples.OUT)
 
 
 if __name__ == "__main__":
