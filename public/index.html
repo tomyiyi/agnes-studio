@@ -1032,6 +1032,7 @@
                 <a id="btn-download-poster" href="assets/poster_workshop_hero_2350x1000.png" download="agnes_poster.png" class="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-900 font-bold text-[11px] flex items-center space-x-1 shadow-sm transition">
                   <span>⬇ 导出海报</span>
                 </a>
+                <select id="rendered-poster-history" onchange="restoreRenderedPoster(this.value)"><option value="">最近成品</option></select>
               </div>
             </div>
 
@@ -1735,6 +1736,26 @@
         }
       });
       if (tabId === 'poster-studio') loadGeneratedBackgrounds();
+      if (tabId === 'poster-studio') loadRenderedPosterHistory();
+    }
+
+    async function loadRenderedPosterHistory() {
+      const select = document.getElementById('rendered-poster-history');
+      if (!select) return;
+      const res = await fetch('/api/rendered-posters');
+      const data = await res.json();
+      if (!data.success) return;
+      select.innerHTML = '<option value="">最近成品</option>';
+      data.items.forEach(item => { const option=document.createElement('option'); option.value=item.poster_url; option.textContent=; select.appendChild(option); });
+    }
+
+    function restoreRenderedPoster(posterPath) {
+      if (!posterPath) return;
+      latestRenderedPosterPath = posterPath;
+      const url=posterPath+'?t='+Date.now();
+      const img=document.getElementById('poster-preview-img'); if (img) img.src=url;
+      const dl=document.getElementById('btn-download-poster'); if (dl) { dl.href=url; dl.download=posterPath.split('/').pop() || 'agnes_poster.png'; }
+      const badge=document.getElementById('badge-font-name'); if (badge) badge.innerText='🕘 历史渲染成品';
     }
 
     function toggleTheme() {
@@ -2648,6 +2669,7 @@ function renderSkills() {
     function resetToLocalConfig() {
       localStorage.removeItem('agnes_studio_config');
       loadStudioConfig();
+      loadRenderedPosterHistory();
       loadGeneratedBackgrounds();
     }
 
@@ -2702,6 +2724,7 @@ function renderSkills() {
           
           const badgeEl = document.getElementById('badge-font-name');
           if (badgeEl) badgeEl.innerText = '✨ 实时自定义渲染: ' + title;
+          loadRenderedPosterHistory();
           showNotification(`海报渲染就绪（${data.duration_ms}ms）！可点击右上角「导出海报」保存。`, 'success');
         } else {
           const errMsg = data.error || '未知异常';

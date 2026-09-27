@@ -36,6 +36,19 @@ def ensure_venv():
 
 PUBLIC_DIR = DIR / "public"
 ASSETS_DIR = PUBLIC_DIR / "assets"
+
+def list_rendered_posters(root=ASSETS_DIR, limit=20):
+    items = []
+    root = Path(root)
+    if not root.is_dir():
+        return items
+    for path in root.glob("poster_custom_*.png"):
+        if not path.is_file():
+            continue
+        stat = path.stat()
+        items.append({"name": path.name, "poster_url": f"assets/{path.name}", "full_url": f"/assets/{path.name}", "size_bytes": stat.st_size, "mtime": stat.st_mtime})
+    items.sort(key=lambda item: item["mtime"], reverse=True)
+    return items[:limit]
 GENERATED_DIR = ASSETS_DIR / "generated"
 GENERATED_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -197,6 +210,9 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             self._send_json({"success": True, "items": list_generated_images()})
             return
 
+        if parsed_path == "/api/rendered-posters":
+            self._send_json({"success": True, "items": list_rendered_posters()})
+            return
         if parsed_path == "/api/config":
             cfg = get_local_newapi_config()
             # 为前端提供脱敏显示的 key 和全量配置
