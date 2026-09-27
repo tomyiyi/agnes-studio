@@ -37,6 +37,19 @@ except ImportError:
 DEFAULT_OUT_DIR = ROOT / "outputs" / "layout_variants" / "L1"
 OUT = DEFAULT_OUT_DIR
 
+
+def classify_generation_error(error: object) -> str:
+    """将网关/认证/业务失败分层，避免报告把 502 误报成版式生图失败。"""
+    text = str(error or "").lower()
+    if "http 502" in text or "bad gateway" in text:
+        return "gateway_502"
+    if any(token in text for token in ("http 401", "http 403", "unauthorized", "forbidden", "token_rejected")):
+        return "auth"
+    if "timeout" in text or "timed out" in text:
+        return "timeout"
+    return "generation_error"
+
+
 # 12 款版式注册表
 LAYOUT_VARIANTS: dict[str, dict[str, Any]] = {
     "01_swiss_asym": {
@@ -302,10 +315,12 @@ def generate_layout_variant(
     """生成单张版式变体底图。"""
     variant = find_layout_variant(stem_or_key)
     if not variant:
+        err = f"Unknown layout variant: {stem_or_key}"
         return {
             "stem": str(stem_or_key),
             "ok": False,
-            "err": f"Unknown layout variant: {stem_or_key}",
+            "err": err,
+            "error_class": classify_generation_error(err),
         }
 
     stem = variant["stem"]
@@ -339,10 +354,12 @@ def generate_layout_variant(
     saver = save_image_fn or save_image
 
     if not callable(gen):
+        err = "agnes_gateway.generate is not available or not callable"
         return {
             "stem": stem,
             "ok": False,
-            "err": "agnes_gateway.generate is not available or not callable",
+            "err": err,
+            "error_class": classify_generation_error(err),
         }
 
     try:
@@ -358,10 +375,20 @@ def generate_layout_variant(
                 "size_kb": size_kb,
             }
         else:
-            err_msg = str(r)[:200] if r is not None else "Empty response"
-            return {"stem": stem, "ok": False, "err": err_msg}
+            err_msg = r.get("error") if isinstance(r, dict) and r.get("error") else (str(r)[:200] if r is not None else "Empty response")
+            return {
+                "stem": stem,
+                "ok": False,
+                "err": err_msg or "Unknown generation error",
+                "error_class": classify_generation_error(err_msg),
+            }
     except Exception as exc:
-        return {"stem": stem, "ok": False, "err": str(exc)}
+        return {
+            "stem": stem,
+            "ok": False,
+            "err": str(exc),
+            "error_class": classify_generation_error(exc),
+        }
 
 
 def run_batch_layout_variants(

@@ -288,6 +288,7 @@ from batch_layout_variants import (
     build_layout_prompt,
     generate_layout_variant,
     run_batch_layout_variants,
+    classify_generation_error as layout_variants_classify_error,
 )
 import batch_type_behind
 from batch_type_behind import (
@@ -4682,11 +4683,18 @@ class TestBatchLayoutVariants(unittest.TestCase):
         self.assertFalse(res_force.get("skipped", False))
         self.assertEqual(len(called), 1)
 
+    def test_classify_generation_error(self):
+        self.assertEqual(layout_variants_classify_error("HTTP 502: Bad Gateway"), "gateway_502")
+        self.assertEqual(layout_variants_classify_error("HTTP 401: Unauthorized"), "auth")
+        self.assertEqual(layout_variants_classify_error("upstream timed out"), "timeout")
+        self.assertEqual(layout_variants_classify_error("invalid prompt"), "generation_error")
+
     def test_generate_layout_variant_errors(self):
         # 1. 未知 variant
         res_unknown = generate_layout_variant("unknown_key", out_dir=self.tmp_path)
         self.assertFalse(res_unknown["ok"])
         self.assertIn("Unknown layout variant", res_unknown["err"])
+        self.assertEqual(res_unknown.get("error_class"), "generation_error")
 
         # 2. 模拟 generate 返回失败
         def fake_fail_gen(*args, **kwargs):
@@ -4699,6 +4707,7 @@ class TestBatchLayoutVariants(unittest.TestCase):
         )
         self.assertFalse(res_fail["ok"])
         self.assertIn("Quota exceeded", res_fail["err"])
+        self.assertEqual(res_fail.get("error_class"), "generation_error")
 
         # 3. 模拟抛出异常
         def fake_throw_gen(*args, **kwargs):
@@ -4711,6 +4720,54 @@ class TestBatchLayoutVariants(unittest.TestCase):
         )
         self.assertFalse(res_throw["ok"])
         self.assertIn("Network crash", res_throw["err"])
+        self.assertEqual(res_throw.get("error_class"), "generation_error")
+
+        # 4. 生成器不可调用
+        with patch("batch_layout_variants.generate", None):
+            res_no_gen = generate_layout_variant(
+                "04_type_band",
+                out_dir=self.tmp_path,
+                generate_fn=None,
+            )
+            self.assertFalse(res_no_gen["ok"])
+            self.assertIn("not available or not callable", res_no_gen["err"])
+            self.assertEqual(res_no_gen.get("error_class"), "generation_error")
+
+        # 5. 网关 502 错误分类
+        def fake_502_gen(*args, **kwargs):
+            return {"ok": False, "error": "HTTP 502: Bad Gateway"}
+
+        res_502 = generate_layout_variant(
+            "04_type_band",
+            out_dir=self.tmp_path,
+            generate_fn=fake_502_gen,
+        )
+        self.assertFalse(res_502["ok"])
+        self.assertEqual(res_502.get("error_class"), "gateway_502")
+
+        # 6. 鉴权错误分类
+        def fake_auth_gen(*args, **kwargs):
+            return {"ok": False, "error": "HTTP 401: Unauthorized"}
+
+        res_auth = generate_layout_variant(
+            "04_type_band",
+            out_dir=self.tmp_path,
+            generate_fn=fake_auth_gen,
+        )
+        self.assertFalse(res_auth["ok"])
+        self.assertEqual(res_auth.get("error_class"), "auth")
+
+        # 7. 超时错误分类
+        def fake_timeout_gen(*args, **kwargs):
+            raise TimeoutError("upstream request timed out")
+
+        res_timeout = generate_layout_variant(
+            "04_type_band",
+            out_dir=self.tmp_path,
+            generate_fn=fake_timeout_gen,
+        )
+        self.assertFalse(res_timeout["ok"])
+        self.assertEqual(res_timeout.get("error_class"), "timeout")
 
     def test_run_batch_layout_variants(self):
         def fake_generate(prompt, size, model, retries):
