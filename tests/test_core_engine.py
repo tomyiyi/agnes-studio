@@ -358,6 +358,7 @@ from batch_agnes_samples import (
     list_items as agnes_samples_list_items,
     one as agnes_samples_one,
     main as agnes_samples_main,
+    classify_generation_error as agnes_samples_classify_error,
 )
 import install_skills_71
 from install_skills_71 import (
@@ -5980,6 +5981,12 @@ class TestBatchAgnesSamples(unittest.TestCase):
         self.assertEqual(agnes_samples_slugify(12345), "item")
         self.assertEqual(agnes_samples_slugify("a" * 50, max_len=36), "a" * 36)
 
+    def test_classify_generation_error(self):
+        self.assertEqual(agnes_samples_classify_error("HTTP 502: Bad Gateway"), "gateway_502")
+        self.assertEqual(agnes_samples_classify_error("HTTP 401: Unauthorized"), "auth")
+        self.assertEqual(agnes_samples_classify_error("upstream timed out"), "timeout")
+        self.assertEqual(agnes_samples_classify_error("invalid prompt"), "generation_error")
+
     def test_load_prompts_library_default(self):
         items = agnes_samples_load_lib()
         self.assertGreaterEqual(len(items), 40)
@@ -6164,6 +6171,7 @@ class TestBatchAgnesSamples(unittest.TestCase):
         )
         self.assertFalse(r_fail["ok"])
         self.assertEqual(r_fail["error"], "rate limit exceeded")
+        self.assertEqual(r_fail["error_class"], "generation_error")
 
         # 3. 抛出异常
         def err_gen(prompt, size, model, retries):
@@ -6176,6 +6184,19 @@ class TestBatchAgnesSamples(unittest.TestCase):
         )
         self.assertFalse(r_err["ok"])
         self.assertIn("network disconnected", r_err["error"])
+        self.assertEqual(r_err["error_class"], "generation_error")
+
+        # 4. 网关 502 错误分类
+        def gateway_fail_gen(prompt, size, model, retries):
+            return {"ok": False, "error": "HTTP 502: Bad Gateway"}
+
+        r_502 = agnes_samples_render_single(
+            item_fail,
+            out_dir=self.tmp_path,
+            generate_fn=gateway_fail_gen,
+        )
+        self.assertFalse(r_502["ok"])
+        self.assertEqual(r_502["error_class"], "gateway_502")
 
     def test_run_batch_agnes_samples_and_cli(self):
         batch_out = self.tmp_path / "batch_out"

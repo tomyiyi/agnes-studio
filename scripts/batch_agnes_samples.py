@@ -29,6 +29,18 @@ DEFAULT_RETRIES = 2
 DEFAULT_WORKERS = 3
 
 
+def classify_generation_error(error: object) -> str:
+    """将网关/认证/业务失败分层，避免报告把 502 误报成 Sample 失败。"""
+    text = str(error or "").lower()
+    if "http 502" in text or "bad gateway" in text:
+        return "gateway_502"
+    if any(token in text for token in ("http 401", "http 403", "unauthorized", "forbidden", "token_rejected")):
+        return "auth"
+    if "timeout" in text or "timed out" in text:
+        return "timeout"
+    return "generation_error"
+
+
 def slugify(s: str | None, max_len: int = 36) -> str:
     """将字符串规范化为安全文件名片段（保留中英文字符与连接号）。"""
     if not s or not isinstance(s, str):
@@ -145,12 +157,14 @@ def render_single_sample(
             "id": iid,
             "ok": False,
             "error": str(err_msg or "Unknown generation error")[:200],
+            "error_class": classify_generation_error(err_msg),
         }
     except Exception as exc:
         return {
             "id": iid,
             "ok": False,
             "error": str(exc)[:200],
+            "error_class": classify_generation_error(exc),
         }
 
 
