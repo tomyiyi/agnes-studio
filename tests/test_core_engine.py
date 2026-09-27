@@ -191,6 +191,28 @@ from render_layout_poster import (
     build_window_editorial_html,
     layout_window_editorial,
 )
+import render_title_design
+from render_title_design import (
+    b64 as title_b64,
+    sanitize_img_uri as title_sanitize_img_uri,
+    shell as title_shell,
+    render_html as title_render_html,
+    shot as title_shot,
+    build_t1_cut_slash_html,
+    render_t1_cut_slash,
+    build_t2_double_offset_html,
+    render_t2_double_offset,
+    build_t3_color_split_html,
+    render_t3_color_split,
+    build_t4_image_in_type_html,
+    render_t4_image_in_type,
+    build_t5_geo_lock_html,
+    render_t5_geo_lock,
+    build_t6_outline_stretch_html,
+    render_t6_outline_stretch,
+    TITLE_DESIGN_REGISTRY,
+    render_all_title_designs,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -3136,6 +3158,385 @@ class TestRenderLayoutPoster(unittest.TestCase):
 
     def test_main_missing_input_returns_nonzero(self):
         ret = render_layout_poster.main(["--input", str(self.tmp_path / "does_not_exist.png")])
+        self.assertEqual(ret, 1)
+
+
+class TestRenderTitleDesign(unittest.TestCase):
+    """测试海报标题字设计（Title Lettering Design）渲染器 render_title_design 及其 6 大设计范式"""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_b64_with_data_uri(self):
+        raw_uri = "data:image/png;base64,mocked_title_data"
+        result = title_b64(raw_uri)
+        self.assertEqual(result, raw_uri)
+
+    def test_b64_mime_types(self):
+        types = [
+            ("sample.png", "image/png"),
+            ("sample.jpg", "image/jpeg"),
+            ("sample.jpeg", "image/jpeg"),
+            ("sample.webp", "image/webp"),
+            ("sample.svg", "image/svg+xml"),
+            ("sample.gif", "image/gif"),
+        ]
+        for filename, expected_mime in types:
+            file_p = self.tmp_path / filename
+            file_p.write_bytes(b"\x00\x01\x02\x03")
+            uri = title_b64(file_p)
+            self.assertTrue(uri.startswith(f"data:{expected_mime};base64,"))
+            uri_str = title_b64(str(file_p))
+            self.assertTrue(uri_str.startswith(f"data:{expected_mime};base64,"))
+
+    def test_b64_missing_file_raises_filenotfound(self):
+        with self.assertRaises(FileNotFoundError):
+            title_b64(self.tmp_path / "non_existent_title.png")
+
+    def test_sanitize_img_uri(self):
+        malicious = "data:image/png;base64,title\r\ndef'\"<script>"
+        sanitized = title_sanitize_img_uri(malicious)
+        self.assertNotIn("\r", sanitized)
+        self.assertNotIn("\n", sanitized)
+        self.assertNotIn("'", sanitized)
+        self.assertNotIn('"', sanitized)
+        self.assertNotIn("<", sanitized)
+        self.assertNotIn(">", sanitized)
+        self.assertIn("%27", sanitized)
+        self.assertIn("%22", sanitized)
+        self.assertIn("%3C", sanitized)
+        self.assertIn("%3E", sanitized)
+
+    def test_shell_structure_and_fonts(self):
+        html = title_shell("data:image/png;base64,sample", "<div class='title'>夜航</div>", extra_css=".custom{color:red;}")
+        self.assertIn("@font-face{font-family:'NSB'", html)
+        self.assertIn("@font-face{font-family:'PHH'", html)
+        self.assertIn("@font-face{font-family:'PHM'", html)
+        self.assertIn("@font-face{font-family:'SM'", html)
+        self.assertIn("width:864px;height:1152px", html)
+        self.assertIn("<div class='title'>夜航</div>", html)
+        self.assertIn(".custom{color:red;}", html)
+        self.assertIn('src="data:image/png;base64,sample"', html)
+
+    def test_build_t1_cut_slash_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_t1_cut_slash_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage", html_default)
+        self.assertIn("她把城市调成静音", html_default)
+        self.assertIn("#C8102E", html_default)
+        self.assertIn('class="slash"', html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_t1_cut_slash_html(
+            "data:image/png;base64,abc",
+            title="<切割字>",
+            latin="CUT & SLASH",
+            slogan="倾斜割裂 · 破格<标>",
+            slash_color="#FF3300",
+            extra_css=".custom_cut{opacity:0.9;}",
+        )
+        self.assertNotIn("<切割字>", html_custom)
+        self.assertIn("&lt;切割字&gt;", html_custom)
+        self.assertIn("CUT &amp; SLASH", html_custom)
+        self.assertIn("倾斜割裂 · 破格&lt;标&gt;", html_custom)
+        self.assertIn("#FF3300", html_custom)
+        self.assertIn(".custom_cut{opacity:0.9;}", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_t1_cut_slash_html(
+            "data:image/png;base64,abc",
+            title=None,
+            latin=None,
+            slogan=None,
+            slash_color=None,
+        )
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage", html_none)
+        self.assertIn("她把城市调成静音", html_none)
+
+    def test_build_t2_double_offset_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_t2_double_offset_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage · 2026", html_default)
+        self.assertIn("-webkit-text-stroke:1.5px", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_t2_double_offset_html(
+            "data:image/png;base64,abc",
+            title="<双层错位>",
+            latin="DOUBLE & OFFSET",
+            stroke_color="rgba(255,255,255,.8)",
+            text_color="#00FFFF",
+            extra_css=".custom_offset{top:20px;}",
+        )
+        self.assertNotIn("<双层错位>", html_custom)
+        self.assertIn("&lt;双层错位&gt;", html_custom)
+        self.assertIn("DOUBLE &amp; OFFSET", html_custom)
+        self.assertIn("#00FFFF", html_custom)
+        self.assertIn(".custom_offset{top:20px;}", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_t2_double_offset_html(
+            "data:image/png;base64,abc",
+            title=None,
+            latin=None,
+            stroke_color=None,
+            text_color=None,
+        )
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage · 2026", html_none)
+
+    def test_build_t3_color_split_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_t3_color_split_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("A Film Still", html_default)
+        self.assertIn("clip-path:polygon", html_default)
+        self.assertIn("#C8102E", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_t3_color_split_html(
+            "data:image/png;base64,abc",
+            title="<色块切割>",
+            latin="COLOR & SPLIT",
+            slogan="双色断层",
+            split_color="#00E5FF",
+            extra_css=".split_custom{margin:5px;}",
+        )
+        self.assertNotIn("<色块切割>", html_custom)
+        self.assertIn("&lt;色块切割&gt;", html_custom)
+        self.assertIn("COLOR &amp; SPLIT", html_custom)
+        self.assertIn("#00E5FF", html_custom)
+        self.assertIn(".split_custom{margin:5px;}", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_t3_color_split_html(
+            "data:image/png;base64,abc",
+            title=None,
+            latin=None,
+            slogan=None,
+            split_color=None,
+        )
+        self.assertIn("夜航", html_none)
+        self.assertIn("A Film Still", html_none)
+
+    def test_build_t4_image_in_type_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_t4_image_in_type_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage", html_default)
+        self.assertIn("-webkit-background-clip:text", html_default)
+        self.assertIn("background-image:url('data:image/png;base64,abc')", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_t4_image_in_type_html(
+            "data:image/png;base64,abc",
+            title="<图窗字>",
+            latin="IMAGE & TYPE",
+            slogan="画面融入<字>",
+            bar_color="#E0A96D",
+            extra_css=".win_css{border:none;}",
+        )
+        self.assertNotIn("<图窗字>", html_custom)
+        self.assertIn("&lt;图窗字&gt;", html_custom)
+        self.assertIn("IMAGE &amp; TYPE", html_custom)
+        self.assertIn("#E0A96D", html_custom)
+        self.assertIn(".win_css{border:none;}", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_t4_image_in_type_html(
+            "data:image/png;base64,abc",
+            title=None,
+            latin=None,
+            slogan=None,
+            bar_color=None,
+        )
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage", html_none)
+
+    def test_build_t5_geo_lock_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_t5_geo_lock_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage", html_default)
+        self.assertIn("border-left:2px solid #D4B896", html_default)
+        self.assertIn("border-right:2px solid #D4B896", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_t5_geo_lock_html(
+            "data:image/png;base64,abc",
+            title="<几何锁字>",
+            latin="GEO & LOCK",
+            slogan="徽章与结构",
+            frame_color="#FFB800",
+            extra_css=".geo_css{padding:12px;}",
+        )
+        self.assertNotIn("<几何锁字>", html_custom)
+        self.assertIn("&lt;几何锁字&gt;", html_custom)
+        self.assertIn("GEO &amp; LOCK", html_custom)
+        self.assertIn("#FFB800", html_custom)
+        self.assertIn(".geo_css{padding:12px;}", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_t5_geo_lock_html(
+            "data:image/png;base64,abc",
+            title=None,
+            latin=None,
+            slogan=None,
+            frame_color=None,
+        )
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage", html_none)
+
+    def test_build_t6_outline_stretch_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_t6_outline_stretch_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("2026 / NIGHT", html_default)
+        self.assertIn("transform:scaleX(0.92)", html_default)
+        self.assertIn("-webkit-text-stroke:2.5px #F4F0E8", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_t6_outline_stretch_html(
+            "data:image/png;base64,abc",
+            title="<挤压描边>",
+            latin="OUTLINE & STRETCH",
+            slogan="工业先锋力场",
+            stroke_color="#00FFAA",
+            extra_css=".outline_css{margin:2px;}",
+        )
+        self.assertNotIn("<挤压描边>", html_custom)
+        self.assertIn("&lt;挤压描边&gt;", html_custom)
+        self.assertIn("OUTLINE &amp; STRETCH", html_custom)
+        self.assertIn("#00FFAA", html_custom)
+        self.assertIn(".outline_css{margin:2px;}", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_t6_outline_stretch_html(
+            "data:image/png;base64,abc",
+            title=None,
+            latin=None,
+            slogan=None,
+            stroke_color=None,
+        )
+        self.assertIn("夜航", html_none)
+        self.assertIn("2026 / NIGHT", html_none)
+
+    def test_render_html_mkdir_and_invocation(self):
+        out_target = self.tmp_path / "deep" / "nested" / "title_render.png"
+        fake_page = MagicMock()
+        fake_browser = MagicMock()
+        fake_browser.new_page.return_value = fake_page
+        fake_chromium = MagicMock()
+        fake_chromium.launch.return_value = fake_browser
+        fake_playwright_ctx = MagicMock()
+        fake_playwright_ctx.chromium = fake_chromium
+        fake_playwright_cm = MagicMock()
+        fake_playwright_cm.__enter__.return_value = fake_playwright_ctx
+
+        def fake_screenshot(path, type="png"):
+            Path(path).write_bytes(b"\x89PNGfake_title_lettering")
+
+        fake_page.screenshot.side_effect = fake_screenshot
+
+        with patch("playwright.sync_api.sync_playwright", return_value=fake_playwright_cm):
+            res_path = title_render_html("<html><body>Title Lettering</body></html>", out_target, timeout_ms=10)
+            self.assertEqual(res_path, out_target)
+            self.assertTrue(out_target.exists())
+            fake_page.set_content.assert_called_once_with("<html><body>Title Lettering</body></html>")
+            fake_page.wait_for_timeout.assert_called_once_with(10)
+            fake_browser.close.assert_called_once()
+
+    def test_title_design_registry(self):
+        self.assertEqual(len(TITLE_DESIGN_REGISTRY), 6)
+        expected_keys = {
+            "t1_cut_slash",
+            "t2_double_offset",
+            "t3_color_split",
+            "t4_image_in_type",
+            "t5_geo_lock",
+            "t6_outline_stretch",
+        }
+        self.assertEqual(set(TITLE_DESIGN_REGISTRY.keys()), expected_keys)
+
+    @patch("render_title_design.render_html")
+    def test_all_title_designs_integration(self, mock_render):
+        sample_img = self.tmp_path / "base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out.png"
+        mock_render.return_value = out_p
+
+        # 1. render_t1_cut_slash
+        res1 = render_t1_cut_slash(sample_img, out_p, title="切割测试", latin="CUT TEST")
+        self.assertEqual(res1, out_p)
+        call_html1 = mock_render.call_args[0][0]
+        self.assertIn("切割测试", call_html1)
+        self.assertIn("CUT TEST", call_html1)
+
+        # 2. render_t2_double_offset
+        res2 = render_t2_double_offset(sample_img, out_p, title="错位测试", latin="OFFSET TEST")
+        self.assertEqual(res2, out_p)
+        call_html2 = mock_render.call_args[0][0]
+        self.assertIn("错位测试", call_html2)
+        self.assertIn("OFFSET TEST", call_html2)
+
+        # 3. render_t3_color_split
+        res3 = render_t3_color_split(sample_img, out_p, title="色块测试", latin="SPLIT TEST")
+        self.assertEqual(res3, out_p)
+        call_html3 = mock_render.call_args[0][0]
+        self.assertIn("色块测试", call_html3)
+        self.assertIn("SPLIT TEST", call_html3)
+
+        # 4. render_t4_image_in_type
+        res4 = render_t4_image_in_type(sample_img, out_p, title="图窗测试", latin="WINDOW TEST")
+        self.assertEqual(res4, out_p)
+        call_html4 = mock_render.call_args[0][0]
+        self.assertIn("图窗测试", call_html4)
+        self.assertIn("WINDOW TEST", call_html4)
+
+        # 5. render_t5_geo_lock
+        res5 = render_t5_geo_lock(sample_img, out_p, title="锁字测试", latin="LOCK TEST")
+        self.assertEqual(res5, out_p)
+        call_html5 = mock_render.call_args[0][0]
+        self.assertIn("锁字测试", call_html5)
+        self.assertIn("LOCK TEST", call_html5)
+
+        # 6. render_t6_outline_stretch
+        res6 = render_t6_outline_stretch(sample_img, out_p, title="挤压测试", latin="STRETCH TEST")
+        self.assertEqual(res6, out_p)
+        call_html6 = mock_render.call_args[0][0]
+        self.assertIn("挤压测试", call_html6)
+        self.assertIn("STRETCH TEST", call_html6)
+
+    @patch("render_title_design.render_html")
+    def test_render_all_title_designs(self, mock_render):
+        sample_img = self.tmp_path / "base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_d = self.tmp_path / "title_batch"
+        mock_render.side_effect = lambda html, out, **kw: Path(out)
+
+        results = render_all_title_designs(sample_img, out_dir=out_d, title="全量测试")
+        self.assertEqual(len(results), 6)
+        self.assertEqual(mock_render.call_count, 6)
+        for key in ("t1_cut_slash", "t2_double_offset", "t3_color_split", "t4_image_in_type", "t5_geo_lock", "t6_outline_stretch"):
+            self.assertIn(key, results)
+            self.assertEqual(results[key].parent, out_d)
+
+    @patch("render_title_design.render_html")
+    def test_main_execution(self, mock_render):
+        mock_render.side_effect = lambda html, out, **kw: Path(out)
+        ret = render_title_design.main([])
+        self.assertEqual(ret, 0)
+        self.assertEqual(mock_render.call_count, 6)
+
+    def test_main_missing_input_returns_nonzero(self):
+        ret = render_title_design.main(["--input", str(self.tmp_path / "does_not_exist.png")])
         self.assertEqual(ret, 1)
 
 
