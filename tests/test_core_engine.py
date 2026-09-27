@@ -278,6 +278,10 @@ from batch_layout_cn_789 import (
     render_layout_cn,
     render_all_layouts as render_all_layout_cn,
     LAYOUT_CN_REGISTRY,
+    SHOTS as LAYOUT_CN_SHOTS,
+    classify_generation_error as layout_cn_classify_error,
+    generate_layout_shot,
+    run_batch_generate_shots,
 )
 import batch_layout_variants
 from batch_layout_variants import (
@@ -4541,6 +4545,147 @@ class TestBatchLayoutCn789(unittest.TestCase):
             "--src", str(self.tmp_path / "not_there.png"),
         ])
         self.assertEqual(ret_missing, 1)
+
+    def test_classify_generation_error(self):
+        self.assertEqual(layout_cn_classify_error("HTTP 502: Bad Gateway"), "gateway_502")
+        self.assertEqual(layout_cn_classify_error("HTTP 401: Unauthorized"), "auth")
+        self.assertEqual(layout_cn_classify_error("upstream timed out"), "timeout")
+        self.assertEqual(layout_cn_classify_error("invalid prompt"), "generation_error")
+
+    def test_shots_constants(self):
+        self.assertGreaterEqual(len(LAYOUT_CN_SHOTS), 6)
+        for stem, prompt in LAYOUT_CN_SHOTS:
+            self.assertTrue(stem)
+            self.assertTrue(prompt)
+
+    def test_generate_layout_shot_and_errors(self):
+        # 1. 空 stem / prompt 参数校验
+        res_no_stem = generate_layout_shot("", "prompt", out_dir=self.tmp_path)
+        self.assertFalse(res_no_stem["ok"])
+        self.assertEqual(res_no_stem.get("error_class"), "generation_error")
+
+        res_no_prompt = generate_layout_shot("07a_portrait", "", out_dir=self.tmp_path)
+        self.assertFalse(res_no_prompt["ok"])
+        self.assertEqual(res_no_prompt.get("error_class"), "generation_error")
+
+        # 2. 演练模式 dry_run
+        res_dry = generate_layout_shot(
+            "07a_portrait",
+            "prompt",
+            out_dir=self.tmp_path,
+            dry_run=True,
+        )
+        self.assertTrue(res_dry["ok"])
+        self.assertTrue(res_dry.get("dry_run"))
+
+        # 3. 正常生成调用与保存
+        def fake_gen(prompt, **kwargs):
+            return {"ok": True, "b64": "mock_b64"}
+
+        def fake_save(res, path):
+            Path(path).write_bytes(b"x" * 25000)
+
+        res_ok = generate_layout_shot(
+            "07a_portrait",
+            "prompt",
+            out_dir=self.tmp_path,
+            generate_fn=fake_gen,
+            save_image_fn=fake_save,
+        )
+        self.assertTrue(res_ok["ok"])
+        self.assertTrue(Path(res_ok["path"]).is_file())
+
+        # 4. 再次执行触发跳过 (文件 > 20KB)
+        res_skip = generate_layout_shot(
+            "07a_portrait",
+            "prompt",
+            out_dir=self.tmp_path,
+            generate_fn=fake_gen,
+            save_image_fn=fake_save,
+        )
+        self.assertTrue(res_skip.get("skipped", False))
+
+        # 5. force=True 强制重新生成
+        res_force = generate_layout_shot(
+            "07a_portrait",
+            "prompt",
+            out_dir=self.tmp_path,
+            force=True,
+            generate_fn=fake_gen,
+            save_image_fn=fake_save,
+        )
+        self.assertFalse(res_force.get("skipped", False))
+
+        # 6. 生成器不可调用
+        with patch("batch_layout_cn_789.generate", None):
+            res_no_gen = generate_layout_shot(
+                "07b_portrait",
+                "prompt",
+                out_dir=self.tmp_path,
+                generate_fn=None,
+            )
+            self.assertFalse(res_no_gen["ok"])
+            self.assertEqual(res_no_gen.get("error_class"), "generation_error")
+
+        # 7. 网关 502 错误分类
+        def fake_502_gen(*args, **kwargs):
+            return {"ok": False, "error": "HTTP 502: Bad Gateway"}
+
+        res_502 = generate_layout_shot(
+            "07b_portrait",
+            "prompt",
+            out_dir=self.tmp_path,
+            generate_fn=fake_502_gen,
+        )
+        self.assertFalse(res_502["ok"])
+        self.assertEqual(res_502.get("error_class"), "gateway_502")
+
+        # 8. 鉴权错误分类
+        def fake_auth_gen(*args, **kwargs):
+            return {"ok": False, "error": "HTTP 401: Unauthorized"}
+
+        res_auth = generate_layout_shot(
+            "07b_portrait",
+            "prompt",
+            out_dir=self.tmp_path,
+            generate_fn=fake_auth_gen,
+        )
+        self.assertFalse(res_auth["ok"])
+        self.assertEqual(res_auth.get("error_class"), "auth")
+
+        # 9. 超时错误分类
+        def fake_timeout_gen(*args, **kwargs):
+            raise TimeoutError("upstream request timed out")
+
+        res_timeout = generate_layout_shot(
+            "07b_portrait",
+            "prompt",
+            out_dir=self.tmp_path,
+            generate_fn=fake_timeout_gen,
+        )
+        self.assertFalse(res_timeout["ok"])
+        self.assertEqual(res_timeout.get("error_class"), "timeout")
+
+    def test_run_batch_generate_shots_and_cli(self):
+        # 1. 批量测试 (dry_run)
+        sample_shots = [("test_07", "prompt 1"), ("test_08", "prompt 2")]
+        rep = run_batch_generate_shots(
+            out_dir=self.tmp_path / "batch_shots",
+            shots=sample_shots,
+            dry_run=True,
+        )
+        self.assertEqual(len(rep), 2)
+        self.assertTrue(all(r["ok"] for r in rep))
+
+        # 2. CLI 带 --generate 与 --dry-run
+        ret = batch_layout_cn_789.main([
+            "--generate",
+            "--dry-run",
+            "--src", str(self.test_img_path),
+            "--variant", "07",
+            "--out", str(self.tmp_path / "cli_gen_07.png"),
+        ])
+        self.assertEqual(ret, 0)
 
 
 class TestBatchLayoutVariants(unittest.TestCase):

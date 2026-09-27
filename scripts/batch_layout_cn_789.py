@@ -36,6 +36,18 @@ except ImportError:
 OUT = ROOT / "outputs" / "layout_variants" / "L2"
 OUT.mkdir(parents=True, exist_ok=True)
 
+
+def classify_generation_error(error: object) -> str:
+    """将网关/认证/业务失败分层，避免报告把 502 误报成版式生图失败。"""
+    text = str(error or "").lower()
+    if "http 502" in text or "bad gateway" in text:
+        return "gateway_502"
+    if any(token in text for token in ("http 401", "http 403", "unauthorized", "forbidden", "token_rejected")):
+        return "auth"
+    if "timeout" in text or "timed out" in text:
+        return "timeout"
+    return "generation_error"
+
 FONTS = FONTS_DIR
 SERIF_BLACK = FONTS / "NotoSerifCJKsc-Black.otf"
 SERIF_BOLD = FONTS / "NotoSerifCJKsc-Bold.otf"
@@ -432,6 +444,148 @@ def render_all_layouts(
     return results
 
 
+def generate_layout_shot(
+    stem: str,
+    prompt: str,
+    out_dir: Path | str | None = None,
+    size: str = "864x1152",
+    model: str = "agnes-image-2.5-flash",
+    retries: int = 3,
+    force: bool = False,
+    dry_run: bool = False,
+    generate_fn: Any = None,
+    save_image_fn: Any = None,
+) -> dict[str, Any]:
+    """生成单张版式底图人物摄影样张。"""
+    if not stem or not str(stem).strip():
+        err = "Stem cannot be empty"
+        return {
+            "stem": str(stem) if stem is not None else "",
+            "ok": False,
+            "err": err,
+            "error_class": classify_generation_error(err),
+        }
+    if not prompt or not str(prompt).strip():
+        err = "Prompt cannot be empty"
+        return {
+            "stem": str(stem),
+            "ok": False,
+            "err": err,
+            "error_class": classify_generation_error(err),
+        }
+
+    stem_clean = str(stem).strip()
+    target_dir = Path(out_dir) if out_dir else OUT
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_path = target_dir / f"{stem_clean}.png"
+
+    if target_path.is_file() and not force:
+        size_bytes = target_path.stat().st_size
+        if size_bytes > 20_000:
+            return {
+                "stem": stem_clean,
+                "ok": True,
+                "skipped": True,
+                "path": str(target_path),
+                "size_kb": size_bytes // 1024,
+            }
+
+    if dry_run:
+        return {
+            "stem": stem_clean,
+            "ok": True,
+            "dry_run": True,
+            "path": str(target_path),
+            "size_kb": 0,
+        }
+
+    gen = generate_fn or generate
+    saver = save_image_fn or save_image
+
+    if not callable(gen):
+        err = "agnes_gateway.generate is not available or not callable"
+        return {
+            "stem": stem_clean,
+            "ok": False,
+            "err": err,
+            "error_class": classify_generation_error(err),
+        }
+
+    try:
+        r = gen(prompt, size=size, model=model, retries=retries)
+        if isinstance(r, dict) and r.get("ok"):
+            if callable(saver):
+                saver(r, target_path)
+            size_kb = target_path.stat().st_size // 1024 if target_path.exists() else 0
+            return {
+                "stem": stem_clean,
+                "ok": True,
+                "path": str(target_path),
+                "size_kb": size_kb,
+            }
+        else:
+            err_msg = (
+                r.get("error")
+                if isinstance(r, dict) and r.get("error")
+                else (str(r)[:200] if r is not None else "Empty response")
+            )
+            return {
+                "stem": stem_clean,
+                "ok": False,
+                "err": err_msg or "Unknown generation error",
+                "error_class": classify_generation_error(err_msg),
+            }
+    except Exception as exc:
+        return {
+            "stem": stem_clean,
+            "ok": False,
+            "err": str(exc),
+            "error_class": classify_generation_error(exc),
+        }
+
+
+def run_batch_generate_shots(
+    out_dir: Path | str | None = None,
+    shots: list[tuple[str, str]] | None = None,
+    size: str = "864x1152",
+    model: str = "agnes-image-2.5-flash",
+    retries: int = 3,
+    force: bool = False,
+    dry_run: bool = False,
+    generate_fn: Any = None,
+    save_image_fn: Any = None,
+) -> list[dict[str, Any]]:
+    """批量生成 7/8/9 版式人物摄影底图。"""
+    target_dir = Path(out_dir) if out_dir else OUT
+    target_dir.mkdir(parents=True, exist_ok=True)
+    report: list[dict[str, Any]] = []
+    target_shots = shots or SHOTS
+
+    for stem, prompt in target_shots:
+        res = generate_layout_shot(
+            stem=stem,
+            prompt=prompt,
+            out_dir=target_dir,
+            size=size,
+            model=model,
+            retries=retries,
+            force=force,
+            dry_run=dry_run,
+            generate_fn=generate_fn,
+            save_image_fn=save_image_fn,
+        )
+        report.append(res)
+        if res.get("skipped"):
+            print("SKIP gen", stem)
+        elif res.get("ok"):
+            sz = res.get("size_kb", 0)
+            print("OK gen", stem, sz if sz else "(dry_run)" if dry_run else "")
+        else:
+            print("FAIL gen", stem, str(res.get("err", ""))[:120], file=sys.stderr)
+
+    return report
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Agnes Studio 7/8/9 版式精修与中文排版渲染器"
@@ -471,6 +625,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="调用网关自主生成人物原图 (需网关可用)",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="仅演练生图流程，不发起实际网络请求",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="强制重新生成底图，即使已存在",
+    )
 
     args = parser.parse_args(argv)
 
@@ -478,23 +642,14 @@ def main(argv: list[str] | None = None) -> int:
         # 1. 尝试网关生成
         report: list[dict] = []
         if args.generate:
-            if not generate or not save_image:
+            if not args.dry_run and (not generate or not save_image):
                 print("⚠️ agnes_gateway 不可用，跳过生成步骤", file=sys.stderr)
             else:
-                for stem, prompt in SHOTS:
-                    fp = OUT / f"{stem}.png"
-                    if fp.exists() and fp.stat().st_size > 20_000:
-                        print("SKIP gen", stem)
-                        report.append({"stem": stem, "ok": True, "skipped": True})
-                        continue
-                    r = generate(prompt, size="864x1152", model="agnes-image-2.5-flash", retries=3)
-                    if r.get("ok"):
-                        save_image(r, fp)
-                        print("OK gen", stem, fp.stat().st_size // 1024)
-                        report.append({"stem": stem, "ok": True})
-                    else:
-                        print("FAIL gen", stem, str(r)[:120], file=sys.stderr)
-                        report.append({"stem": stem, "ok": False, "err": str(r)[:200]})
+                report = run_batch_generate_shots(
+                    out_dir=OUT,
+                    force=args.force,
+                    dry_run=args.dry_run,
+                )
 
         # 2. 底图定位
         src_path: Path | None = None
