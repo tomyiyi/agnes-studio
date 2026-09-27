@@ -276,6 +276,16 @@ from batch_layout_cn_789 import (
     render_all_layouts as render_all_layout_cn,
     LAYOUT_CN_REGISTRY,
 )
+import batch_layout_variants
+from batch_layout_variants import (
+    LAYOUT_VARIANTS,
+    LAYOUTS as BATCH_LAYOUTS,
+    get_layout_variants_catalog,
+    find_layout_variant,
+    build_layout_prompt,
+    generate_layout_variant,
+    run_batch_layout_variants,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -4386,6 +4396,215 @@ class TestBatchLayoutCn789(unittest.TestCase):
             "--src", str(self.tmp_path / "not_there.png"),
         ])
         self.assertEqual(ret_missing, 1)
+
+
+class TestBatchLayoutVariants(unittest.TestCase):
+    """测试 12 款经典构图版式编号册生成器 batch_layout_variants"""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_catalog_and_layouts_compatibility(self):
+        # 1. 验证向后兼容的元组列表
+        self.assertEqual(len(BATCH_LAYOUTS), 12)
+        for stem, prompt in BATCH_LAYOUTS:
+            self.assertTrue(isinstance(stem, str) and len(stem) > 0)
+            self.assertTrue(isinstance(prompt, str) and len(prompt) > 20)
+
+        # 2. 验证注册表字典与元数据
+        self.assertEqual(len(LAYOUT_VARIANTS), 12)
+        catalog = get_layout_variants_catalog()
+        self.assertEqual(len(catalog), 12)
+
+        indices = [item["index"] for item in catalog]
+        self.assertEqual(sorted(indices), list(range(1, 13)))
+
+        for item in catalog:
+            self.assertIn("stem", item)
+            self.assertIn("name", item)
+            self.assertIn("category", item)
+            self.assertIn("word", item)
+            self.assertIn("prompt", item)
+            self.assertTrue(len(item["name"]) > 0)
+            self.assertTrue(len(item["word"]) > 0)
+
+    def test_find_layout_variant(self):
+        # 1. 精确 stem 查找
+        v1 = find_layout_variant("01_swiss_asym")
+        self.assertIsNotNone(v1)
+        self.assertEqual(v1["stem"], "01_swiss_asym")
+        self.assertEqual(v1["word"], "FORM")
+
+        # 2. 数字字符串与整数查找
+        self.assertEqual(find_layout_variant(1)["stem"], "01_swiss_asym")
+        self.assertEqual(find_layout_variant("1")["stem"], "01_swiss_asym")
+        self.assertEqual(find_layout_variant("01")["stem"], "01_swiss_asym")
+        self.assertEqual(find_layout_variant(12)["stem"], "12_giant_minimal")
+        self.assertEqual(find_layout_variant("12")["stem"], "12_giant_minimal")
+
+        # 3. 前缀查找
+        self.assertEqual(find_layout_variant("03")["stem"], "03_type_band")
+        self.assertEqual(find_layout_variant("07")["stem"], "07_window_editorial")
+
+        # 4. 主词匹配
+        self.assertEqual(find_layout_variant("SILK")["stem"], "02_swiss_asym")
+        self.assertEqual(find_layout_variant("void")["stem"], "12_giant_minimal")
+
+        # 5. 无效入参返回 None
+        self.assertIsNone(find_layout_variant(None))
+        self.assertIsNone(find_layout_variant(""))
+        self.assertIsNone(find_layout_variant("999_non_existent"))
+
+    def test_build_layout_prompt(self):
+        # 1. 默认主词提取
+        p1 = build_layout_prompt("01_swiss_asym")
+        self.assertIn("FORM", p1)
+
+        # 2. 动态替换主词
+        p1_custom = build_layout_prompt("01_swiss_asym", word="AGNES")
+        self.assertIn("AGNES", p1_custom)
+        self.assertNotIn("FORM", p1_custom)
+
+        # 3. 错误编号抛出 KeyError
+        with self.assertRaises(KeyError):
+            build_layout_prompt("invalid_key")
+
+    def test_generate_layout_variant_dry_run(self):
+        res = generate_layout_variant(
+            "05_axis_tension",
+            out_dir=self.tmp_path,
+            dry_run=True,
+        )
+        self.assertTrue(res["ok"])
+        self.assertTrue(res.get("dry_run"))
+        self.assertEqual(res["stem"], "05_axis_tension")
+
+    def test_generate_layout_variant_mock_success(self):
+        def fake_generate(prompt, size, model, retries):
+            return {"ok": True, "data": "fake_image_payload"}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"x" * 25000)
+
+        out_fp = self.tmp_path / "mock_out"
+        res = generate_layout_variant(
+            "02_swiss_asym",
+            out_dir=out_fp,
+            generate_fn=fake_generate,
+            save_image_fn=fake_save,
+        )
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["stem"], "02_swiss_asym")
+        self.assertTrue(Path(res["path"]).is_file())
+        self.assertGreaterEqual(res["size_kb"], 24)
+
+    def test_generate_layout_variant_skip_existing(self):
+        # 预先生成一个 > 20KB 的文件
+        existing_file = self.tmp_path / "03_type_band.png"
+        existing_file.write_bytes(b"x" * 25000)
+
+        called = []
+        def fake_gen(*args, **kwargs):
+            called.append(True)
+            return {"ok": True}
+
+        # 1. 默认应跳过
+        res_skip = generate_layout_variant(
+            "03_type_band",
+            out_dir=self.tmp_path,
+            generate_fn=fake_gen,
+            force=False,
+        )
+        self.assertTrue(res_skip["ok"])
+        self.assertTrue(res_skip.get("skipped"))
+        self.assertEqual(len(called), 0)
+
+        # 2. force=True 应重新调用
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"x" * 25000)
+
+        res_force = generate_layout_variant(
+            "03_type_band",
+            out_dir=self.tmp_path,
+            generate_fn=fake_gen,
+            save_image_fn=fake_save,
+            force=True,
+        )
+        self.assertTrue(res_force["ok"])
+        self.assertFalse(res_force.get("skipped", False))
+        self.assertEqual(len(called), 1)
+
+    def test_generate_layout_variant_errors(self):
+        # 1. 未知 variant
+        res_unknown = generate_layout_variant("unknown_key", out_dir=self.tmp_path)
+        self.assertFalse(res_unknown["ok"])
+        self.assertIn("Unknown layout variant", res_unknown["err"])
+
+        # 2. 模拟 generate 返回失败
+        def fake_fail_gen(*args, **kwargs):
+            return {"ok": False, "error": "Quota exceeded"}
+
+        res_fail = generate_layout_variant(
+            "04_type_band",
+            out_dir=self.tmp_path,
+            generate_fn=fake_fail_gen,
+        )
+        self.assertFalse(res_fail["ok"])
+        self.assertIn("Quota exceeded", res_fail["err"])
+
+        # 3. 模拟抛出异常
+        def fake_throw_gen(*args, **kwargs):
+            raise RuntimeError("Network crash")
+
+        res_throw = generate_layout_variant(
+            "04_type_band",
+            out_dir=self.tmp_path,
+            generate_fn=fake_throw_gen,
+        )
+        self.assertFalse(res_throw["ok"])
+        self.assertIn("Network crash", res_throw["err"])
+
+    def test_run_batch_layout_variants(self):
+        def fake_generate(prompt, size, model, retries):
+            return {"ok": True}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"x" * 22000)
+
+        out_dir = self.tmp_path / "batch_out"
+        report = run_batch_layout_variants(
+            out_dir=out_dir,
+            stems=["01", "02"],
+            generate_fn=fake_generate,
+            save_image_fn=fake_save,
+        )
+        self.assertEqual(len(report), 2)
+        self.assertTrue(all(r["ok"] for r in report))
+
+        # 验证 batch_report.json 已写盘
+        report_file = out_dir / "batch_report.json"
+        self.assertTrue(report_file.is_file())
+        loaded = json.loads(report_file.read_text(encoding="utf-8"))
+        self.assertEqual(len(loaded), 2)
+
+    def test_main_cli_execution(self):
+        # 1. --list 命令
+        ret_list = batch_layout_variants.main(["--list"])
+        self.assertEqual(ret_list, 0)
+
+        # 2. --dry-run 命令
+        cli_out = self.tmp_path / "cli_dry"
+        ret_dry = batch_layout_variants.main([
+            "--dry-run",
+            "--stems", "01,02",
+            "--out", str(cli_out),
+        ])
+        self.assertEqual(ret_dry, 0)
+        self.assertTrue((cli_out / "batch_report.json").is_file())
 
 
 if __name__ == "__main__":
