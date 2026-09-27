@@ -499,13 +499,12 @@
 
       <!-- 状态与快捷开关 -->
       <div class="flex items-center space-x-3">
-        <button onclick="openSettingsModal()" id="btn-model-gateway" class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-mono hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-all cursor-pointer shadow-sm" title="点击打开 Agnes / New API 模型网关设置中心">
-          <span class="relative flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        <button onclick="openSettingsModal()" id="btn-model-gateway" class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-mono hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all cursor-pointer shadow-sm" title="点击打开 Agnes / New API 模型网关设置中心">
+          <span class="relative flex h-2 w-2" id="header-gateway-dot">
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
           </span>
-          <span id="header-gateway-status">网关就绪 (6 Keys · 32ms)</span>
-          <span class="text-[10px] bg-emerald-200/60 dark:bg-emerald-400/20 px-1.5 py-0.5 rounded font-sans font-bold">⚙️ 设置</span>
+          <span id="header-gateway-status">配置待探测</span>
+          <span id="header-gateway-badge" class="text-[10px] bg-amber-200/60 dark:bg-amber-400/20 px-1.5 py-0.5 rounded font-sans font-bold">⚙️ 设置</span>
         </button>
 
         <button onclick="toggleTheme()" class="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-white/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-all border border-gray-200 dark:border-white/5" title="切换极简白/深邃黑">
@@ -2507,6 +2506,30 @@ function renderSkills() {
     function updateHeaderStatus(isReady, labelText) {
       const label = document.getElementById('header-gateway-status');
       if (label) label.innerText = labelText;
+      const btn = document.getElementById('btn-model-gateway');
+      const dot = document.getElementById('header-gateway-dot');
+      const badge = document.getElementById('header-gateway-badge');
+      if (btn) {
+        if (isReady) {
+          btn.className = "flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-mono hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-all cursor-pointer shadow-sm";
+        } else {
+          btn.className = "flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-mono hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all cursor-pointer shadow-sm";
+        }
+      }
+      if (dot) {
+        if (isReady) {
+          dot.innerHTML = '<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>';
+        } else {
+          dot.innerHTML = '<span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>';
+        }
+      }
+      if (badge) {
+        if (isReady) {
+          badge.className = "text-[10px] bg-emerald-200/60 dark:bg-emerald-400/20 px-1.5 py-0.5 rounded font-sans font-bold";
+        } else {
+          badge.className = "text-[10px] bg-amber-200/60 dark:bg-amber-400/20 px-1.5 py-0.5 rounded font-sans font-bold";
+        }
+      }
     }
 
     async function testConnection() {
@@ -2545,17 +2568,20 @@ function renderSkills() {
           if (latency) latency.innerText = '响应延迟: ' + data.latency_ms + ' ms';
           const sample = (data.image_models && data.image_models.length > 0) ? data.image_models.join(', ') : (data.sample_models || []).slice(0, 4).join(', ');
           if (detail) detail.innerText = `探测到 ${data.model_count || data.models_count || 0} 个模型。图像模型可用: [${sample}]`;
+          updateHeaderStatus(true, "网关就绪 · " + (data.latency_ms != null ? data.latency_ms + "ms" : "在线"));
         } else {
           if (box) box.className = 'p-3.5 rounded-xl border text-xs space-y-1 font-mono bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300';
           if (title) title.innerText = '✗ 网关握手未通过';
           if (latency) latency.innerText = '';
           if (detail) detail.innerText = data.error || '无法建立与指定 API 端点的连接，请检查服务是否运行及密钥是否授权。';
+          updateHeaderStatus(false, "网关未就绪 · 握手失败");
         }
       } catch (err) {
         if (spinner) spinner.classList.add('hidden');
         if (box) box.className = 'p-3.5 rounded-xl border text-xs space-y-1 font-mono bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300';
         if (title) title.innerText = '! 本地代理请求异常';
         if (detail) detail.innerText = err.message;
+        updateHeaderStatus(false, "网关离线 · 请求异常");
       }
     }
 

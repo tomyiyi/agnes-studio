@@ -591,6 +591,34 @@ class TestEndpointContract(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_gateway_readiness_ui_contract(self):
+        """确保前端 index.html 的网关状态逻辑符合真实探活规范，不展示伪假绿色就绪状态"""
+        html_path = studio_server.PUBLIC_DIR / "index.html"
+        self.assertTrue(html_path.exists())
+        html_content = html_path.read_text(encoding="utf-8")
+
+        # 1. 确保必要的 DOM 节点 ID 存在
+        self.assertIn('id="btn-model-gateway"', html_content)
+        self.assertIn('id="header-gateway-dot"', html_content)
+        self.assertIn('id="header-gateway-status"', html_content)
+        self.assertIn('id="header-gateway-badge"', html_content)
+
+        # 2. 初始静态 HTML 不得硬编码未探测的虚假就绪文本
+        self.assertNotIn("网关就绪 (6 Keys · 32ms)", html_content)
+        self.assertIn("配置待探测", html_content)
+
+        # 3. updateHeaderStatus 函数必须能根据 isReady 动态切换 emerald / amber 样式与指示点
+        self.assertIn("function updateHeaderStatus(isReady, labelText)", html_content)
+        self.assertIn("bg-emerald-50", html_content)
+        self.assertIn("bg-amber-50", html_content)
+        self.assertIn("header-gateway-dot", html_content)
+        self.assertIn("header-gateway-badge", html_content)
+
+        # 4. testConnection 探活成功时必须激活就绪状态，探活失败或异常时必须置为未就绪
+        self.assertIn('updateHeaderStatus(true, "网关就绪 · "', html_content)
+        self.assertIn('updateHeaderStatus(false, "网关未就绪 · 握手失败")', html_content)
+        self.assertIn('updateHeaderStatus(false, "网关离线 · 请求异常")', html_content)
+
 
 if __name__ == "__main__":
     unittest.main()
