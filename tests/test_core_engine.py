@@ -394,6 +394,7 @@ from gen_agnes_samples import (
     list_items as gen_agnes_list_items,
     build_arg_parser as gen_agnes_build_arg_parser,
     main as gen_agnes_main,
+    classify_generation_error as gen_agnes_classify_error,
 )
 import test_gemini_integration
 from test_gemini_integration import (
@@ -6660,6 +6661,12 @@ class TestGenAgnesSamples(unittest.TestCase):
         self.assertEqual(gen_agnes_slugify(999), "item")
         self.assertEqual(gen_agnes_slugify("x" * 50, max_len=20), "x" * 20)
 
+    def test_classify_generation_error(self):
+        self.assertEqual(gen_agnes_classify_error("HTTP 502: Bad Gateway"), "gateway_502")
+        self.assertEqual(gen_agnes_classify_error("HTTP 401: Unauthorized"), "auth")
+        self.assertEqual(gen_agnes_classify_error("upstream timed out"), "timeout")
+        self.assertEqual(gen_agnes_classify_error("invalid prompt"), "generation_error")
+
     def test_load_prompts_library_default(self):
         items = gen_agnes_load_lib()
         self.assertGreaterEqual(len(items), 40)
@@ -6805,6 +6812,7 @@ class TestGenAgnesSamples(unittest.TestCase):
         r1 = gen_agnes_run_one(item, out_dir=self.tmp_path, generate_fn=mock_gen_fail)
         self.assertFalse(r1["ok"])
         self.assertIn("Quota limit reached", r1["error"])
+        self.assertEqual(r1.get("error_class"), "generation_error")
 
         # 2. generate 抛出异常
         def mock_gen_raise(prompt, **kwargs):
@@ -6813,6 +6821,23 @@ class TestGenAgnesSamples(unittest.TestCase):
         r2 = gen_agnes_run_one(item, out_dir=self.tmp_path, generate_fn=mock_gen_raise)
         self.assertFalse(r2["ok"])
         self.assertIn("Connection reset by peer", r2["error"])
+        self.assertEqual(r2.get("error_class"), "generation_error")
+
+        # 3. 网关 502 错误分类
+        def mock_502(prompt, **kwargs):
+            return {"ok": False, "error": "HTTP 502: Bad Gateway"}
+
+        r3 = gen_agnes_run_one(item, out_dir=self.tmp_path, generate_fn=mock_502)
+        self.assertFalse(r3["ok"])
+        self.assertEqual(r3.get("error_class"), "gateway_502")
+
+        # 4. 超时错误分类
+        def mock_timeout(prompt, **kwargs):
+            raise TimeoutError("upstream request timed out")
+
+        r4 = gen_agnes_run_one(item, out_dir=self.tmp_path, generate_fn=mock_timeout)
+        self.assertFalse(r4["ok"])
+        self.assertEqual(r4.get("error_class"), "timeout")
 
     def test_run_batch_gen_execution(self):
         items = [
