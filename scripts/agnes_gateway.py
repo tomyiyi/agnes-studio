@@ -33,6 +33,18 @@ DEFAULT_BASE = "http://127.0.0.1:3000/v1"
 DEFAULT_MODEL = "agnes-image-2.5-flash"
 
 
+def classify_generation_error(error: object) -> str:
+    """将网关/认证/业务失败分层，避免把 502/401/403/超时误报成普通生图失败。"""
+    text = str(error or "").lower()
+    if "http 502" in text or "bad gateway" in text:
+        return "gateway_502"
+    if any(token in text for token in ("http 401", "http 403", "unauthorized", "forbidden", "token_rejected")):
+        return "auth"
+    if "timeout" in text or "timed out" in text:
+        return "timeout"
+    return "generation_error"
+
+
 def load_gateway(key_path: Path | str | None = None) -> tuple[str, str, str]:
     target_path = Path(key_path) if key_path else DEFAULT_KEY_PATH
     base, key, model = DEFAULT_BASE, "", DEFAULT_MODEL
@@ -64,14 +76,34 @@ def generate(
     retries: int = 2,
     timeout: int = 90,
     key_path: Path | str | None = None,
+    dry_run: bool = False,
 ) -> dict:
     if not prompt or not isinstance(prompt, str) or not prompt.strip():
-        return {"ok": False, "error": "Prompt must be a non-empty string", "via": "new-api-rotation-pool"}
+        err_msg = "Prompt must be a non-empty string"
+        return {
+            "ok": False,
+            "error": err_msg,
+            "error_class": classify_generation_error(err_msg),
+            "via": "new-api-rotation-pool",
+        }
 
     base, key, default_model = load_gateway(key_path=key_path)
     base = (base_url or base).rstrip("/")
     key = api_key or key
     model = model or default_model
+
+    if dry_run:
+        return {
+            "ok": True,
+            "dry_run": True,
+            "model": model,
+            "base_url": base,
+            "cost_s": 0.0,
+            "url": None,
+            "b64_json": None,
+            "attempt": 0,
+            "via": "dry-run",
+        }
 
     payload = {"model": model, "prompt": prompt, "size": size, "n": 1}
     body = json.dumps(payload).encode("utf-8")
@@ -108,7 +140,13 @@ def generate(
         except Exception as e:
             last_err = str(e)
         time.sleep(0.8 * (attempt + 1))
-    return {"ok": False, "error": last_err, "via": "new-api-rotation-pool"}
+    err_str = last_err or "Unknown generation error"
+    return {
+        "ok": False,
+        "error": err_str,
+        "error_class": classify_generation_error(err_str),
+        "via": "new-api-rotation-pool",
+    }
 
 
 def save_image(result: dict, out: Path | str) -> Path:
@@ -126,18 +164,20 @@ def save_image(result: dict, out: Path | str) -> Path:
     return out
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    import sys
+
     ap = argparse.ArgumentParser(description="Agnes 生图 · New API 轮换网关")
     ap.add_argument("--prompt")
     ap.add_argument("--brief", help="简报 JSON，使用其 gen_prompt 或拼 title")
     ap.add_argument("--out", required=True)
     ap.add_argument("--size", default="1024x1024")
     ap.add_argument("--model")
-    args = ap.parse_args()
+    ap.add_argument("--dry-run", action="store_true", help="仅演练生图流程，不发起实际网络请求")
+    args = ap.parse_args(argv)
 
     prompt = args.prompt
     if args.brief:
-        import sys
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         from cover_style import load_brief, resolve_style
 
@@ -150,9 +190,17 @@ def main() -> None:
     if not prompt:
         raise SystemExit("need --prompt or --brief")
 
-    res = generate(prompt, size=args.size, model=args.model)
+    res = generate(prompt, size=args.size, model=args.model, dry_run=args.dry_run)
     if not res.get("ok"):
-        raise SystemExit(f"[gateway] {res}")
+        err_msg = res.get("error") or "Unknown error"
+        err_class = res.get("error_class") or classify_generation_error(err_msg)
+        print(f"❌ [gateway] {err_msg} ({err_class})", file=sys.stderr)
+        raise SystemExit(f"[gateway] {err_msg}")
+
+    if args.dry_run:
+        print(f"✓ dry_run complete for prompt target → {args.out}")
+        return
+
     try:
         save_image(res, Path(args.out))
     except Exception as e:

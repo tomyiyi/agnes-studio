@@ -71,7 +71,7 @@ from check_upstream_updates import (
 )
 import wechat_cover_ab
 import agnes_gateway
-from agnes_gateway import load_gateway, generate, save_image
+from agnes_gateway import load_gateway, generate, save_image, classify_generation_error as gateway_classify_error
 from expert_poster_designer import (
     analyze_safe_zone,
     render_expert_steampunk_poster,
@@ -1655,13 +1655,32 @@ class TestAgnesGateway(unittest.TestCase):
             self.assertEqual(key, "env-secret-key-999")
             self.assertEqual(model, "agnes-ultra-hd")
 
+    def test_classify_generation_error(self):
+        self.assertEqual(gateway_classify_error("HTTP 502: Bad Gateway"), "gateway_502")
+        self.assertEqual(gateway_classify_error("HTTP 401: Unauthorized"), "auth")
+        self.assertEqual(gateway_classify_error("HTTP 403: Forbidden"), "auth")
+        self.assertEqual(gateway_classify_error("token_rejected"), "auth")
+        self.assertEqual(gateway_classify_error("Connection timed out"), "timeout")
+        self.assertEqual(gateway_classify_error("generic prompt error"), "generation_error")
+
     def test_generate_invalid_prompt(self):
         res1 = generate("")
         self.assertFalse(res1["ok"])
         self.assertIn("non-empty string", res1["error"])
+        self.assertEqual(res1.get("error_class"), "generation_error")
 
         res2 = generate("   \n\t  ")
         self.assertFalse(res2["ok"])
+        self.assertEqual(res2.get("error_class"), "generation_error")
+
+    def test_generate_dry_run(self):
+        res = generate("Cyberpunk neon rain street", dry_run=True)
+        self.assertTrue(res["ok"])
+        self.assertTrue(res.get("dry_run"))
+        self.assertEqual(res["cost_s"], 0.0)
+        self.assertEqual(res["via"], "dry-run")
+        self.assertIsNone(res["url"])
+        self.assertIsNone(res["b64_json"])
 
     @patch("urllib.request.urlopen")
     def test_generate_success(self, mock_urlopen):
@@ -1700,8 +1719,44 @@ class TestAgnesGateway(unittest.TestCase):
         res = generate("Test retry prompt", retries=1)
         self.assertFalse(res["ok"])
         self.assertIn("HTTP 502", res["error"])
+        self.assertEqual(res.get("error_class"), "gateway_502")
         self.assertEqual(mock_urlopen.call_count, 2)
         self.assertEqual(mock_sleep.call_count, 2)
+
+    @patch("time.sleep", return_value=None)
+    @patch("urllib.request.urlopen")
+    def test_generate_auth_and_timeout_error_class(self, mock_urlopen, mock_sleep):
+        err_auth = urllib.error.HTTPError(
+            url="http://127.0.0.1:3000/v1/images/generations",
+            code=403,
+            msg="Forbidden",
+            hdrs={},
+            fp=io.BytesIO(b"token_rejected"),
+        )
+        mock_urlopen.side_effect = err_auth
+        res_auth = generate("Test auth prompt", retries=0)
+        self.assertFalse(res_auth["ok"])
+        self.assertEqual(res_auth.get("error_class"), "auth")
+
+        mock_urlopen.side_effect = TimeoutError("Gateway request timed out")
+        res_timeout = generate("Test timeout prompt", retries=0)
+        self.assertFalse(res_timeout["ok"])
+        self.assertEqual(res_timeout.get("error_class"), "timeout")
+
+    def test_gateway_main_cli(self):
+        out_file = self.tmp_path / "cli_test.png"
+        # 1. 验证 --dry-run
+        agnes_gateway.main(["--prompt", "test dry run", "--out", str(out_file), "--dry-run"])
+        self.assertFalse(out_file.exists())
+
+        # 2. 缺少 prompt 或 brief 时退出
+        with self.assertRaises(SystemExit):
+            agnes_gateway.main(["--out", str(out_file)])
+
+        # 3. 失败时以 SystemExit 干净退出并打印分类错误
+        with patch.object(agnes_gateway, "generate", return_value={"ok": False, "error": "HTTP 502 Bad Gateway", "error_class": "gateway_502"}):
+            with self.assertRaises(SystemExit):
+                agnes_gateway.main(["--prompt", "failing prompt", "--out", str(out_file)])
 
     def test_save_image_b64(self):
         out_file = self.tmp_path / "deep" / "folder" / "sample.png"
