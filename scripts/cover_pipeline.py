@@ -893,6 +893,20 @@ def run_platform(
     sharpness = e / max(n, 1)
     if sharpness < 2.5:
         raise SystemExit(f"[sharpness] too soft, lap_mean={sharpness:.2f}")
+    # 诊断字段：宽幅背景会稀释全画布指标；仅用于证据，不改变正式门禁。
+    roi_im = final_im.convert("L").crop(
+        (int(final_im.width * 0.20), int(final_im.height * 0.15),
+         int(final_im.width * 0.80), int(final_im.height * 0.90))
+    )
+    roi_im = roi_im.resize((min(1200, roi_im.width), max(1, int(min(1200, roi_im.width) * roi_im.height / max(roi_im.width, 1)))))
+    roi_px = roi_im.load()
+    rw, rh = roi_im.size
+    roi_e = roi_n = 0
+    for y in range(1, rh - 1, 2):
+        for x in range(1, rw - 1, 2):
+            roi_e += abs(4 * roi_px[x, y] - roi_px[x-1, y] - roi_px[x+1, y] - roi_px[x, y-1] - roi_px[x, y+1])
+            roi_n += 1
+    sharpness_roi = roi_e / max(roi_n, 1)
     thumb_ok = qa_thumbnail_ok(named_png)
     list_sim = None
     if platform == "wechat":
@@ -911,6 +925,8 @@ def run_platform(
         "copy_errors": copy_errs,
         "qa_face_gate": face_gate,
         "qa_sharpness": round(sharpness, 2),
+        "qa_sharpness_roi": round(sharpness_roi, 2),
+        "qa_sharpness_roi_fraction": [0.20, 0.15, 0.80, 0.90],
         "qa_thumbnail_ok": thumb_ok,
         "qa_list_sim": list_sim,
         "qa_visual_check_required": True,
