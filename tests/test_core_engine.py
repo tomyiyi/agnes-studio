@@ -298,6 +298,7 @@ from batch_type_behind import (
     prompt as type_behind_prompt,
     generate_type_behind,
     run_batch_type_behind,
+    classify_generation_error as type_behind_classify_error,
 )
 import batch_type_behind_v154
 from batch_type_behind_v154 import (
@@ -4897,11 +4898,18 @@ class TestBatchTypeBehind(unittest.TestCase):
         self.assertIn("behind_SILK.png", res["path"])
         self.assertGreater(res["prompt_len"], 100)
 
+    def test_classify_generation_error(self):
+        self.assertEqual(type_behind_classify_error("HTTP 502: Bad Gateway"), "gateway_502")
+        self.assertEqual(type_behind_classify_error("HTTP 401: Unauthorized"), "auth")
+        self.assertEqual(type_behind_classify_error("upstream timed out"), "timeout")
+        self.assertEqual(type_behind_classify_error("invalid prompt"), "generation_error")
+
     def test_generate_type_behind_errors(self):
         # 1. 空字
         res_empty = generate_type_behind("", out_dir=self.tmp_path)
         self.assertFalse(res_empty["ok"])
         self.assertIn("Word cannot be empty", res_empty["err"])
+        self.assertEqual(res_empty.get("error_class"), "generation_error")
 
         # 2. 生成器返回失败
         def fake_fail_gen(*args, **kwargs):
@@ -4914,6 +4922,7 @@ class TestBatchTypeBehind(unittest.TestCase):
         )
         self.assertFalse(res_fail["ok"])
         self.assertIn("Rate limit exceeded", res_fail["err"])
+        self.assertEqual(res_fail.get("error_class"), "generation_error")
 
         # 3. 模拟异常
         def fake_throw_gen(*args, **kwargs):
@@ -4926,6 +4935,7 @@ class TestBatchTypeBehind(unittest.TestCase):
         )
         self.assertFalse(res_throw["ok"])
         self.assertIn("Socket reset", res_throw["err"])
+        self.assertEqual(res_throw.get("error_class"), "generation_error")
 
         # 4. 生成器不可调用
         with patch("batch_type_behind.generate", None):
@@ -4936,6 +4946,23 @@ class TestBatchTypeBehind(unittest.TestCase):
             )
             self.assertFalse(res_no_gen["ok"])
             self.assertIn("not available or not callable", res_no_gen["err"])
+            self.assertEqual(res_no_gen.get("error_class"), "generation_error")
+
+        # 5. 网关 502 错误分类
+        def fake_502_gen(*args, **kwargs):
+            return {"ok": False, "error": "HTTP 502: Bad Gateway"}
+
+        res_502 = generate_type_behind("MODE", out_dir=self.tmp_path, generate_fn=fake_502_gen)
+        self.assertFalse(res_502["ok"])
+        self.assertEqual(res_502.get("error_class"), "gateway_502")
+
+        # 6. 超时错误分类
+        def fake_timeout_gen(*args, **kwargs):
+            raise TimeoutError("upstream request timed out")
+
+        res_timeout = generate_type_behind("MODE", out_dir=self.tmp_path, generate_fn=fake_timeout_gen)
+        self.assertFalse(res_timeout["ok"])
+        self.assertEqual(res_timeout.get("error_class"), "timeout")
 
     def test_run_batch_type_behind(self):
         def fake_gen(prompt, size, model, retries):

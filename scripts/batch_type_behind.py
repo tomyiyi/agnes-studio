@@ -40,6 +40,18 @@ DEFAULT_PRIMARY = (
     "young Asian woman long black hair cream knit sweater, warm greige studio, soft fashion light."
 )
 
+
+def classify_generation_error(error: object) -> str:
+    """将网关/认证/业务失败分层，避免报告把 502 误报成字设生图失败。"""
+    text = str(error or "").lower()
+    if "http 502" in text or "bad gateway" in text:
+        return "gateway_502"
+    if any(token in text for token in ("http 401", "http 403", "unauthorized", "forbidden", "token_rejected")):
+        return "auth"
+    if "timeout" in text or "timed out" in text:
+        return "timeout"
+    return "generation_error"
+
 # 经典预设词库
 PRESET_WORDS: dict[str, list[str]] = {
     "fashion": ["MODE", "CHIC", "SILK", "VOGUE", "LUXE"],
@@ -139,6 +151,7 @@ def generate_type_behind(
             "word": str(word),
             "ok": False,
             "err": "Word cannot be empty",
+            "error_class": classify_generation_error("Word cannot be empty"),
         }
 
     word_str = word.strip()
@@ -174,6 +187,7 @@ def generate_type_behind(
             "clean_word": clean_word,
             "ok": False,
             "err": str(exc),
+            "error_class": classify_generation_error(exc),
         }
 
     # 演练模式直接返回成功模拟
@@ -196,6 +210,7 @@ def generate_type_behind(
             "clean_word": clean_word,
             "ok": False,
             "err": "agnes_gateway.generate is not available or not callable",
+            "error_class": classify_generation_error("agnes_gateway.generate is not available or not callable"),
         }
 
     try:
@@ -219,6 +234,7 @@ def generate_type_behind(
             "clean_word": clean_word,
             "ok": False,
             "err": err_msg or "Unknown generation error",
+            "error_class": classify_generation_error(err_msg),
         }
     except Exception as exc:
         return {
@@ -226,6 +242,7 @@ def generate_type_behind(
             "clean_word": clean_word,
             "ok": False,
             "err": str(exc),
+            "error_class": classify_generation_error(exc),
         }
 
 
