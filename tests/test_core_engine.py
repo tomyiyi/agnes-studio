@@ -234,6 +234,33 @@ from render_title_refined import (
     render_refined_variant,
     render_all_refined_titles,
 )
+import render_variants_verify
+from render_variants_verify import (
+    b64 as verify_b64,
+    sanitize_img_uri as verify_sanitize_img_uri,
+    get_base_css as verify_get_base_css,
+    shell as verify_shell,
+    shot as verify_shot,
+    render_html as verify_render_html,
+    build_v1_top_title_html,
+    render_v1_top_title,
+    build_v2_topleft_html,
+    render_v2_topleft,
+    build_v3_vertical_corner_html,
+    render_v3_vertical_corner,
+    build_v4_bottom_left_min_html,
+    render_v4_bottom_left_min,
+    build_v5_whisper_html,
+    render_v5_whisper,
+    build_v6_center_top_html,
+    render_v6_center_top,
+    build_v7_diag_minimal_html,
+    render_v7_diag_minimal,
+    build_v8_vertical_seal_html,
+    render_v8_vertical_seal,
+    VARIANTS_REGISTRY as VERIFY_VARIANTS_REGISTRY,
+    render_all_variants as verify_render_all_variants,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -3768,6 +3795,390 @@ class TestRenderTitleRefined(unittest.TestCase):
 
     def test_main_missing_input_returns_nonzero(self):
         ret = render_title_refined.main(["--input", str(self.tmp_path / "does_not_exist.png")])
+        self.assertEqual(ret, 1)
+
+
+class TestRenderVariantsVerify(unittest.TestCase):
+    """测试全量版式变体渲染器 render_variants_verify 及其 8 大版式构图与安全防御"""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_b64_with_data_uri(self):
+        raw_uri = "data:image/png;base64,mocked_verify_data"
+        result = verify_b64(raw_uri)
+        self.assertEqual(result, raw_uri)
+
+    def test_b64_mime_types(self):
+        types = [
+            ("sample.png", "image/png"),
+            ("sample.jpg", "image/jpeg"),
+            ("sample.jpeg", "image/jpeg"),
+            ("sample.webp", "image/webp"),
+            ("sample.svg", "image/svg+xml"),
+            ("sample.gif", "image/gif"),
+        ]
+        for filename, expected_mime in types:
+            file_p = self.tmp_path / filename
+            file_p.write_bytes(b"\x00\x01\x02\x03")
+            uri = verify_b64(file_p)
+            self.assertTrue(uri.startswith(f"data:{expected_mime};base64,"))
+            uri_str = verify_b64(str(file_p))
+            self.assertTrue(uri_str.startswith(f"data:{expected_mime};base64,"))
+
+    def test_b64_missing_file_raises_filenotfound(self):
+        with self.assertRaises(FileNotFoundError):
+            verify_b64(self.tmp_path / "non_existent_poster.png")
+
+    def test_sanitize_img_uri(self):
+        malicious = "data:image/png;base64,verify\r\ndef'\"<script>"
+        sanitized = verify_sanitize_img_uri(malicious)
+        self.assertNotIn("\r", sanitized)
+        self.assertNotIn("\n", sanitized)
+        self.assertNotIn("'", sanitized)
+        self.assertNotIn('"', sanitized)
+        self.assertNotIn("<", sanitized)
+        self.assertNotIn(">", sanitized)
+        self.assertIn("%27", sanitized)
+        self.assertIn("%22", sanitized)
+        self.assertIn("%3C", sanitized)
+        self.assertIn("%3E", sanitized)
+
+    def test_get_base_css_and_shell(self):
+        css_text = verify_get_base_css(".custom{color:red;}")
+        self.assertIn("@font-face", css_text)
+        self.assertIn("NSB", css_text)
+        self.assertIn("PHH", css_text)
+        self.assertIn("PHM", css_text)
+        self.assertIn(".custom{color:red;}", css_text)
+
+        shell_html = verify_shell("data:image/png;base64,abc", "<div>InnerContent</div>", extra=".shell{margin:0}")
+        self.assertIn("InnerContent", shell_html)
+        self.assertIn("data:image/png;base64,abc", shell_html)
+        self.assertIn(".shell{margin:0}", shell_html)
+
+    def test_build_v1_top_title_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_v1_top_title_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage", html_default)
+        self.assertIn("她把城市调成静音", html_default)
+        self.assertIn("font-size:110px", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_v1_top_title_html(
+            "data:image/png;base64,abc",
+            title="<天空标题>",
+            latin="TOP & SKY",
+            slogan="留白与纯粹<测试>",
+            extra_css=".v1{opacity:1;}",
+        )
+        self.assertNotIn("<天空标题>", html_custom)
+        self.assertIn("&lt;天空标题&gt;", html_custom)
+        self.assertIn("TOP &amp; SKY", html_custom)
+        self.assertIn("留白与纯粹&lt;测试&gt;", html_custom)
+        self.assertIn(".v1{opacity:1;}", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_v1_top_title_html("data:image/png;base64,abc", title=None, latin=None, slogan=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage", html_none)
+        self.assertIn("她把城市调成静音", html_none)
+
+    def test_build_v2_topleft_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_v2_topleft_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage", html_default)
+        self.assertIn("width:38%", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_v2_topleft_html(
+            "data:image/png;base64,abc",
+            title="<左上排版>",
+            latin="TOP & LEFT",
+            slogan="右侧人物完整<保护>",
+        )
+        self.assertNotIn("<左上排版>", html_custom)
+        self.assertIn("&lt;左上排版&gt;", html_custom)
+        self.assertIn("TOP &amp; LEFT", html_custom)
+        self.assertIn("右侧人物完整&lt;保护&gt;", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_v2_topleft_html("data:image/png;base64,abc", title=None, latin=None, slogan=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage", html_none)
+
+    def test_build_v3_vertical_corner_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_v3_vertical_corner_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage", html_default)
+        self.assertIn("writing-mode:vertical-rl", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_v3_vertical_corner_html(
+            "data:image/png;base64,abc",
+            title="<竖排右上>",
+            latin="VERTICAL & CORNER",
+        )
+        self.assertNotIn("<竖排右上>", html_custom)
+        self.assertIn("&lt;竖排右上&gt;", html_custom)
+        self.assertIn("VERTICAL &amp; CORNER", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_v3_vertical_corner_html("data:image/png;base64,abc", title=None, latin=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage", html_none)
+
+    def test_build_v4_bottom_left_min_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_v4_bottom_left_min_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("bottom:7%", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_v4_bottom_left_min_html(
+            "data:image/png;base64,abc",
+            title="<极简角标>",
+            latin="MINIMAL & MICRO",
+        )
+        self.assertNotIn("<极简角标>", html_custom)
+        self.assertIn("&lt;极简角标&gt;", html_custom)
+        self.assertIn("MINIMAL &amp; MICRO", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_v4_bottom_left_min_html("data:image/png;base64,abc", title=None, latin=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage", html_none)
+
+    def test_build_v5_whisper_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_v5_whisper_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("2026", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_v5_whisper_html(
+            "data:image/png;base64,abc",
+            title="<大留白>",
+            tag="2027<MMXXVII>",
+        )
+        self.assertNotIn("<大留白>", html_custom)
+        self.assertIn("&lt;大留白&gt;", html_custom)
+        self.assertIn("2027&lt;MMXXVII&gt;", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_v5_whisper_html("data:image/png;base64,abc", title=None, tag=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("2026", html_none)
+
+    def test_build_v6_center_top_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_v6_center_top_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("text-align:center", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_v6_center_top_html(
+            "data:image/png;base64,abc",
+            title="<中轴顶部>",
+            latin="CENTER & TOP",
+        )
+        self.assertNotIn("<中轴顶部>", html_custom)
+        self.assertIn("&lt;中轴顶部&gt;", html_custom)
+        self.assertIn("CENTER &amp; TOP", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_v6_center_top_html("data:image/png;base64,abc", title=None, latin=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage", html_none)
+
+    def test_build_v7_diag_minimal_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_v7_diag_minimal_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("font-size:64px", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_v7_diag_minimal_html(
+            "data:image/png;base64,abc",
+            title="<对角极简>",
+            latin="DIAG & MINIMAL",
+        )
+        self.assertNotIn("<对角极简>", html_custom)
+        self.assertIn("&lt;对角极简&gt;", html_custom)
+        self.assertIn("DIAG &amp; MINIMAL", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_v7_diag_minimal_html("data:image/png;base64,abc", title=None, latin=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage", html_none)
+
+    def test_build_v8_vertical_seal_html_escaping_and_defaults(self):
+        # 1. 默认参数
+        html_default = build_v8_vertical_seal_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("航", html_default)
+        self.assertIn("border:1.5px solid #B4232A", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_v8_vertical_seal_html(
+            "data:image/png;base64,abc",
+            title="<竖排印章>",
+            seal_char="印<章>",
+        )
+        self.assertNotIn("<竖排印章>", html_custom)
+        self.assertIn("&lt;竖排印章&gt;", html_custom)
+        self.assertIn("印&lt;章&gt;", html_custom)
+
+        # 3. None 参数防御 (seal_char 自动取 title 最后一个字)
+        html_none = build_v8_vertical_seal_html("data:image/png;base64,abc", title="星汉灿烂", seal_char=None)
+        self.assertIn("烂", html_none)
+
+    def test_shot_mkdir_and_invocation(self):
+        out_target = self.tmp_path / "deep" / "nested" / "verify_poster.png"
+        fake_page = MagicMock()
+        fake_browser = MagicMock()
+        fake_browser.new_page.return_value = fake_page
+        fake_chromium = MagicMock()
+        fake_chromium.launch.return_value = fake_browser
+        fake_playwright_ctx = MagicMock()
+        fake_playwright_ctx.chromium = fake_chromium
+        fake_playwright_cm = MagicMock()
+        fake_playwright_cm.__enter__.return_value = fake_playwright_ctx
+
+        def fake_screenshot(path, type="png"):
+            Path(path).write_bytes(b"\x89PNGfake_verify_shot")
+
+        fake_page.screenshot.side_effect = fake_screenshot
+
+        with patch("playwright.sync_api.sync_playwright", return_value=fake_playwright_cm):
+            res_path = verify_shot("<html><body>Verify</body></html>", out_target, timeout_ms=10)
+            self.assertEqual(res_path, out_target)
+            self.assertTrue(out_target.exists())
+            fake_page.set_content.assert_called_once_with("<html><body>Verify</body></html>")
+            fake_page.wait_for_timeout.assert_called_once_with(10)
+            fake_browser.close.assert_called_once()
+
+    @patch("render_variants_verify.shot")
+    def test_individual_renderer_functions(self, mock_shot):
+        sample_img = self.tmp_path / "base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out_v.png"
+        mock_shot.side_effect = lambda html, out, **kw: Path(out)
+
+        # 1. render_v1_top_title
+        r1 = render_v1_top_title(sample_img, out_p, title="V1测试", latin="V1 LATIN")
+        self.assertEqual(r1, out_p)
+        call_html1 = mock_shot.call_args[0][0]
+        self.assertIn("V1测试", call_html1)
+        self.assertIn("V1 LATIN", call_html1)
+
+        # 2. render_v2_topleft
+        r2 = render_v2_topleft(sample_img, out_p, title="V2测试", latin="V2 LATIN")
+        self.assertEqual(r2, out_p)
+        call_html2 = mock_shot.call_args[0][0]
+        self.assertIn("V2测试", call_html2)
+
+        # 3. render_v3_vertical_corner
+        r3 = render_v3_vertical_corner(sample_img, out_p, title="V3测试", latin="V3 LATIN")
+        self.assertEqual(r3, out_p)
+        call_html3 = mock_shot.call_args[0][0]
+        self.assertIn("V3测试", call_html3)
+
+        # 4. render_v4_bottom_left_min
+        r4 = render_v4_bottom_left_min(sample_img, out_p, title="V4测试", latin="V4 LATIN")
+        self.assertEqual(r4, out_p)
+        call_html4 = mock_shot.call_args[0][0]
+        self.assertIn("V4测试", call_html4)
+
+        # 5. render_v5_whisper
+        r5 = render_v5_whisper(sample_img, out_p, title="V5测试", tag="2028")
+        self.assertEqual(r5, out_p)
+        call_html5 = mock_shot.call_args[0][0]
+        self.assertIn("V5测试", call_html5)
+        self.assertIn("2028", call_html5)
+
+        # 6. render_v6_center_top
+        r6 = render_v6_center_top(sample_img, out_p, title="V6测试", latin="V6 LATIN")
+        self.assertEqual(r6, out_p)
+        call_html6 = mock_shot.call_args[0][0]
+        self.assertIn("V6测试", call_html6)
+
+        # 7. render_v7_diag_minimal
+        r7 = render_v7_diag_minimal(sample_img, out_p, title="V7测试", latin="V7 LATIN")
+        self.assertEqual(r7, out_p)
+        call_html7 = mock_shot.call_args[0][0]
+        self.assertIn("V7测试", call_html7)
+
+        # 8. render_v8_vertical_seal
+        r8 = render_v8_vertical_seal(sample_img, out_p, title="V8测试", seal_char="印")
+        self.assertEqual(r8, out_p)
+        call_html8 = mock_shot.call_args[0][0]
+        self.assertIn("V8测试", call_html8)
+        self.assertIn("印", call_html8)
+
+    @patch("render_variants_verify.shot")
+    def test_render_all_variants(self, mock_shot):
+        sample_img = self.tmp_path / "base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_d = self.tmp_path / "variants_batch"
+        mock_shot.side_effect = lambda html, out, **kw: Path(out)
+
+        results = verify_render_all_variants(sample_img, out_dir=out_d, title="全量变体测试")
+        self.assertEqual(len(results), 8)
+        self.assertEqual(mock_shot.call_count, 8)
+        expected_keys = [
+            "v1_top_title",
+            "v2_topleft",
+            "v3_vertical_corner",
+            "v4_bottom_left_min",
+            "v5_whisper",
+            "v6_center_top",
+            "v7_diag_minimal",
+            "v8_vertical_seal",
+        ]
+        for key in expected_keys:
+            self.assertIn(key, results)
+            self.assertEqual(results[key].parent, out_d)
+
+    def test_variants_registry(self):
+        expected_keys = [
+            "v1_top_title",
+            "v2_topleft",
+            "v3_vertical_corner",
+            "v4_bottom_left_min",
+            "v5_whisper",
+            "v6_center_top",
+            "v7_diag_minimal",
+            "v8_vertical_seal",
+        ]
+        for k in expected_keys:
+            self.assertIn(k, VERIFY_VARIANTS_REGISTRY)
+            self.assertTrue(callable(VERIFY_VARIANTS_REGISTRY[k]["builder"]))
+            self.assertTrue(callable(VERIFY_VARIANTS_REGISTRY[k]["renderer"]))
+            self.assertTrue(VERIFY_VARIANTS_REGISTRY[k]["default_filename"].endswith(".png"))
+
+    @patch("render_variants_verify.shot")
+    def test_main_execution(self, mock_shot):
+        mock_shot.side_effect = lambda html, out, **kw: Path(out)
+        ret = render_variants_verify.main([])
+        self.assertEqual(ret, 0)
+        self.assertEqual(mock_shot.call_count, 8)
+
+        # Test single variant via CLI
+        mock_shot.reset_mock()
+        ret_single = render_variants_verify.main(["--variant", "v2"])
+        self.assertEqual(ret_single, 0)
+        self.assertEqual(mock_shot.call_count, 1)
+
+    def test_main_missing_input_returns_nonzero(self):
+        ret = render_variants_verify.main(["--input", str(self.tmp_path / "does_not_exist.png")])
         self.assertEqual(ret, 1)
 
 
