@@ -226,7 +226,7 @@ def list_experiments(version: str | None = None) -> list[tuple[str, str, str]]:
     if not version:
         return list(EXPERIMENTS)
 
-    v_clean = version.strip().lower()
+    v_clean = str(version).strip().lower()
     if not v_clean.startswith("v"):
         v_clean = f"v{v_clean}"
 
@@ -235,6 +235,8 @@ def list_experiments(version: str | None = None) -> list[tuple[str, str, str]]:
 
 def get_experiment_by_stem(stem: str) -> tuple[str, str, str] | None:
     """根据实验 stem 唯一标识获取实验元数据。"""
+    if not stem or not isinstance(stem, str):
+        return None
     s_clean = stem.strip()
     for exp in EXPERIMENTS:
         if exp[1] == s_clean:
@@ -256,9 +258,9 @@ def generate_single_experiment(
     save_image_fn: Callable[..., Any] | None = None,
 ) -> dict[str, Any]:
     """执行单组「字在人后」v154-v159 实验海报渲染。"""
-    if not stem or not stem.strip():
+    if not stem or not str(stem).strip():
         return {"version": ver, "stem": str(stem), "ok": False, "err": "Stem cannot be empty"}
-    if not prompt or not prompt.strip():
+    if not prompt or not str(prompt).strip():
         return {"version": ver, "stem": stem, "ok": False, "err": "Prompt cannot be empty"}
 
     ver_clean = ver.strip() if ver else "misc"

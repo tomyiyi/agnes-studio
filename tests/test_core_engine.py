@@ -296,6 +296,16 @@ from batch_type_behind import (
     generate_type_behind,
     run_batch_type_behind,
 )
+import batch_type_behind_v154
+from batch_type_behind_v154 import (
+    EXPERIMENTS as TYPE_BEHIND_V154_EXPERIMENTS,
+    VERSION_METADATA as TYPE_BEHIND_V154_METADATA,
+    list_versions as list_type_behind_v154_versions,
+    list_experiments as list_type_behind_v154_experiments,
+    get_experiment_by_stem as get_type_behind_v154_experiment_by_stem,
+    generate_single_experiment as generate_type_behind_v154_single,
+    run_batch_v154 as run_batch_type_behind_v154,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -4844,6 +4854,246 @@ class TestBatchTypeBehind(unittest.TestCase):
         ])
         self.assertEqual(ret_dry, 0)
         self.assertTrue((cli_out / "batch_report.json").is_file())
+
+
+class TestBatchTypeBehindV154(unittest.TestCase):
+    """测试「字在人后」v154-v159 未测维度生成引擎 batch_type_behind_v154"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_versions_and_metadata(self):
+        versions = list_type_behind_v154_versions()
+        expected = ["v154", "v155", "v156", "v157", "v158", "v159"]
+        self.assertEqual(versions, expected)
+        for ver in expected:
+            self.assertIn(ver, TYPE_BEHIND_V154_METADATA)
+            meta = TYPE_BEHIND_V154_METADATA[ver]
+            self.assertIn("title", meta)
+            self.assertIn("desc", meta)
+            self.assertTrue(len(meta["title"]) > 0)
+            self.assertTrue(len(meta["desc"]) > 0)
+
+    def test_list_experiments_filtering(self):
+        # 1. 默认列出全部 36 组
+        all_exps = list_type_behind_v154_experiments()
+        self.assertEqual(len(all_exps), 36)
+        self.assertEqual(len(all_exps), len(TYPE_BEHIND_V154_EXPERIMENTS))
+
+        # 2. 按版本筛选（支持 v 前缀或纯数字）
+        v154_exps = list_type_behind_v154_experiments("v154")
+        self.assertEqual(len(v154_exps), 6)
+        self.assertTrue(all(item[0] == "v154" for item in v154_exps))
+
+        v157_exps = list_type_behind_v154_experiments("157")
+        self.assertEqual(len(v157_exps), 6)
+        self.assertTrue(all(item[0] == "v157" for item in v157_exps))
+
+        # 3. 不存在版本返回空列表
+        empty_exps = list_type_behind_v154_experiments("v999")
+        self.assertEqual(len(empty_exps), 0)
+
+    def test_get_experiment_by_stem(self):
+        # 1. 存在 stem
+        exp = get_type_behind_v154_experiment_by_stem("r154_out")
+        self.assertIsNotNone(exp)
+        self.assertEqual(exp[0], "v154")
+        self.assertEqual(exp[1], "r154_out")
+        self.assertIn("PRIMARY:", exp[2])
+
+        # 2. 中文多字实验 stem
+        exp_cn = get_type_behind_v154_experiment_by_stem("r157_cn_qing")
+        self.assertIsNotNone(exp_cn)
+        self.assertEqual(exp_cn[0], "v157")
+        self.assertIn("清欢", exp_cn[2])
+
+        # 3. 不存在或空输入
+        self.assertIsNone(get_type_behind_v154_experiment_by_stem("non_existent_stem"))
+        self.assertIsNone(get_type_behind_v154_experiment_by_stem(""))
+        self.assertIsNone(get_type_behind_v154_experiment_by_stem(None))
+
+    def test_generate_single_validation(self):
+        # 1. stem 为空
+        res_no_stem = generate_type_behind_v154_single(
+            ver="v154", stem="", prompt="some prompt", out_dir=self.tmp_path
+        )
+        self.assertFalse(res_no_stem["ok"])
+        self.assertIn("Stem cannot be empty", res_no_stem["err"])
+
+        # 2. prompt 为空
+        res_no_prompt = generate_type_behind_v154_single(
+            ver="v154", stem="r154_test", prompt="", out_dir=self.tmp_path
+        )
+        self.assertFalse(res_no_prompt["ok"])
+        self.assertIn("Prompt cannot be empty", res_no_prompt["err"])
+
+    def test_generate_single_dry_run(self):
+        res = generate_type_behind_v154_single(
+            ver="v154",
+            stem="r154_test_dry",
+            prompt="PRIMARY: model SECONDARY: MODE",
+            out_dir=self.tmp_path,
+            dry_run=True,
+        )
+        self.assertTrue(res["ok"])
+        self.assertTrue(res.get("dry_run"))
+        self.assertEqual(res["stem"], "r154_test_dry")
+        self.assertIn("r154_test_dry.png", res["path"])
+        self.assertGreater(res["prompt_len"], 0)
+
+    def test_generate_single_success_and_skip(self):
+        called = []
+        def fake_generate(prompt, size, model, retries):
+            called.append(prompt)
+            return {"ok": True, "cost_s": 0.35, "via": "mock_v154"}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"data_png_v154_" * 2500)
+
+        # 1. 成功生成
+        res = generate_type_behind_v154_single(
+            ver="v154",
+            stem="r154_out",
+            prompt="PRIMARY: woman SECONDARY: OUT",
+            out_dir=self.tmp_path,
+            generate_fn=fake_generate,
+            save_image_fn=fake_save,
+        )
+        self.assertTrue(res["ok"])
+        self.assertFalse(res.get("skipped", False))
+        self.assertEqual(res["version"], "v154")
+        self.assertEqual(res["stem"], "r154_out")
+        self.assertEqual(res.get("via"), "mock_v154")
+        self.assertTrue(Path(res["path"]).is_file())
+        self.assertGreaterEqual(res["size_kb"], 20)
+        self.assertEqual(len(called), 1)
+
+        # 2. 第二次调用（未开启 force）：跳过
+        res_skip = generate_type_behind_v154_single(
+            ver="v154",
+            stem="r154_out",
+            prompt="PRIMARY: woman SECONDARY: OUT",
+            out_dir=self.tmp_path,
+            generate_fn=fake_generate,
+            save_image_fn=fake_save,
+            force=False,
+        )
+        self.assertTrue(res_skip["ok"])
+        self.assertTrue(res_skip.get("skipped"))
+        self.assertEqual(len(called), 1)
+
+        # 3. 第三次调用（开启 force）：重新执行
+        res_force = generate_type_behind_v154_single(
+            ver="v154",
+            stem="r154_out",
+            prompt="PRIMARY: woman SECONDARY: OUT",
+            out_dir=self.tmp_path,
+            generate_fn=fake_generate,
+            save_image_fn=fake_save,
+            force=True,
+        )
+        self.assertTrue(res_force["ok"])
+        self.assertFalse(res_force.get("skipped", False))
+        self.assertEqual(len(called), 2)
+
+    def test_generate_single_errors(self):
+        # 1. 生成器返回失败字典
+        def fake_fail_gen(*args, **kwargs):
+            return {"ok": False, "error": "Quota limit reached"}
+
+        res_fail = generate_type_behind_v154_single(
+            ver="v154",
+            stem="r154_fail",
+            prompt="prompt",
+            out_dir=self.tmp_path,
+            generate_fn=fake_fail_gen,
+        )
+        self.assertFalse(res_fail["ok"])
+        self.assertIn("Quota limit reached", res_fail["err"])
+
+        # 2. 生成器抛出异常
+        def fake_throw_gen(*args, **kwargs):
+            raise TimeoutError("Gateway timed out")
+
+        res_throw = generate_type_behind_v154_single(
+            ver="v154",
+            stem="r154_err",
+            prompt="prompt",
+            out_dir=self.tmp_path,
+            generate_fn=fake_throw_gen,
+        )
+        self.assertFalse(res_throw["ok"])
+        self.assertIn("Gateway timed out", res_throw["err"])
+
+        # 3. 生成器不可调用
+        with patch("batch_type_behind_v154.generate", None):
+            res_no_gen = generate_type_behind_v154_single(
+                ver="v154",
+                stem="r154_nogen",
+                prompt="prompt",
+                out_dir=self.tmp_path,
+                generate_fn=None,
+            )
+            self.assertFalse(res_no_gen["ok"])
+            self.assertIn("not available or not callable", res_no_gen["err"])
+
+    def test_run_batch_v154(self):
+        def fake_gen(prompt, size, model, retries):
+            return {"ok": True}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"batch_v154_data" * 2000)
+
+        out_dir = self.tmp_path / "batch_test_v154"
+        # 筛选 v157 版本且 limit=2
+        results = run_batch_type_behind_v154(
+            versions="v157",
+            limit=2,
+            out_dir=out_dir,
+            generate_fn=fake_gen,
+            save_image_fn=fake_save,
+        )
+        self.assertEqual(len(results), 2)
+        self.assertTrue(all(r["ok"] for r in results))
+        self.assertTrue(all(r["version"] == "v157" for r in results))
+
+        # 校验生成的 batch_v154_report.json
+        report_file = out_dir / "batch_v154_report.json"
+        self.assertTrue(report_file.is_file())
+        report_data = json.loads(report_file.read_text(encoding="utf-8"))
+        self.assertEqual(report_data["total"], 2)
+        self.assertEqual(report_data["ok"], 2)
+        self.assertEqual(report_data["failed"], 0)
+
+        # 按照 stems 过滤
+        stem_results = run_batch_type_behind_v154(
+            stems="r154_out,r158_eleg",
+            out_dir=out_dir,
+            dry_run=True,
+        )
+        self.assertEqual(len(stem_results), 2)
+        stems = {r["stem"] for r in stem_results}
+        self.assertEqual(stems, {"r154_out", "r158_eleg"})
+
+    def test_main_cli_execution(self):
+        # 1. --list-experiments
+        ret_list = batch_type_behind_v154.main(["--list-experiments"])
+        self.assertEqual(ret_list, 0)
+
+        # 2. --dry-run CLI 执行
+        cli_out = self.tmp_path / "cli_dry_v154"
+        ret_dry = batch_type_behind_v154.main([
+            "--dry-run",
+            "-v", "v154",
+            "-n", "2",
+            "--out", str(cli_out),
+        ])
+        self.assertEqual(ret_dry, 0)
+        self.assertTrue((cli_out / "batch_v154_report.json").is_file())
 
 
 if __name__ == "__main__":
