@@ -152,6 +152,19 @@ from render_cinema_poster import (
     side_rail,
     shot as cinema_shot,
 )
+import render_drama_poster
+from render_drama_poster import (
+    b64 as drama_b64,
+    sanitize_img_uri as drama_sanitize_img_uri,
+    shot as drama_shot,
+    css as drama_css,
+    build_mega_bleed_html,
+    mega_bleed,
+    build_hard_field_html,
+    hard_field,
+    build_chinese_corner_html,
+    chinese_corner,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -2396,6 +2409,213 @@ class TestRenderCinemaPoster(unittest.TestCase):
         mock_shot.return_value = self.tmp_path / "mock.png"
         # Calling main shouldn't raise any exception
         render_cinema_poster.main()
+        self.assertEqual(mock_shot.call_count, 3)
+
+
+class TestRenderDramaPoster(unittest.TestCase):
+    """测试反 slop 巨幅戏剧性海报渲染器 render_drama_poster 及其三大视觉构图模式与鲁棒性"""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_b64_with_data_uri(self):
+        raw_uri = "data:image/png;base64,mocked_drama_data"
+        result = drama_b64(raw_uri)
+        self.assertEqual(result, raw_uri)
+
+    def test_b64_mime_types(self):
+        types = [
+            ("sample.png", "image/png"),
+            ("sample.jpg", "image/jpeg"),
+            ("sample.jpeg", "image/jpeg"),
+            ("sample.webp", "image/webp"),
+            ("sample.svg", "image/svg+xml"),
+            ("sample.gif", "image/gif"),
+        ]
+        for filename, expected_mime in types:
+            file_p = self.tmp_path / filename
+            file_p.write_bytes(b"\x00\x01\x02\x03")
+            uri = drama_b64(file_p)
+            self.assertTrue(uri.startswith(f"data:{expected_mime};base64,"))
+            uri_str = drama_b64(str(file_p))
+            self.assertTrue(uri_str.startswith(f"data:{expected_mime};base64,"))
+
+    def test_b64_missing_file_raises_filenotfound(self):
+        with self.assertRaises(FileNotFoundError):
+            drama_b64(self.tmp_path / "non_existent_poster.png")
+
+    def test_sanitize_img_uri(self):
+        malicious = "data:image/png;base64,abc\r\ndef'\"<script>"
+        sanitized = drama_sanitize_img_uri(malicious)
+        self.assertNotIn("\r", sanitized)
+        self.assertNotIn("\n", sanitized)
+        self.assertNotIn("'", sanitized)
+        self.assertNotIn('"', sanitized)
+        self.assertNotIn("<", sanitized)
+        self.assertNotIn(">", sanitized)
+        self.assertIn("%27", sanitized)
+        self.assertIn("%22", sanitized)
+        self.assertIn("%3C", sanitized)
+        self.assertIn("%3E", sanitized)
+
+    def test_css_generation(self):
+        css_content = drama_css(".extra{color:blue;}")
+        self.assertIn("@font-face", css_content)
+        self.assertIn(".extra{color:blue;}", css_content)
+        self.assertIn("font-family:'NSB'", css_content)
+        self.assertIn("font-family:'PHH'", css_content)
+        self.assertIn("font-family:'PHM'", css_content)
+
+    def test_build_mega_bleed_html_escaping_and_custom_text(self):
+        # 1. 默认参数
+        html_default = build_mega_bleed_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage", html_default)
+        self.assertIn("Agnes · 2026", html_default)
+        self.assertIn("font-size:176px", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_mega_bleed_html(
+            "data:image/png;base64,abc",
+            title="<巨字裁切>",
+            subtitle_top="TOP & SUB",
+            subtitle_bottom="“极简主义”",
+            extra_css=".custom{display:flex;}",
+        )
+        self.assertNotIn("<巨字裁切>", html_custom)
+        self.assertIn("&lt;巨字裁切&gt;", html_custom)
+        self.assertIn("TOP &amp; SUB", html_custom)
+        self.assertIn("“极简主义”", html_custom)
+        self.assertIn(".custom{display:flex;}", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_mega_bleed_html("data:image/png;base64,abc", title=None, subtitle_top=None, subtitle_bottom=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage", html_none)
+        self.assertIn("Agnes · 2026", html_none)
+
+    def test_build_hard_field_html_escaping_and_custom_text(self):
+        # 1. 默认参数
+        html_default = build_hard_field_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("她把城市调成静音", html_default)
+        self.assertIn("A Film Still", html_default)
+        self.assertIn("background:#0A0A0C", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_hard_field_html(
+            "data:image/png;base64,abc",
+            title="<色场反转>",
+            tagline="黑色力量 & 寂静",
+            micro_text="AGNES EXCLUSIVE",
+        )
+        self.assertNotIn("<色场反转>", html_custom)
+        self.assertIn("&lt;色场反转&gt;", html_custom)
+        self.assertIn("黑色力量 &amp; 寂静", html_custom)
+        self.assertIn("AGNES EXCLUSIVE", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_hard_field_html("data:image/png;base64,abc", title=None, tagline=None, micro_text=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("她把城市调成静音", html_none)
+        self.assertIn("A Film Still", html_none)
+
+    def test_build_chinese_corner_html_escaping_and_custom_text(self):
+        # 1. 默认参数
+        html_default = build_chinese_corner_html("data:image/png;base64,abc")
+        self.assertIn("夜航", html_default)
+        self.assertIn("Night Voyage", html_default)
+        self.assertIn("Agnes Studio", html_default)
+        self.assertIn("航", html_default)
+        self.assertIn("writing-mode:vertical-rl", html_default)
+
+        # 2. 自定义参数与 XSS 过滤
+        html_custom = build_chinese_corner_html(
+            "data:image/png;base64,abc",
+            title="<边角计白>",
+            subtitle="CHINESE & MODERN",
+            bottom_label="Studio <Agnes>",
+            seal_char="印",
+        )
+        self.assertNotIn("<边角计白>", html_custom)
+        self.assertIn("&lt;边角计白&gt;", html_custom)
+        self.assertIn("CHINESE &amp; MODERN", html_custom)
+        self.assertIn("Studio &lt;Agnes&gt;", html_custom)
+        self.assertIn("印", html_custom)
+
+        # 3. None 参数防御
+        html_none = build_chinese_corner_html("data:image/png;base64,abc", title=None, subtitle=None, bottom_label=None, seal_char=None)
+        self.assertIn("夜航", html_none)
+        self.assertIn("Night Voyage", html_none)
+        self.assertIn("Agnes Studio", html_none)
+        self.assertIn("航", html_none)
+
+    def test_shot_mkdir_and_invocation(self):
+        out_target = self.tmp_path / "deep" / "nested" / "drama.png"
+        fake_page = MagicMock()
+        fake_browser = MagicMock()
+        fake_browser.new_page.return_value = fake_page
+        fake_chromium = MagicMock()
+        fake_chromium.launch.return_value = fake_browser
+        fake_playwright_ctx = MagicMock()
+        fake_playwright_ctx.chromium = fake_chromium
+        fake_playwright_cm = MagicMock()
+        fake_playwright_cm.__enter__.return_value = fake_playwright_ctx
+
+        def fake_screenshot(path, type="png"):
+            Path(path).write_bytes(b"\x89PNGfake_drama")
+
+        fake_page.screenshot.side_effect = fake_screenshot
+
+        with patch("playwright.sync_api.sync_playwright", return_value=fake_playwright_cm):
+            res_path = drama_shot("<html><body>Drama</body></html>", out_target, timeout_ms=10)
+            self.assertEqual(res_path, out_target)
+            self.assertTrue(out_target.exists())
+            fake_page.set_content.assert_called_once_with("<html><body>Drama</body></html>")
+            fake_page.wait_for_timeout.assert_called_once_with(10)
+            fake_browser.close.assert_called_once()
+
+    @patch("render_drama_poster.shot")
+    def test_mega_bleed_hard_field_chinese_corner_integration(self, mock_shot):
+        sample_img = self.tmp_path / "drama_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out_drama.png"
+        mock_shot.return_value = out_p
+
+        # 1. mega_bleed
+        res_bleed = mega_bleed(sample_img, out_p, title="巨标裁切测试", subtitle_top="TOP DRAMA", subtitle_bottom="BOTTOM DRAMA")
+        self.assertEqual(res_bleed, out_p)
+        mock_shot.assert_called()
+        call_html_bleed = mock_shot.call_args[0][0]
+        self.assertIn("巨标裁切测试", call_html_bleed)
+        self.assertIn("TOP DRAMA", call_html_bleed)
+        self.assertIn("BOTTOM DRAMA", call_html_bleed)
+
+        # 2. hard_field
+        res_field = hard_field(sample_img, out_p, title="硬色场反转测试", tagline="反转标语", micro_text="微小说明")
+        self.assertEqual(res_field, out_p)
+        call_html_field = mock_shot.call_args[0][0]
+        self.assertIn("硬色场反转测试", call_html_field)
+        self.assertIn("反转标语", call_html_field)
+        self.assertIn("微小说明", call_html_field)
+
+        # 3. chinese_corner
+        res_corner = chinese_corner(sample_img, out_p, title="边角式测试", subtitle="CORNER LATIN", bottom_label="AGNES BOT", seal_char="章")
+        self.assertEqual(res_corner, out_p)
+        call_html_corner = mock_shot.call_args[0][0]
+        self.assertIn("边角式测试", call_html_corner)
+        self.assertIn("CORNER LATIN", call_html_corner)
+        self.assertIn("AGNES BOT", call_html_corner)
+        self.assertIn("章", call_html_corner)
+
+    @patch("render_drama_poster.shot")
+    def test_main_execution(self, mock_shot):
+        mock_shot.return_value = self.tmp_path / "mock_drama.png"
+        render_drama_poster.main()
         self.assertEqual(mock_shot.call_count, 3)
 
 
