@@ -26,6 +26,7 @@ from unittest.mock import patch, MagicMock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "experiments"))
 import env_config  # noqa: F401
 from PIL import Image
 
@@ -406,6 +407,20 @@ from test_gemini_integration import (
     run_tests as gemini_run_tests,
     build_arg_parser as gemini_build_arg_parser,
     main as gemini_main,
+)
+import compose_beauty_covers
+from compose_beauty_covers import (
+    resolve_source_image as beauty_resolve_source,
+    image_to_base64_uri as beauty_image_to_b64,
+    cover_html as beauty_cover_html,
+    render as beauty_render,
+    run_beauty_experiment as beauty_run_experiment,
+    build_arg_parser as beauty_build_arg_parser,
+    main as beauty_main,
+    W as BEAUTY_W,
+    H as BEAUTY_H,
+    OUT as BEAUTY_OUT,
+    FALLBACK_SRCS as BEAUTY_FALLBACK_SRCS,
 )
 
 
@@ -7070,6 +7085,148 @@ class TestGeminiIntegrationSuite(unittest.TestCase):
             raise_on_error=False,
         )
         self.assertTrue(res["ok"])
+
+
+class TestComposeBeautyCovers(unittest.TestCase):
+    """测试高定美妆封面 2350×1000 负空间与对角拆字排版组件 (Beauty Cover Suite)"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+        self.dummy_src = self.tmp_path / "dummy_beauty.png"
+        Image.new("RGB", (1000, 1000), color=(60, 40, 30)).save(self.dummy_src, "PNG")
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_env_and_dimension_constants(self):
+        self.assertEqual(BEAUTY_W, 2350)
+        self.assertEqual(BEAUTY_H, 1000)
+        self.assertEqual(compose_beauty_covers.FONTS, FONTS_DIR)
+        self.assertEqual(compose_beauty_covers.ASSETS, ASSETS_DIR)
+        self.assertEqual(compose_beauty_covers.CHROME, resolve_chrome_path())
+        self.assertTrue(str(compose_beauty_covers.SRC).endswith("_beauty_hero.png"))
+
+    def test_resolve_source_image(self):
+        # 1. 显式指定有效路径
+        self.assertEqual(beauty_resolve_source(self.dummy_src), self.dummy_src)
+
+        # 2. 显式指定不存在路径报错
+        missing = self.tmp_path / "missing.png"
+        with self.assertRaises(FileNotFoundError):
+            beauty_resolve_source(missing)
+
+        # 3. 自动 fallback 找到存在的底图
+        found = beauty_resolve_source()
+        self.assertTrue(found.is_file())
+
+        # 4. 当全部 fallback 候选均不存在时抛出 FileNotFoundError
+        with patch.object(Path, "is_file", return_value=False):
+            with self.assertRaises(FileNotFoundError):
+                beauty_resolve_source()
+
+    def test_image_to_base64_uri(self):
+        uri = beauty_image_to_b64(self.dummy_src)
+        self.assertTrue(uri.startswith("data:image/png;base64,"))
+
+        # 缺失文件报错
+        missing = self.tmp_path / "not_there.png"
+        with self.assertRaises(FileNotFoundError):
+            beauty_image_to_b64(missing)
+
+    def test_cover_html_generation_and_typography(self):
+        # safe 区域排版
+        html_safe = beauty_cover_html("data:image/png;base64,TEST", title_band="safe")
+        self.assertIn("top: 11%; left: 7%;", html_safe)
+        self.assertIn("SmileySans", html_safe)
+        self.assertIn("神<em>颜</em>", html_safe)
+        self.assertIn("ORIENTAL&nbsp;BEAUTY", html_safe)
+
+        # risk 区域排版
+        html_risk = beauty_cover_html("data:image/png;base64,TEST", title_band="risk")
+        self.assertIn("bottom: 6%; left: 7%;", html_risk)
+
+        # 自定义文案与 XSS 转义
+        html_custom = beauty_cover_html(
+            "data:image/png;base64,TEST",
+            title_a="盛世<美>",
+            title_b="极致&奢华",
+            title_accent="奢",
+            latin="PURE LUXURY",
+            slogan="光影掠过<夜色>",
+        )
+        self.assertIn("盛世&lt;美&gt;", html_custom)
+        self.assertIn("极致&amp;<em>奢</em>华", html_custom)
+        self.assertIn("PURE&nbsp;LUXURY", html_custom)
+        self.assertIn("光影掠过&lt;夜色&gt;", html_custom)
+
+    def test_render_dry_run_modes(self):
+        dst_png = self.tmp_path / "sub" / "cover.png"
+        res_png = beauty_render("<html></html>", dst_png, fmt="png", dry_run=True)
+        self.assertEqual(res_png, dst_png)
+        self.assertTrue(dst_png.exists())
+        with Image.open(dst_png) as im:
+            self.assertEqual(im.size, (BEAUTY_W, BEAUTY_H))
+            self.assertEqual(im.format, "PNG")
+
+        dst_jpg = self.tmp_path / "sub" / "cover.jpg"
+        res_jpg = beauty_render("<html></html>", dst_jpg, fmt="jpeg", dry_run=True)
+        self.assertEqual(res_jpg, dst_jpg)
+        self.assertTrue(dst_jpg.exists())
+        with Image.open(dst_jpg) as im:
+            self.assertEqual(im.size, (BEAUTY_W, BEAUTY_H))
+            self.assertEqual(im.format, "JPEG")
+
+    def test_run_beauty_experiment_dry_run(self):
+        out_dir = self.tmp_path / "exp_out"
+        report = beauty_run_experiment(
+            src=self.dummy_src,
+            out_dir=out_dir,
+            title_band="all",
+            dry_run=True,
+            quiet=True,
+        )
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["src"], str(self.dummy_src))
+        self.assertTrue(report["dry_run"])
+        self.assertEqual(len(report["rendered_files"]), 4)
+        for f in report["rendered_files"]:
+            self.assertTrue(Path(f).exists())
+
+        # safe-only
+        out_safe = self.tmp_path / "exp_safe"
+        report_safe = beauty_run_experiment(
+            src=self.dummy_src,
+            out_dir=out_safe,
+            title_band="safe",
+            dry_run=True,
+            quiet=True,
+        )
+        self.assertEqual(len(report_safe["rendered_files"]), 1)
+        self.assertTrue(report_safe["rendered_files"][0].endswith("H1_title_top_safe.png"))
+
+    def test_main_cli_success_and_failure(self):
+        # 1. 成功执行 CLI
+        json_report = self.tmp_path / "cli_report.json"
+        exit_code = beauty_main([
+            "--src", str(self.dummy_src),
+            "--out-dir", str(self.tmp_path / "cli_out"),
+            "--dry-run",
+            "--json", str(json_report),
+            "--quiet",
+        ])
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(json_report.exists())
+        data = json.loads(json_report.read_text(encoding="utf-8"))
+        self.assertTrue(data["ok"])
+        self.assertTrue(data["dry_run"])
+
+        # 2. 传入不存在的底图时返回 1
+        fail_code = beauty_main([
+            "--src", str(self.tmp_path / "non_existent.png"),
+            "--quiet",
+        ])
+        self.assertEqual(fail_code, 1)
 
 
 if __name__ == "__main__":
