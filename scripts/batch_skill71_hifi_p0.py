@@ -2,18 +2,25 @@
 """P0 八套高保真样张：提示词可由 gemini-3.8 编译，出图只走 Agnes/NewAPI。"""
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import time
-import urllib.request
 from pathlib import Path
+from typing import Any, Callable
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
-from agnes_gateway import generate, save_image  # noqa: E402
+try:
+    from agnes_gateway import generate, save_image  # noqa: E402
+except ImportError:
+    generate = None  # type: ignore
+    save_image = None  # type: ignore
 
-OUT = ROOT / "outputs" / "skill71_hifi_p0"
-OUT.mkdir(parents=True, exist_ok=True)
+DEFAULT_OUT_DIR = ROOT / "outputs" / "skill71_hifi_p0"
+OUT = DEFAULT_OUT_DIR
+DEFAULT_MODEL = "agnes-image-2.5-flash"
+DEFAULT_RETRIES = 2
 
 # 统一源图事实（来自 1013 美妆人像：亚麻裙亚裔女子·咖啡馆绿植·自然光）
 SOURCE_FACTS = (
@@ -177,43 +184,234 @@ PROMPTS = {
 }
 
 
-def main() -> None:
-    results = []
-    for sid, spec in PROMPTS.items():
-        out = OUT / f"{sid}_{spec['name'].split()[0]}.png"
-        if out.exists() and out.stat().st_size > 20_000:
-            results.append({"id": sid, "ok": True, "skipped": True, "path": str(out)})
-            print(f"skip {sid}", flush=True)
-            continue
-        t0 = time.time()
-        res = generate(spec["prompt"], size=spec["size"], model="agnes-image-2.5-flash", retries=2)
-        if not res.get("ok"):
-            results.append({"id": sid, "ok": False, "error": str(res)[:240]})
-            print(f"FAIL {sid} {res}", flush=True)
-            continue
-        save_image(res, out)
-        results.append(
-            {
-                "id": sid,
-                "name": spec["name"],
+def list_hifi_presets() -> list[tuple[str, str, str, str]]:
+    """返回全部 P0 高保真样张预设清单 (sid, name, size, prompt)。"""
+    return [(sid, spec["name"], spec["size"], spec["prompt"]) for sid, spec in PROMPTS.items()]
+
+
+def get_hifi_preset(sid: str) -> dict[str, str] | None:
+    """根据 Skill ID 获取对应的预设元数据（支持大小写不敏感匹配）。"""
+    if not sid or not isinstance(sid, str):
+        return None
+    s_clean = sid.strip().upper()
+    for key, spec in PROMPTS.items():
+        if key.upper() == s_clean:
+            return {"id": key, "name": spec["name"], "size": spec["size"], "prompt": spec["prompt"]}
+    return None
+
+
+def render_single_hifi(
+    sid: str,
+    spec: dict[str, str] | None = None,
+    out_dir: Path | str = DEFAULT_OUT_DIR,
+    model: str = DEFAULT_MODEL,
+    size: str | None = None,
+    retries: int = DEFAULT_RETRIES,
+    force: bool = False,
+    dry_run: bool = False,
+    generate_fn: Callable[..., dict[str, Any]] | None = None,
+    save_image_fn: Callable[..., Any] | None = None,
+) -> dict[str, Any]:
+    """渲染单套 P0 高保真样张。"""
+    if not sid or not str(sid).strip():
+        return {"id": str(sid), "ok": False, "err": "Skill ID cannot be empty"}
+
+    sid_clean = str(sid).strip()
+    preset = get_hifi_preset(sid_clean)
+
+    if spec is None:
+        if not preset:
+            return {"id": sid_clean, "ok": False, "err": f"Skill preset '{sid_clean}' not found in PROMPTS"}
+        active_spec = preset
+    else:
+        active_spec = spec
+
+    name = active_spec.get("name") or sid_clean
+    img_size = size or active_spec.get("size") or "1088x1456"
+    prompt = active_spec.get("prompt") or ""
+
+    if not prompt or not str(prompt).strip():
+        return {"id": sid_clean, "name": name, "ok": False, "err": "Prompt cannot be empty"}
+
+    slug = name.split()[0] if name else "sample"
+    target_dir = Path(out_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    fp = target_dir / f"{sid_clean}_{slug}.png"
+
+    # 若文件已存在且未开启强制覆盖，且大于 20KB 则跳过
+    if fp.exists() and fp.stat().st_size > 20_000 and not force:
+        return {
+            "id": sid_clean,
+            "name": name,
+            "ok": True,
+            "skipped": True,
+            "path": str(fp),
+            "kb": fp.stat().st_size // 1024,
+            "prompt": prompt,
+        }
+
+    if dry_run:
+        return {
+            "id": sid_clean,
+            "name": name,
+            "ok": True,
+            "dry_run": True,
+            "path": str(fp),
+            "size": img_size,
+            "prompt": prompt,
+            "prompt_len": len(prompt),
+        }
+
+    gen = generate_fn or generate
+    saver = save_image_fn or save_image
+
+    if not callable(gen):
+        return {
+            "id": sid_clean,
+            "name": name,
+            "ok": False,
+            "err": "agnes_gateway.generate is not available or not callable",
+        }
+
+    t0 = time.time()
+    try:
+        res = gen(prompt, size=img_size, model=model, retries=retries)
+        if isinstance(res, dict) and res.get("ok"):
+            if callable(saver):
+                saver(res, fp)
+            kb = fp.stat().st_size // 1024 if fp.exists() else 0
+            return {
+                "id": sid_clean,
+                "name": name,
                 "ok": True,
-                "path": str(out),
-                "kb": out.stat().st_size // 1024,
+                "path": str(fp),
+                "kb": kb,
                 "cost_s": res.get("cost_s"),
                 "via": res.get("via"),
-                "model": res.get("model"),
+                "model": res.get("model", model),
                 "elapsed": round(time.time() - t0, 2),
-                "prompt": spec["prompt"],
+                "prompt": prompt,
             }
-        )
-        print(f"OK {sid} {out.name} {out.stat().st_size//1024}KB {res.get('cost_s')}s", flush=True)
+        err_msg = res.get("error") if isinstance(res, dict) else str(res)
+        return {
+            "id": sid_clean,
+            "name": name,
+            "ok": False,
+            "err": err_msg or "Unknown generation error",
+        }
+    except Exception as exc:
+        return {
+            "id": sid_clean,
+            "name": name,
+            "ok": False,
+            "err": str(exc),
+        }
 
-    (OUT / "hifi_report.json").write_text(
-        json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8"
+
+def run_batch_hifi(
+    skills: list[str] | str | None = None,
+    limit: int | None = None,
+    out_dir: Path | str = DEFAULT_OUT_DIR,
+    model: str = DEFAULT_MODEL,
+    size: str | None = None,
+    retries: int = DEFAULT_RETRIES,
+    force: bool = False,
+    dry_run: bool = False,
+    generate_fn: Callable[..., dict[str, Any]] | None = None,
+    save_image_fn: Callable[..., Any] | None = None,
+) -> list[dict[str, Any]]:
+    """批量渲染 P0 高保真样张并生成汇总报告。"""
+    target_base = Path(out_dir)
+    target_base.mkdir(parents=True, exist_ok=True)
+
+    if skills:
+        if isinstance(skills, str):
+            s_set = {s.strip().upper() for s in skills.split(",") if s.strip()}
+        else:
+            s_set = {str(s).strip().upper() for s in skills if str(s).strip()}
+        target_keys = [k for k in PROMPTS if k.upper() in s_set]
+    else:
+        target_keys = list(PROMPTS.keys())
+
+    if limit is not None and limit > 0:
+        target_keys = target_keys[:limit]
+
+    print(f"Agnes Studio · P0 高保真样张批量执行: 共 {len(target_keys)} 组预设", flush=True)
+
+    results: list[dict[str, Any]] = []
+    total = len(target_keys)
+
+    for idx, sid in enumerate(target_keys, 1):
+        spec = PROMPTS[sid]
+        res = render_single_hifi(
+            sid=sid,
+            spec=spec,
+            out_dir=target_base,
+            model=model,
+            size=size,
+            retries=retries,
+            force=force,
+            dry_run=dry_run,
+            generate_fn=generate_fn,
+            save_image_fn=save_image_fn,
+        )
+        results.append(res)
+        tag = "OK" if res.get("ok") else "FAIL"
+        if res.get("dry_run"):
+            tag = "DRY"
+        elif res.get("skipped"):
+            tag = "SKIP"
+        p_name = Path(res.get("path", "")).name
+        print(f"[{idx}/{total}] {tag} {sid} -> {p_name}", flush=True)
+
+    ok_cnt = sum(1 for r in results if r.get("ok"))
+    report = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "total": len(results),
+        "ok": ok_cnt,
+        "failed": len(results) - ok_cnt,
+        "results": results,
+    }
+    report_file = target_base / "hifi_report.json"
+    report_file.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    return results
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Agnes Studio · P0 八套高保真样张批量生成引擎")
+    parser.add_argument("--list-presets", action="store_true", help="列出全部 P0 高保真预设清单")
+    parser.add_argument("-s", "--skills", default=None, help="筛选执行的特定 Skill 标识 (逗号分隔，如 S05,S07)")
+    parser.add_argument("-n", "--limit", type=int, default=None, help="限制最大执行数量")
+    parser.add_argument("-o", "--out", default=str(DEFAULT_OUT_DIR), help=f"样张输出目录 (默认: {DEFAULT_OUT_DIR})")
+    parser.add_argument("-m", "--model", default=DEFAULT_MODEL, help=f"生图模型名称 (默认: {DEFAULT_MODEL})")
+    parser.add_argument("--size", default=None, help="自定义生图分辨率 (默认使用各预设尺寸)")
+    parser.add_argument("--retries", type=int, default=DEFAULT_RETRIES, help=f"失败重试次数 (默认: {DEFAULT_RETRIES})")
+    parser.add_argument("-f", "--force", action="store_true", help="强制重新生成已存在的文件")
+    parser.add_argument("-d", "--dry-run", action="store_true", help="演练模式，不请求实际生图 API")
+
+    args = parser.parse_args(argv)
+
+    if args.list_presets:
+        print("Agnes Studio · P0 八套高保真样张预设清单:")
+        for sid, name, sz, prompt in list_hifi_presets():
+            print(f"  [{sid}] {name:<30} | {sz} | 提示词长: {len(prompt)}")
+        return 0
+
+    results = run_batch_hifi(
+        skills=args.skills,
+        limit=args.limit,
+        out_dir=args.out,
+        model=args.model,
+        size=args.size,
+        retries=args.retries,
+        force=args.force,
+        dry_run=args.dry_run,
     )
-    ok = sum(1 for r in results if r.get("ok"))
-    print(f"done {ok}/{len(PROMPTS)}", flush=True)
+
+    if results and all(not r.get("ok") for r in results):
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -306,6 +306,14 @@ from batch_type_behind_v154 import (
     generate_single_experiment as generate_type_behind_v154_single,
     run_batch_v154 as run_batch_type_behind_v154,
 )
+import batch_skill71_hifi_p0
+from batch_skill71_hifi_p0 import (
+    PROMPTS as SKILL71_HIFI_P0_PROMPTS,
+    list_hifi_presets,
+    get_hifi_preset,
+    render_single_hifi,
+    run_batch_hifi,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -5094,6 +5102,205 @@ class TestBatchTypeBehindV154(unittest.TestCase):
         ])
         self.assertEqual(ret_dry, 0)
         self.assertTrue((cli_out / "batch_v154_report.json").is_file())
+
+
+class TestBatchSkill71HifiP0(unittest.TestCase):
+    """测试 P0 八套高保真生图样张批处理引擎 batch_skill71_hifi_p0"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_list_presets_and_prompts(self):
+        presets = list_hifi_presets()
+        self.assertEqual(len(presets), 8)
+        self.assertEqual(len(presets), len(SKILL71_HIFI_P0_PROMPTS))
+
+        expected_ids = {"S05", "S07", "S09", "S15", "S11", "N01", "S04", "S02"}
+        actual_ids = {p[0] for p in presets}
+        self.assertEqual(actual_ids, expected_ids)
+
+        for sid, name, size, prompt in presets:
+            self.assertTrue(len(name) > 0)
+            self.assertIn("x", size)
+            self.assertGreater(len(prompt), 50)
+
+    def test_get_hifi_preset(self):
+        # 1. 存在 ID
+        p_s05 = get_hifi_preset("S05")
+        self.assertIsNotNone(p_s05)
+        self.assertEqual(p_s05["id"], "S05")
+        self.assertIn("mono-color", p_s05["name"])
+        self.assertEqual(p_s05["size"], "1088x1456")
+
+        # 2. 大小写与空格兼容
+        p_s07 = get_hifi_preset("  s07  ")
+        self.assertIsNotNone(p_s07)
+        self.assertEqual(p_s07["id"], "S07")
+
+        p_n01 = get_hifi_preset("n01")
+        self.assertIsNotNone(p_n01)
+        self.assertEqual(p_n01["id"], "N01")
+
+        # 3. 不存在或空输入
+        self.assertIsNone(get_hifi_preset("NON_EXISTENT"))
+        self.assertIsNone(get_hifi_preset(""))
+        self.assertIsNone(get_hifi_preset(None))
+
+    def test_render_single_hifi_validation(self):
+        # 1. sid 为空
+        res_no_sid = render_single_hifi("", out_dir=self.tmp_path)
+        self.assertFalse(res_no_sid["ok"])
+        self.assertIn("Skill ID cannot be empty", res_no_sid["err"])
+
+        # 2. 未知 sid 且未提供 spec
+        res_unknown = render_single_hifi("UNKNOWN", out_dir=self.tmp_path)
+        self.assertFalse(res_unknown["ok"])
+        self.assertIn("not found in PROMPTS", res_unknown["err"])
+
+        # 3. 提供 spec 但 prompt 为空
+        res_no_prompt = render_single_hifi("S05", spec={"prompt": ""}, out_dir=self.tmp_path)
+        self.assertFalse(res_no_prompt["ok"])
+        self.assertIn("Prompt cannot be empty", res_no_prompt["err"])
+
+    def test_render_single_hifi_dry_run(self):
+        res = render_single_hifi("S05", out_dir=self.tmp_path, dry_run=True)
+        self.assertTrue(res["ok"])
+        self.assertTrue(res.get("dry_run"))
+        self.assertEqual(res["id"], "S05")
+        self.assertTrue(res["path"].endswith(".png"))
+        self.assertGreater(res["prompt_len"], 100)
+
+    def test_render_single_hifi_success_and_skip(self):
+        calls = []
+
+        def fake_generate(prompt, size, model, retries):
+            calls.append({"prompt": prompt, "size": size, "model": model})
+            return {"ok": True, "cost_s": 0.42, "via": "mock_gateway", "model": model}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"data_png_hifi_" * 2000)
+
+        # 1. 成功生成
+        res = render_single_hifi(
+            "S05",
+            out_dir=self.tmp_path,
+            generate_fn=fake_generate,
+            save_image_fn=fake_save,
+        )
+        self.assertTrue(res["ok"])
+        self.assertFalse(res.get("skipped", False))
+        self.assertEqual(res["id"], "S05")
+        self.assertEqual(res.get("via"), "mock_gateway")
+        self.assertTrue(Path(res["path"]).is_file())
+        self.assertGreaterEqual(res["kb"], 20)
+        self.assertEqual(len(calls), 1)
+
+        # 2. 第二次调用（未开启 force）：跳过
+        res_skip = render_single_hifi(
+            "S05",
+            out_dir=self.tmp_path,
+            generate_fn=fake_generate,
+            save_image_fn=fake_save,
+            force=False,
+        )
+        self.assertTrue(res_skip["ok"])
+        self.assertTrue(res_skip.get("skipped"))
+        self.assertEqual(len(calls), 1)
+
+        # 3. 第三次调用（开启 force）：重新执行
+        res_force = render_single_hifi(
+            "S05",
+            out_dir=self.tmp_path,
+            generate_fn=fake_generate,
+            save_image_fn=fake_save,
+            force=True,
+        )
+        self.assertTrue(res_force["ok"])
+        self.assertFalse(res_force.get("skipped", False))
+        self.assertEqual(len(calls), 2)
+
+    def test_render_single_hifi_errors(self):
+        # 1. 生成器返回失败字典
+        def fake_fail_gen(*args, **kwargs):
+            return {"ok": False, "error": "Quota rate limit reached"}
+
+        res_fail = render_single_hifi(
+            "S05",
+            out_dir=self.tmp_path,
+            generate_fn=fake_fail_gen,
+        )
+        self.assertFalse(res_fail["ok"])
+        self.assertIn("Quota rate limit reached", res_fail["err"])
+
+        # 2. 生成器抛出异常
+        def fake_throw_gen(*args, **kwargs):
+            raise ConnectionError("Gateway network timeout")
+
+        res_throw = render_single_hifi(
+            "S05",
+            out_dir=self.tmp_path,
+            generate_fn=fake_throw_gen,
+        )
+        self.assertFalse(res_throw["ok"])
+        self.assertIn("Gateway network timeout", res_throw["err"])
+
+        # 3. 生成器不可调用
+        with patch("batch_skill71_hifi_p0.generate", None):
+            res_no_gen = render_single_hifi(
+                "S05",
+                out_dir=self.tmp_path,
+                generate_fn=None,
+            )
+            self.assertFalse(res_no_gen["ok"])
+            self.assertIn("not available or not callable", res_no_gen["err"])
+
+    def test_run_batch_hifi(self):
+        def fake_gen(prompt, size, model, retries):
+            return {"ok": True, "cost_s": 0.15, "via": "mock"}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"batch_hifi_data" * 2000)
+
+        out_dir = self.tmp_path / "batch_hifi_test"
+        # 筛选 S05, S07 并且 limit=2
+        results = run_batch_hifi(
+            skills="S05,s07",
+            limit=2,
+            out_dir=out_dir,
+            generate_fn=fake_gen,
+            save_image_fn=fake_save,
+        )
+        self.assertEqual(len(results), 2)
+        self.assertTrue(all(r["ok"] for r in results))
+        self.assertEqual({r["id"] for r in results}, {"S05", "S07"})
+
+        # 校验生成的 hifi_report.json
+        report_file = out_dir / "hifi_report.json"
+        self.assertTrue(report_file.is_file())
+        report_data = json.loads(report_file.read_text(encoding="utf-8"))
+        self.assertEqual(report_data["total"], 2)
+        self.assertEqual(report_data["ok"], 2)
+        self.assertEqual(report_data["failed"], 0)
+
+    def test_main_cli_execution(self):
+        # 1. --list-presets
+        ret_list = batch_skill71_hifi_p0.main(["--list-presets"])
+        self.assertEqual(ret_list, 0)
+
+        # 2. --dry-run CLI 执行
+        cli_out = self.tmp_path / "cli_dry_hifi"
+        ret_dry = batch_skill71_hifi_p0.main([
+            "--dry-run",
+            "-s", "S05,S09",
+            "-n", "2",
+            "--out", str(cli_out),
+        ])
+        self.assertEqual(ret_dry, 0)
+        self.assertTrue((cli_out / "hifi_report.json").is_file())
 
 
 if __name__ == "__main__":
