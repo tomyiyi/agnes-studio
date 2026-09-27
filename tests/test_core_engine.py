@@ -261,6 +261,21 @@ from render_variants_verify import (
     VARIANTS_REGISTRY as VERIFY_VARIANTS_REGISTRY,
     render_all_variants as verify_render_all_variants,
 )
+import batch_layout_cn_789
+from batch_layout_cn_789 import (
+    resolve_layout_font,
+    font as layout_cn_font,
+    measure as layout_cn_measure,
+    text_rgba as layout_cn_text_rgba,
+    paste_rgba as layout_cn_paste_rgba,
+    compose_07,
+    compose_08,
+    compose_09,
+    normalize_variant_key as normalize_layout_cn_key,
+    render_layout_cn,
+    render_all_layouts as render_all_layout_cn,
+    LAYOUT_CN_REGISTRY,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -4180,6 +4195,197 @@ class TestRenderVariantsVerify(unittest.TestCase):
     def test_main_missing_input_returns_nonzero(self):
         ret = render_variants_verify.main(["--input", str(self.tmp_path / "does_not_exist.png")])
         self.assertEqual(ret, 1)
+
+
+class TestBatchLayoutCn789(unittest.TestCase):
+    """测试 7/8/9 版式精修与中文排版渲染器 batch_layout_cn_789"""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
+        # 创建样例底图
+        self.test_img_path = self.tmp_path / "test_portrait.png"
+        test_img = Image.new("RGB", (600, 800), color=(180, 170, 160))
+        test_img.save(self.test_img_path)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_resolve_layout_font(self):
+        # 1. 存在字体加载
+        fnt1 = resolve_layout_font("wenkai", 24)
+        self.assertIsNotNone(fnt1)
+
+        # 2. 语义别名
+        fnt2 = resolve_layout_font("smiley", 20)
+        self.assertIsNotNone(fnt2)
+
+        # 3. 不存在的字体路径应安全降级而不崩溃
+        fnt3 = resolve_layout_font(self.tmp_path / "non_existent.ttf", 18)
+        self.assertIsNotNone(fnt3)
+
+        # 4. None 或空入参降级
+        fnt4 = resolve_layout_font(None, 16)
+        self.assertIsNotNone(fnt4)
+
+        # 5. layout_cn_font 兼容旧接口
+        fnt5 = layout_cn_font(self.tmp_path / "fake.otf", 32)
+        self.assertIsNotNone(fnt5)
+
+    def test_measure_and_text_rgba(self):
+        fnt = resolve_layout_font("wenkai", 24)
+        # 正常测量
+        w, h = layout_cn_measure("留白设计", fnt, tracking=4)
+        self.assertGreater(w, 0)
+        self.assertGreater(h, 0)
+
+        # 空字符串测量
+        w_empty, h_empty = layout_cn_measure("", fnt)
+        self.assertEqual((w_empty, h_empty), (1, 1))
+
+        # 横排图层
+        layer_h = layout_cn_text_rgba((200, 50), "横排文本", fnt, (0, 0, 0, 255), tracking=2)
+        self.assertEqual(layer_h.size, (200, 50))
+        self.assertEqual(layer_h.mode, "RGBA")
+
+        # 竖排图层
+        layer_v = layout_cn_text_rgba((50, 200), "竖排文本", fnt, (0, 0, 0, 255), vertical=True)
+        self.assertEqual(layer_v.size, (50, 200))
+        self.assertEqual(layer_v.mode, "RGBA")
+
+        # paste_rgba
+        base = Image.new("RGBA", (100, 100), (255, 255, 255, 255))
+        overlay = Image.new("RGBA", (20, 20), (255, 0, 0, 255))
+        layout_cn_paste_rgba(base, overlay, (10, 10))
+        self.assertEqual(base.getpixel((15, 15)), (255, 0, 0, 255))
+
+    def test_compose_07(self):
+        out_p = self.tmp_path / "out_07.png"
+        res = compose_07(
+            src=self.test_img_path,
+            out=out_p,
+            title="开窗",
+            latin="WINDOW",
+            caption="空气与光影",
+        )
+        self.assertEqual(res, out_p)
+        self.assertTrue(out_p.is_file())
+        self.assertGreater(out_p.stat().st_size, 1000)
+
+        # 校验底图不存在时抛出 FileNotFoundError
+        with self.assertRaises(FileNotFoundError):
+            compose_07(self.tmp_path / "not_exist.png", self.tmp_path / "fail.png")
+
+    def test_compose_08(self):
+        out_p = self.tmp_path / "out_08.png"
+        res = compose_08(
+            src=self.test_img_path,
+            out=out_p,
+            title="静物",
+            latin="STILL LIFE",
+            caption="安静是最好的滤镜",
+        )
+        self.assertEqual(res, out_p)
+        self.assertTrue(out_p.is_file())
+        self.assertGreater(out_p.stat().st_size, 1000)
+
+        with self.assertRaises(FileNotFoundError):
+            compose_08(self.tmp_path / "not_exist.png", self.tmp_path / "fail.png")
+
+    def test_compose_09(self):
+        out_p = self.tmp_path / "out_09.png"
+        res = compose_09(
+            src=self.test_img_path,
+            out=out_p,
+            title="独白",
+            latin="SOLO",
+            micro="一个人的完整场",
+        )
+        self.assertEqual(res, out_p)
+        self.assertTrue(out_p.is_file())
+        self.assertGreater(out_p.stat().st_size, 1000)
+
+        # 验证 caption 覆盖 micro 参数
+        out_p2 = self.tmp_path / "out_09_cap.png"
+        res2 = compose_09(
+            src=self.test_img_path,
+            out=out_p2,
+            title="独白",
+            latin="SOLO",
+            caption="覆盖微文案",
+        )
+        self.assertTrue(out_p2.is_file())
+
+        with self.assertRaises(FileNotFoundError):
+            compose_09(self.tmp_path / "not_exist.png", self.tmp_path / "fail.png")
+
+    def test_normalize_variant_key(self):
+        self.assertEqual(normalize_layout_cn_key("07"), "07")
+        self.assertEqual(normalize_layout_cn_key("7"), "07")
+        self.assertEqual(normalize_layout_cn_key("07a"), "07")
+        self.assertEqual(normalize_layout_cn_key("window"), "07")
+
+        self.assertEqual(normalize_layout_cn_key("08"), "08")
+        self.assertEqual(normalize_layout_cn_key("8"), "08")
+        self.assertEqual(normalize_layout_cn_key("offset_window"), "08")
+
+        self.assertEqual(normalize_layout_cn_key("09"), "09")
+        self.assertEqual(normalize_layout_cn_key("9"), "09")
+        self.assertEqual(normalize_layout_cn_key("solo"), "09")
+
+        with self.assertRaises(KeyError):
+            normalize_layout_cn_key("invalid_key")
+
+    def test_render_layout_cn_and_render_all(self):
+        # 1. 单项调度
+        out_single = self.tmp_path / "render_07.png"
+        p = render_layout_cn("07", self.test_img_path, out_single, title="观景", latin="VIEW")
+        self.assertEqual(p, out_single)
+        self.assertTrue(out_single.is_file())
+
+        # 2. 全量批量调度
+        out_dir = self.tmp_path / "all_out"
+        all_res = render_all_layout_cn(self.test_img_path, out_dir)
+        self.assertEqual(len(all_res), 3)
+        for k in ("07", "08", "09"):
+            self.assertIn(k, all_res)
+            self.assertTrue(all_res[k].is_file())
+
+    def test_registry_metadata(self):
+        for k in ("07", "08", "09"):
+            self.assertIn(k, LAYOUT_CN_REGISTRY)
+            entry = LAYOUT_CN_REGISTRY[k]
+            self.assertTrue(callable(entry["func"]))
+            self.assertTrue(entry["default_filename"].endswith(".png"))
+            self.assertTrue(len(entry["default_title"]) > 0)
+
+    def test_main_cli_execution(self):
+        # 1. 正常执行单项
+        out_file = self.tmp_path / "cli_07.png"
+        ret = batch_layout_cn_789.main([
+            "--variant", "07",
+            "--src", str(self.test_img_path),
+            "--out", str(out_file),
+            "--title", "测试标题",
+        ])
+        self.assertEqual(ret, 0)
+        self.assertTrue(out_file.is_file())
+
+        # 2. 正常执行 all
+        out_all_dir = self.tmp_path / "cli_all"
+        ret_all = batch_layout_cn_789.main([
+            "--variant", "all",
+            "--src", str(self.test_img_path),
+            "--out", str(out_all_dir),
+        ])
+        self.assertEqual(ret_all, 0)
+
+        # 3. 缺少底图报错
+        ret_missing = batch_layout_cn_789.main([
+            "--variant", "07",
+            "--src", str(self.tmp_path / "not_there.png"),
+        ])
+        self.assertEqual(ret_missing, 1)
 
 
 if __name__ == "__main__":
