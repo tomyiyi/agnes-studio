@@ -31,3 +31,5 @@ class RenderedPosterHistoryTests(unittest.TestCase):
         source = Path('public/index.html').read_text()
         for token in ['/api/rendered-posters', 'loadRenderedPosterHistory', 'restoreRenderedPoster', "tabId === 'poster-studio'", 'latestRenderedPosterPath = posterPath']:
             self.assertIn(token, source)
+        self.assertIn("option.textContent = `🕘 ${item.name}`", source)
+        self.assertNotIn("option.textContent=;", source)
