@@ -1746,7 +1746,7 @@
       const data = await res.json();
       if (!data.success) return;
       select.innerHTML = '<option value="">最近成品</option>';
-      data.items.forEach(item => { const option=document.createElement('option'); option.value=item.poster_url; option.textContent=; select.appendChild(option); });
+          option.textContent = `🕘 ${item.name}`;
     }
 
     function restoreRenderedPoster(posterPath) {
