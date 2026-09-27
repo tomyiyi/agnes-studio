@@ -1,11 +1,13 @@
 {
-  "gallery_total": 166,
-  "skill71": 71,
+  "gallery_total": 96,
+  "skill71": 0,
+  "gpt_agnes": 45,
+  "master": 51,
   "categories": [
     {
       "id": "all",
       "name": "全部作品全景",
-      "count": 166
+      "count": 96
     },
     {
       "id": "asian-portraits",
@@ -25,7 +27,7 @@
     {
       "id": "commercial-posters",
       "name": "动漫概念海报 (中文矢量排版)",
-      "count": 13
+      "count": 14
     },
     {
       "id": "infographics",
@@ -61,37 +63,8 @@
       "id": "gpt-infographic",
       "name": "GPT 信息图",
       "count": 1
-    },
-    {
-      "id": "skill-surreal",
-      "name": "照片转超现实叙事",
-      "count": 4
-    },
-    {
-      "id": "skill-atmosphere",
-      "name": "光色与氛围改造",
-      "count": 6
-    },
-    {
-      "id": "skill-illustration",
-      "name": "照片转插画与材质",
-      "count": 14
-    },
-    {
-      "id": "skill-poster",
-      "name": "照片转编辑海报",
-      "count": 23
-    },
-    {
-      "id": "skill-memory",
-      "name": "照片转明信片与记忆档案",
-      "count": 14
-    },
-    {
-      "id": "skill-abstract",
-      "name": "照片抽象转译",
-      "count": 10
     }
   ],
-  "copied": 71
+  "copied": 0,
+  "dry_run": false
 }

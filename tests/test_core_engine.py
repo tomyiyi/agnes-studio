@@ -328,6 +328,19 @@ from batch_skill71_samples import (
     list_skills as skill71_list_skills,
     one as skill71_one,
 )
+import merge_skill71_gallery
+from merge_skill71_gallery import (
+    GROUP_META as MERGE_GROUP_META,
+    DEFAULT_CATEGORY_ORDER as MERGE_DEFAULT_CATEGORY_ORDER,
+    build_gallery_item as merge_build_gallery_item,
+    load_skills_index as merge_load_skills_index,
+    load_batch_report as merge_load_batch_report,
+    collect_gallery_items as merge_collect_gallery_items,
+    update_index_html as merge_update_index_html,
+    merge_gallery,
+    build_arg_parser as merge_build_arg_parser,
+    main as merge_main,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -5601,6 +5614,265 @@ class TestBatchSkill71Samples(unittest.TestCase):
             mock_render.assert_called_once_with(sample_skill, out_dir=batch_skill71_samples.OUT)
 
 
+class TestMergeSkill71Gallery(unittest.TestCase):
+    """测试 71 项生图 Skill 画廊合并脚本 merge_skill71_gallery"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_build_gallery_item_standard(self):
+        skill = {
+            "id": "ST03",
+            "display_name": "星年奥德赛",
+            "declared_skill_name": "odyssey-photo-diptych",
+            "group": "照片转超现实叙事",
+            "style": "上原照下抽象叙事双联",
+            "license_note": "个人学习",
+        }
+        item = merge_build_gallery_item(skill, "ST03_odyssey.png", cost_s=1.234)
+        self.assertEqual(item["id"], "skill71_ST03")
+        self.assertEqual(item["title"], "ST03 · 星年奥德赛")
+        self.assertEqual(item["category_id"], "skill-surreal")
+        self.assertEqual(item["category_name"], "照片转超现实叙事")
+        self.assertEqual(item["style_tag"], "ST03 · odyssey-photo-diptych")
+        self.assertEqual(item["style_slug"], "odyssey-photo-diptych")
+        self.assertEqual(item["desc"], "上原照下抽象叙事双联")
+        self.assertIn("style_skill:ST03", item["prompt"])
+        self.assertEqual(item["duration"], 1.23)
+        self.assertEqual(item["img"], "skill71_samples/ST03_odyssey.png")
+        self.assertEqual(item["aspect_ratio"], "3:4")
+        self.assertEqual(item["model"], "agnes-image-2.5-flash")
+        self.assertEqual(item["license"], "个人学习")
+
+    def test_build_gallery_item_fallbacks_and_unknown_group(self):
+        empty_skill = {}
+        item_empty = merge_build_gallery_item(empty_skill, "sample.png", cost_s="invalid")
+        self.assertEqual(item_empty["id"], "skill71_UNKNOWN")
+        self.assertEqual(item_empty["title"], "UNKNOWN · UNKNOWN")
+        self.assertEqual(item_empty["category_id"], "skill-unknown")
+        self.assertEqual(item_empty["duration"], 0.0)
+
+        custom_group_skill = {"id": "CUSTOM_01", "group": "新潮流派"}
+        item_custom = merge_build_gallery_item(custom_group_skill, "custom.png", cost_s=None)
+        self.assertEqual(item_custom["category_id"], "skill-custom_01")
+        self.assertEqual(item_custom["category_name"], "新潮流派")
+        self.assertEqual(item_custom["duration"], 0.0)
+
+    def test_load_skills_index(self):
+        # 1. 字典包裹格式
+        f1 = self.tmp_path / "skills1.json"
+        f1.write_text(json.dumps({"skills": [{"id": "S01"}, {"id": "S02"}]}), encoding="utf-8")
+        loaded1 = merge_load_skills_index(f1)
+        self.assertEqual(len(loaded1), 2)
+        self.assertEqual(loaded1[0]["id"], "S01")
+
+        # 2. 裸列表格式
+        f2 = self.tmp_path / "skills2.json"
+        f2.write_text(json.dumps([{"id": "S03"}]), encoding="utf-8")
+        loaded2 = merge_load_skills_index(f2)
+        self.assertEqual(len(loaded2), 1)
+
+        # 3. 文件不存在
+        with self.assertRaises(FileNotFoundError):
+            merge_load_skills_index(self.tmp_path / "non_existent.json")
+
+        # 4. 结构不合法
+        f_bad = self.tmp_path / "skills_bad.json"
+        f_bad.write_text(json.dumps("a string"), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            merge_load_skills_index(f_bad)
+
+    def test_load_batch_report(self):
+        # 1. 缺失文件返回空字典
+        empty_rep = merge_load_batch_report(self.tmp_path)
+        self.assertEqual(empty_rep, {})
+
+        # 2. 列表结构解析
+        rep_file = self.tmp_path / "batch_report.json"
+        rep_file.write_text(json.dumps([
+            {"id": "ST03", "ok": True, "cost_s": 1.5, "path": "/tmp/st03.png"},
+            {"id": "ST07", "ok": True, "cost_s": 2.1, "path": "/tmp/st07.png"},
+        ]), encoding="utf-8")
+        loaded = merge_load_batch_report(self.tmp_path)
+        self.assertEqual(len(loaded), 2)
+        self.assertEqual(loaded["ST03"]["cost_s"], 1.5)
+
+        # 3. 损坏内容防崩溃
+        rep_file.write_text("{corrupted-json", encoding="utf-8")
+        self.assertEqual(merge_load_batch_report(self.tmp_path), {})
+
+    def test_collect_gallery_items(self):
+        samples_dir = self.tmp_path / "samples"
+        samples_dir.mkdir()
+
+        # 生成样张文件
+        file_st03 = samples_dir / "ST03_odyssey_sample.png"
+        file_st03.write_bytes(b"ST03 PNG DATA")
+        file_st07 = samples_dir / "ST07_eye_sample.png"
+        file_st07.write_bytes(b"ST07 PNG DATA")
+
+        skills = [
+            {"id": "ST03", "display_name": "星年奥德赛", "group": "照片转超现实叙事"},
+            {"id": "ST07", "display_name": "星年眼眸", "group": "照片转超现实叙事"},
+            {"id": "ST99", "display_name": "缺失样张项", "group": "光色与氛围改造"},
+        ]
+
+        report = {
+            "ST03": {"id": "ST03", "path": str(file_st03), "cost_s": 0.88},
+            # ST07 不在 report，依靠 glob 回退扫描
+        }
+
+        items, copy_tasks = merge_collect_gallery_items(skills, samples_dir, report=report)
+        self.assertEqual(len(items), 2)
+        self.assertEqual(len(copy_tasks), 2)
+
+        st03_item = next(x for x in items if x["id"] == "skill71_ST03")
+        self.assertEqual(st03_item["duration"], 0.88)
+        self.assertEqual(st03_item["img"], f"skill71_samples/{file_st03.name}")
+
+        st07_item = next(x for x in items if x["id"] == "skill71_ST07")
+        self.assertEqual(st07_item["duration"], 0.0)
+        self.assertEqual(st07_item["img"], f"skill71_samples/{file_st07.name}")
+
+    def test_update_index_html_insertion_and_counts(self):
+        sample_html = """<!DOCTYPE html>
+<html>
+<body>
+<nav><span>资产画廊 (10)</span></nav>
+<script>
+    const GPT_AGNES_GALLERY = [{"id": "gpt_1", "category_id": "gpt-portrait"}];
+    const MASTER_GALLERY = [{"id": "m_1", "category_id": "asian-portraits"}];
+    const ECOSYSTEM_DATA = [];
+</script>
+</body>
+</html>"""
+        skill_items = [
+            {"id": "skill71_ST03", "category_id": "skill-surreal"},
+            {"id": "skill71_ST07", "category_id": "skill-surreal"},
+        ]
+
+        updated, meta = merge_update_index_html(sample_html, skill_items)
+        self.assertIn("const SKILL71_GALLERY =", updated)
+        self.assertIn("const MASTER_CATEGORIES =", updated)
+        self.assertIn("const ALL_GALLERY =", updated)
+        self.assertIn("资产画廊 (4)", updated)
+
+        self.assertEqual(meta["gallery_total"], 4)
+        self.assertEqual(meta["skill71"], 2)
+        self.assertEqual(meta["gpt_agnes"], 1)
+        self.assertEqual(meta["master"], 1)
+
+        cats = {c["id"]: c["count"] for c in meta["categories"]}
+        self.assertEqual(cats.get("all"), 4)
+        self.assertEqual(cats.get("gpt-portrait"), 1)
+        self.assertEqual(cats.get("asian-portraits"), 1)
+        self.assertEqual(cats.get("skill-surreal"), 2)
+
+    def test_update_index_html_idempotency_and_replacement(self):
+        sample_html = """<script>
+    const GPT_AGNES_GALLERY = [{"id": "g1", "category_id": "gpt-portrait"}];
+    const MASTER_GALLERY = [{"id": "m1", "category_id": "asian-portraits"}];
+    const SKILL71_GALLERY = [{"id": "old_skill", "category_id": "skill-surreal"}];
+    const MASTER_CATEGORIES = [{"id": "all", "count": 3}];
+    const ALL_GALLERY = [...GPT_AGNES_GALLERY, ...MASTER_GALLERY];
+</script>
+<span>资产画廊 (3)</span>"""
+
+        new_items = [{"id": "new_skill", "category_id": "skill-atmosphere"}]
+        updated, meta = merge_update_index_html(sample_html, new_items)
+
+        self.assertNotIn("old_skill", updated)
+        self.assertIn("new_skill", updated)
+        self.assertIn("资产画廊 (3)", updated)
+        self.assertEqual(updated.count("const SKILL71_GALLERY ="), 1)
+        self.assertEqual(updated.count("const MASTER_CATEGORIES ="), 1)
+        self.assertEqual(updated.count("const ALL_GALLERY ="), 1)
+
+    def test_merge_gallery_dry_run_and_execution(self):
+        # 准备沙盒文件结构
+        html_file = self.tmp_path / "index.html"
+        html_file.write_text("""<script>
+    const GPT_AGNES_GALLERY = [{"id": "g1", "category_id": "gpt-portrait"}];
+    const MASTER_GALLERY = [{"id": "m1", "category_id": "asian-portraits"}];
+</script>
+<span>资产画廊 (2)</span>""", encoding="utf-8")
+
+        index_file = self.tmp_path / "skills.json"
+        index_file.write_text(json.dumps({"skills": [
+            {"id": "ST03", "display_name": "星年奥德赛", "group": "照片转超现实叙事"}
+        ]}), encoding="utf-8")
+
+        samples_dir = self.tmp_path / "samples"
+        samples_dir.mkdir()
+        sample_png = samples_dir / "ST03_test.png"
+        sample_png.write_bytes(b"ST03 IMAGE BYTES")
+
+        assets_dir = self.tmp_path / "assets" / "skill71_samples"
+        report_json = self.tmp_path / "merge_report.json"
+
+        # 1. Dry run 模式
+        meta_dry = merge_gallery(
+            html_path=html_file,
+            index_path=index_file,
+            samples_dir=samples_dir,
+            assets_dir=assets_dir,
+            output_json=report_json,
+            dry_run=True,
+        )
+        self.assertTrue(meta_dry["dry_run"])
+        self.assertEqual(meta_dry["copied"], 1)
+        self.assertEqual(meta_dry["gallery_total"], 3)
+        self.assertFalse(assets_dir.exists())
+        self.assertFalse(report_json.exists())
+        # HTML 原文不变
+        self.assertNotIn("const SKILL71_GALLERY =", html_file.read_text(encoding="utf-8"))
+
+        # 2. 真实执行模式
+        meta_real = merge_gallery(
+            html_path=html_file,
+            index_path=index_file,
+            samples_dir=samples_dir,
+            assets_dir=assets_dir,
+            output_json=report_json,
+            dry_run=False,
+        )
+        self.assertFalse(meta_real["dry_run"])
+        self.assertEqual(meta_real["copied"], 1)
+        self.assertTrue((assets_dir / "ST03_test.png").is_file())
+        self.assertTrue(report_json.is_file())
+        updated_html = html_file.read_text(encoding="utf-8")
+        self.assertIn("const SKILL71_GALLERY =", updated_html)
+        self.assertIn("资产画廊 (3)", updated_html)
+
+        # 3. HTML 不存在时抛出异常
+        with self.assertRaises(FileNotFoundError):
+            merge_gallery(html_path=self.tmp_path / "not_found.html", index_path=index_file)
+
+    def test_cli_main(self):
+        # 1. --list-groups
+        self.assertEqual(merge_main(["--list-groups"]), 0)
+
+        # 2. --dry-run
+        self.assertEqual(merge_main(["--dry-run"]), 0)
+
+        # 3. 传递不存在的路径时返回 1
+        self.assertEqual(merge_main(["--html", str(self.tmp_path / "not_there.html")]), 1)
+
+    def test_public_index_html_integrity(self):
+        """确保工作区真实 public/index.html 具备完整的全局画廊定义且计数精准无冲突"""
+        real_html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("const GPT_AGNES_GALLERY =", real_html)
+        self.assertIn("const MASTER_GALLERY =", real_html)
+        self.assertIn("const SKILL71_GALLERY =", real_html)
+        self.assertIn("const MASTER_CATEGORIES =", real_html)
+        self.assertIn("const ALL_GALLERY =", real_html)
+
+
 if __name__ == "__main__":
     unittest.main()
+
 
