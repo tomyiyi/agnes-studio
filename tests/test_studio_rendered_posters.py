@@ -31,5 +31,9 @@ class RenderedPosterHistoryTests(unittest.TestCase):
         source = Path('public/index.html').read_text()
         for token in ['/api/rendered-posters', 'loadRenderedPosterHistory', 'restoreRenderedPoster', "tabId === 'poster-studio'", 'latestRenderedPosterPath = posterPath']:
             self.assertIn(token, source)
+        self.assertIn('data.items.forEach(item =>', source)
+        self.assertIn("const option = document.createElement('option')", source)
+        self.assertIn('option.value = item.poster_url', source)
         self.assertIn("option.textContent = `🕘 ${item.name}`", source)
+        self.assertIn('select.appendChild(option)', source)
         self.assertNotIn("option.textContent=;", source)
