@@ -309,6 +309,7 @@ from batch_type_behind_v154 import (
     get_experiment_by_stem as get_type_behind_v154_experiment_by_stem,
     generate_single_experiment as generate_type_behind_v154_single,
     run_batch_v154 as run_batch_type_behind_v154,
+    classify_generation_error as type_behind_v154_classify_error,
 )
 import batch_skill71_hifi_p0
 from batch_skill71_hifi_p0 import (
@@ -5149,7 +5150,32 @@ class TestBatchTypeBehindV154(unittest.TestCase):
         self.assertFalse(res_force.get("skipped", False))
         self.assertEqual(len(called), 2)
 
+    def test_classify_generation_error(self):
+        self.assertEqual(type_behind_v154_classify_error("HTTP 502: Bad Gateway"), "gateway_502")
+        self.assertEqual(type_behind_v154_classify_error("HTTP 401: Unauthorized"), "auth")
+        self.assertEqual(type_behind_v154_classify_error("upstream timed out"), "timeout")
+        self.assertEqual(type_behind_v154_classify_error("invalid prompt"), "generation_error")
+
     def test_generate_single_errors(self):
+        # 0. 参数校验错误
+        res_no_stem = generate_type_behind_v154_single(
+            ver="v154",
+            stem="",
+            prompt="prompt",
+            out_dir=self.tmp_path,
+        )
+        self.assertFalse(res_no_stem["ok"])
+        self.assertEqual(res_no_stem.get("error_class"), "generation_error")
+
+        res_no_prompt = generate_type_behind_v154_single(
+            ver="v154",
+            stem="r154_noprompt",
+            prompt="",
+            out_dir=self.tmp_path,
+        )
+        self.assertFalse(res_no_prompt["ok"])
+        self.assertEqual(res_no_prompt.get("error_class"), "generation_error")
+
         # 1. 生成器返回失败字典
         def fake_fail_gen(*args, **kwargs):
             return {"ok": False, "error": "Quota limit reached"}
@@ -5163,6 +5189,7 @@ class TestBatchTypeBehindV154(unittest.TestCase):
         )
         self.assertFalse(res_fail["ok"])
         self.assertIn("Quota limit reached", res_fail["err"])
+        self.assertEqual(res_fail.get("error_class"), "generation_error")
 
         # 2. 生成器抛出异常
         def fake_throw_gen(*args, **kwargs):
@@ -5177,6 +5204,7 @@ class TestBatchTypeBehindV154(unittest.TestCase):
         )
         self.assertFalse(res_throw["ok"])
         self.assertIn("Gateway timed out", res_throw["err"])
+        self.assertEqual(res_throw.get("error_class"), "timeout")
 
         # 3. 生成器不可调用
         with patch("batch_type_behind_v154.generate", None):
@@ -5189,6 +5217,35 @@ class TestBatchTypeBehindV154(unittest.TestCase):
             )
             self.assertFalse(res_no_gen["ok"])
             self.assertIn("not available or not callable", res_no_gen["err"])
+            self.assertEqual(res_no_gen.get("error_class"), "generation_error")
+
+        # 4. 网关 502 错误分类
+        def fake_502_gen(*args, **kwargs):
+            return {"ok": False, "error": "HTTP 502: Bad Gateway"}
+
+        res_502 = generate_type_behind_v154_single(
+            ver="v154",
+            stem="r154_502",
+            prompt="prompt",
+            out_dir=self.tmp_path,
+            generate_fn=fake_502_gen,
+        )
+        self.assertFalse(res_502["ok"])
+        self.assertEqual(res_502.get("error_class"), "gateway_502")
+
+        # 5. 鉴权错误分类
+        def fake_auth_gen(*args, **kwargs):
+            return {"ok": False, "error": "HTTP 401: Unauthorized"}
+
+        res_auth = generate_type_behind_v154_single(
+            ver="v154",
+            stem="r154_auth",
+            prompt="prompt",
+            out_dir=self.tmp_path,
+            generate_fn=fake_auth_gen,
+        )
+        self.assertFalse(res_auth["ok"])
+        self.assertEqual(res_auth.get("error_class"), "auth")
 
     def test_run_batch_v154(self):
         def fake_gen(prompt, size, model, retries):

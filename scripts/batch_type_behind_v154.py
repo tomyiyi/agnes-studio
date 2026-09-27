@@ -39,6 +39,18 @@ DEFAULT_MODEL = "agnes-image-2.5-flash"
 DEFAULT_SIZE = "864x1152"
 DEFAULT_RETRIES = 3
 
+
+def classify_generation_error(error: object) -> str:
+    """将网关/认证/业务失败分层，避免报告把 502 误报成字设生图失败。"""
+    text = str(error or "").lower()
+    if "http 502" in text or "bad gateway" in text:
+        return "gateway_502"
+    if any(token in text for token in ("http 401", "http 403", "unauthorized", "forbidden", "token_rejected")):
+        return "auth"
+    if "timeout" in text or "timed out" in text:
+        return "timeout"
+    return "generation_error"
+
 VERSION_METADATA: dict[str, dict[str, str]] = {
     "v154": {
         "title": "户外街景 (Outdoor Street)",
@@ -259,9 +271,21 @@ def generate_single_experiment(
 ) -> dict[str, Any]:
     """执行单组「字在人后」v154-v159 实验海报渲染。"""
     if not stem or not str(stem).strip():
-        return {"version": ver, "stem": str(stem), "ok": False, "err": "Stem cannot be empty"}
+        return {
+            "version": ver,
+            "stem": str(stem),
+            "ok": False,
+            "err": "Stem cannot be empty",
+            "error_class": classify_generation_error("Stem cannot be empty"),
+        }
     if not prompt or not str(prompt).strip():
-        return {"version": ver, "stem": stem, "ok": False, "err": "Prompt cannot be empty"}
+        return {
+            "version": ver,
+            "stem": stem,
+            "ok": False,
+            "err": "Prompt cannot be empty",
+            "error_class": classify_generation_error("Prompt cannot be empty"),
+        }
 
     ver_clean = ver.strip() if ver else "misc"
     stem_clean = stem.strip()
@@ -300,6 +324,7 @@ def generate_single_experiment(
             "stem": stem_clean,
             "ok": False,
             "err": "agnes_gateway.generate is not available or not callable",
+            "error_class": classify_generation_error("agnes_gateway.generate is not available or not callable"),
         }
 
     try:
@@ -323,6 +348,7 @@ def generate_single_experiment(
             "stem": stem_clean,
             "ok": False,
             "err": err_msg or "Unknown generation error",
+            "error_class": classify_generation_error(err_msg),
         }
     except Exception as exc:
         return {
@@ -330,6 +356,7 @@ def generate_single_experiment(
             "stem": stem_clean,
             "ok": False,
             "err": str(exc),
+            "error_class": classify_generation_error(exc),
         }
 
 
