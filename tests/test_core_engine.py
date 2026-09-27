@@ -1255,6 +1255,231 @@ class TestCoverPipeline(unittest.TestCase):
             fixed_assets = resolve_required_source_assets(brief=brief_with_source_asset, platform="all")
             self.assertEqual(fixed_assets, [custom_src])
 
+    def test_resolve_source_asset_contract_1_xhs_default_missing(self):
+        """契约 1: XHS 无显式 source 仍解析到 experiments/_beauty_xhs.png 且缺失由 preflight 返回 MISSING_SOURCE_ASSET。"""
+        expected_default = cover_pipeline.ASSETS_EXP / "_beauty_xhs.png"
+        self.assertFalse(expected_default.exists(), f"Default asset {expected_default} must not exist")
+
+        for brief_input in (None, {}, {"mode": "diag"}, {"title_a": "东方"}):
+            with self.subTest(brief=brief_input):
+                resolved = resolve_source_asset_for_platform("xhs", brief=brief_input)
+                self.assertEqual(resolved, expected_default)
+                self.assertTrue(str(resolved).endswith("experiments/_beauty_xhs.png"))
+
+                pf = preflight_source_asset(resolved)
+                self.assertFalse(pf["ok"])
+                self.assertEqual(pf["error_class"], "MISSING_SOURCE_ASSET")
+                self.assertEqual(pf["missing_path"], str(expected_default))
+                self.assertIn("does not exist", pf["err"])
+
+        # xhs-sq 同样遵循 XHS 默认源
+        resolved_sq = resolve_source_asset_for_platform("xhs-sq")
+        self.assertEqual(resolved_sq, expected_default)
+        pf_sq = preflight_source_asset(resolved_sq)
+        self.assertFalse(pf_sq["ok"])
+        self.assertEqual(pf_sq["error_class"], "MISSING_SOURCE_ASSET")
+
+    def test_resolve_source_asset_contract_2_explicit_precedence(self):
+        """契约 2: 显式存在 source 优先于平台默认。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            valid_src = tmp_path / "explicit_valid.png"
+            Image.new("RGB", (64, 64), color=(200, 100, 50)).save(valid_src, "PNG")
+            default_xhs = cover_pipeline.ASSETS_EXP / "_beauty_xhs.png"
+
+            # 2.1 brief 中的各种显式覆盖键
+            for key in ("source_asset", "subject_src", "src", "xhs_src"):
+                with self.subTest(key=key):
+                    brief = {key: str(valid_src)}
+                    resolved = resolve_source_asset_for_platform("xhs", brief=brief)
+                    self.assertEqual(resolved, valid_src)
+                    self.assertNotEqual(resolved, default_xhs)
+                    pf = preflight_source_asset(resolved)
+                    self.assertTrue(pf["ok"])
+                    self.assertEqual(pf["path"], str(valid_src))
+
+            # 2.2 CLI / 参数传参 xhs_src 显式优先
+            resolved_kw = resolve_source_asset_for_platform("xhs", xhs_src=str(valid_src))
+            self.assertEqual(resolved_kw, valid_src)
+            self.assertNotEqual(resolved_kw, default_xhs)
+            self.assertTrue(preflight_source_asset(resolved_kw)["ok"])
+
+            # 2.3 brief 显式通用 source_asset 优先于 xhs_src 参数
+            other_src = tmp_path / "other.png"
+            Image.new("RGB", (64, 64)).save(other_src)
+            resolved_pri = resolve_source_asset_for_platform(
+                "xhs", brief={"source_asset": str(valid_src)}, xhs_src=str(other_src)
+            )
+            self.assertEqual(resolved_pri, valid_src)
+
+    def test_resolve_source_asset_contract_3_explicit_missing_reports_explicit_path(self):
+        """契约 3: 显式 source 缺失时错误指向显式路径。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            missing_src = tmp_path / "missing_explicit_source.png"
+            default_xhs = cover_pipeline.ASSETS_EXP / "_beauty_xhs.png"
+
+            for key in ("source_asset", "subject_src", "src", "xhs_src"):
+                with self.subTest(key=key):
+                    brief = {key: str(missing_src)}
+                    resolved = resolve_source_asset_for_platform("xhs", brief=brief)
+                    self.assertEqual(resolved, missing_src)
+                    pf = preflight_source_asset(resolved)
+                    self.assertFalse(pf["ok"])
+                    self.assertEqual(pf["error_class"], "MISSING_SOURCE_ASSET")
+                    self.assertEqual(pf["missing_path"], str(missing_src))
+                    self.assertIn(str(missing_src), pf["err"])
+                    self.assertNotIn(str(default_xhs), pf["err"])
+
+            # 参数显式传递缺失路径
+            resolved_param = resolve_source_asset_for_platform("xhs", xhs_src=str(missing_src))
+            self.assertEqual(resolved_param, missing_src)
+            pf_param = preflight_source_asset(resolved_param)
+            self.assertFalse(pf_param["ok"])
+            self.assertEqual(pf_param["missing_path"], str(missing_src))
+            self.assertIn(str(missing_src), pf_param["err"])
+            self.assertNotIn(str(default_xhs), pf_param["err"])
+
+    def test_resolve_source_asset_contract_4_non_xhs_does_not_fallback_to_xhs_default(self):
+        """契约 4: 非 XHS 不错误落到 XHS 默认。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            default_xhs = cover_pipeline.ASSETS_EXP / "_beauty_xhs.png"
+            default_hero = cover_pipeline.ASSETS_EXP / "_beauty_hero.png"
+
+            # 4.1 wechat 在无显式 source 时，应落到 _beauty_hero.png，决不能落到 _beauty_xhs.png
+            resolved_wx = resolve_source_asset_for_platform("wechat")
+            self.assertEqual(resolved_wx, default_hero)
+            self.assertNotEqual(resolved_wx, default_xhs)
+            self.assertFalse(str(resolved_wx).endswith("_beauty_xhs.png"))
+            self.assertTrue(str(resolved_wx).endswith("_beauty_hero.png"))
+
+            # 4.2 即使有 xhs_src 参数，非 XHS 平台（wechat）也不得使用 xhs_src 或 XHS 默认
+            xhs_file = tmp_path / "custom_xhs.png"
+            xhs_file.write_bytes(b"xhs")
+            resolved_wx_with_xhs = resolve_source_asset_for_platform("wechat", xhs_src=str(xhs_file))
+            self.assertEqual(resolved_wx_with_xhs, default_hero)
+            self.assertNotEqual(resolved_wx_with_xhs, xhs_file)
+
+            # 4.3 即使 brief 中有 xhs_src，wechat 也不得落到 xhs_src 或 XHS 默认
+            resolved_wx_brief = resolve_source_asset_for_platform("wechat", brief={"xhs_src": str(xhs_file)})
+            self.assertEqual(resolved_wx_brief, default_hero)
+            self.assertNotEqual(resolved_wx_brief, xhs_file)
+
+            # 4.4 平台 "all" 默认兜底为 wechat 源，不错误落到 XHS
+            resolved_all = resolve_source_asset_for_platform("all")
+            self.assertEqual(resolved_all, default_hero)
+            self.assertNotEqual(resolved_all, default_xhs)
+
+    def test_resolve_source_asset_contract_5_dry_run_with_valid_source_no_output(self):
+        """契约 5: 显式有效 source 的 dry-run 不因缺失默认素材失败且不创建最终输出。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            valid_source = tmp_path / "valid_subject.png"
+            Image.new("RGB", (64, 64), color=(10, 20, 30)).save(valid_source, "PNG")
+
+            # 确认平台默认素材不存在
+            self.assertFalse((cover_pipeline.ASSETS_EXP / "_beauty_xhs.png").exists())
+
+            # 5.1 generate_cover_subject 单元级演练：有效显式源顺利通过且不创建输出文件
+            out_gen = tmp_path / "gen_dry_output.png"
+            res = generate_cover_subject(
+                prompt="test prompt for dry run",
+                out_path=out_gen,
+                dry_run=True,
+                source_asset=valid_source,
+            )
+            self.assertTrue(res["ok"])
+            self.assertTrue(res.get("dry_run"))
+            self.assertEqual(res.get("size_kb"), 0)
+            self.assertFalse(out_gen.exists())
+
+            # 反向对照：未提供显式源且使用缺失的 XHS 默认素材时，dry-run 必然被 preflight 拦截
+            res_fail = generate_cover_subject(
+                prompt="test prompt for dry run",
+                out_path=out_gen,
+                dry_run=True,
+                source_asset=resolve_source_asset_for_platform("xhs"),
+            )
+            self.assertFalse(res_fail["ok"])
+            self.assertEqual(res_fail.get("error_class"), "MISSING_SOURCE_ASSET")
+            self.assertFalse(out_gen.exists())
+
+            # 5.2 真实 CLI dry-run 演练：brief 带有显式有效 source_asset
+            brief_file = tmp_path / "brief_explicit.json"
+            brief_file.write_text(json.dumps({
+                "goal": "合约验证目标",
+                "subject": "合约验证主体",
+                "tone": "高雅",
+                "mode": "diag",
+                "platform": "xhs",
+                "source_asset": str(valid_source),
+            }, ensure_ascii=False), encoding="utf-8")
+            target_out = cover_pipeline.OUT / "_gen_高雅_合约验证主体_合约验证目标_diag.png"
+            target_out.unlink(missing_ok=True)
+            try:
+                cover_pipeline.main([
+                    "--brief", str(brief_file), "--generate", "--dry-run",
+                ])
+                self.assertFalse(target_out.exists(), "Dry-run must not create the target output file")
+            finally:
+                target_out.unlink(missing_ok=True)
+
+            # 5.3 真实 CLI dry-run 演练：通过 --xhs-src 传入显式有效 source
+            brief_file_no_src = tmp_path / "brief_no_src.json"
+            brief_file_no_src.write_text(json.dumps({
+                "goal": "参数验证目标",
+                "subject": "参数验证主体",
+                "tone": "清丽",
+                "mode": "diag",
+                "platform": "xhs",
+            }, ensure_ascii=False), encoding="utf-8")
+            target_out_param = cover_pipeline.OUT / "_gen_清丽_参数验证主体_参数验证目标_diag.png"
+            target_out_param.unlink(missing_ok=True)
+            try:
+                cover_pipeline.main([
+                    "--brief", str(brief_file_no_src), "--xhs-src", str(valid_source),
+                    "--generate", "--dry-run",
+                ])
+                self.assertFalse(target_out_param.exists(), "Dry-run with --xhs-src must not create output file")
+            finally:
+                target_out_param.unlink(missing_ok=True)
+
+    def test_source_override_missing_path_reports_override_not_default(self):
+        """显式 source 缺失时，错误必须指向显式路径而不是平台默认路径。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            explicit_missing = tmp_path / "provided-but-missing.png"
+            resolved = resolve_source_asset_for_platform(
+                "xhs", brief={"source_asset": str(explicit_missing)}
+            )
+            self.assertEqual(resolved, explicit_missing)
+            result = preflight_source_asset(resolved)
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["error_class"], "MISSING_SOURCE_ASSET")
+            self.assertIn(str(explicit_missing), result["err"])
+            self.assertNotIn("_beauty_xhs.png", result["err"])
+
+    def test_source_override_dry_run_does_not_use_missing_xhs_default(self):
+        """显式有效 source 的 dry-run 不应被缺失的 XHS 默认素材阻断。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            brief_file = tmp_path / "explicit_source.json"
+            source_file = tmp_path / "source.png"
+            Image.new("RGB", (32, 32), (255, 255, 255)).save(source_file)
+            brief_file.write_text(json.dumps({
+                "goal": "测试显式素材覆盖",
+                "subject": "测试主体",
+                "tone": "清晰",
+                "mode": "diag",
+                "platform": "xhs",
+                "source_asset": str(source_file),
+            }, ensure_ascii=False), encoding="utf-8")
+            cover_pipeline.main([
+                "--brief", str(brief_file), "--generate", "--dry-run",
+            ])
+            self.assertFalse((cover_pipeline.OUT / "_gen_清晰_测试主体_测试显式素材覆盖_diag.png").exists())
+
     def test_run_brief_batch_and_platform_preflight(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
