@@ -341,6 +341,20 @@ from merge_skill71_gallery import (
     build_arg_parser as merge_build_arg_parser,
     main as merge_main,
 )
+import batch_agnes_samples
+from batch_agnes_samples import (
+    DEFAULT_LIB_PATH as AGNES_SAMPLES_DEFAULT_LIB,
+    DEFAULT_OUT_DIR as AGNES_SAMPLES_DEFAULT_OUT,
+    slugify as agnes_samples_slugify,
+    load_prompts_library as agnes_samples_load_lib,
+    build_item_prompt as agnes_samples_build_prompt,
+    render_single_sample as agnes_samples_render_single,
+    filter_items as agnes_samples_filter_items,
+    run_batch_agnes_samples as agnes_samples_run_batch,
+    list_items as agnes_samples_list_items,
+    one as agnes_samples_one,
+    main as agnes_samples_main,
+)
 
 
 class TestCopywritingRules(unittest.TestCase):
@@ -5870,6 +5884,286 @@ class TestMergeSkill71Gallery(unittest.TestCase):
         self.assertIn("const SKILL71_GALLERY =", real_html)
         self.assertIn("const MASTER_CATEGORIES =", real_html)
         self.assertIn("const ALL_GALLERY =", real_html)
+
+
+class TestBatchAgnesSamples(unittest.TestCase):
+    """测试 GPT Image 转 Agnes 批量样张生成引擎 batch_agnes_samples"""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.tmp_dir.name)
+
+    def tearDown(self):
+        self.tmp_dir.cleanup()
+
+    def test_slugify(self):
+        self.assertEqual(agnes_samples_slugify("室内棚拍-烟雾缭绕(Vol:1)"), "室内棚拍-烟雾缭绕-Vol-1")
+        self.assertEqual(agnes_samples_slugify("hello_world! 123"), "hello_world-123")
+        self.assertEqual(agnes_samples_slugify(""), "item")
+        self.assertEqual(agnes_samples_slugify(None), "item")
+        self.assertEqual(agnes_samples_slugify(12345), "item")
+        self.assertEqual(agnes_samples_slugify("a" * 50, max_len=36), "a" * 36)
+
+    def test_load_prompts_library_default(self):
+        items = agnes_samples_load_lib()
+        self.assertGreaterEqual(len(items), 40)
+        self.assertEqual(items[0]["id"], "1001")
+        self.assertTrue(all("id" in it and ("agnes_prompt" in it or "gpt_image_prompt" in it) for it in items))
+
+    def test_load_prompts_library_custom_and_errors(self):
+        # 1. 正常自定义 library
+        custom_lib = self.tmp_path / "custom_prompts.json"
+        custom_lib.write_text(json.dumps({
+            "items": [
+                {"id": "TEST_01", "title": "测试预设01", "category": "test", "agnes_prompt": "x" * 50}
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        loaded = agnes_samples_load_lib(custom_lib)
+        self.assertEqual(len(loaded), 1)
+        self.assertEqual(loaded[0]["id"], "TEST_01")
+
+        # 2. 文件不存在
+        with self.assertRaises(FileNotFoundError):
+            agnes_samples_load_lib(self.tmp_path / "not_found.json")
+
+        # 3. 结构不合法
+        invalid_lib = self.tmp_path / "invalid_lib.json"
+        invalid_lib.write_text(json.dumps({"invalid_key": []}), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            agnes_samples_load_lib(invalid_lib)
+
+    def test_build_item_prompt(self):
+        # 1. 优先使用 agnes_prompt
+        item1 = {
+            "id": "1001",
+            "agnes_prompt": "Clean Agnes prompt text with adequate detail.",
+            "gpt_image_prompt": "Fallback GPT prompt --ar 3:4",
+        }
+        self.assertEqual(agnes_samples_build_prompt(item1), "Clean Agnes prompt text with adequate detail.")
+
+        # 2. 回退使用 gpt_image_prompt
+        item2 = {
+            "id": "1002",
+            "gpt_image_prompt": "Fallback GPT prompt without Agnes override.",
+        }
+        self.assertEqual(agnes_samples_build_prompt(item2), "Fallback GPT prompt without Agnes override.")
+
+        # 3. 非 dict 返回空串
+        self.assertEqual(agnes_samples_build_prompt("not a dict"), "")
+
+    def test_filter_items(self):
+        items = [
+            {"id": "1001", "title": "棚拍", "category": "portrait"},
+            {"id": "1002", "title": "机车", "category": "portrait"},
+            {"id": "2001", "title": "汽水", "category": "product"},
+            {"id": "3002", "title": "城市", "category": "poster"},
+        ]
+
+        # 1. 按 ID 字符串筛选
+        f_ids = agnes_samples_filter_items(items, ids="1001,2001")
+        self.assertEqual([it["id"] for it in f_ids], ["1001", "2001"])
+
+        # 2. 按 ID 列表筛选
+        f_ids_list = agnes_samples_filter_items(items, ids=["1002", "3002"])
+        self.assertEqual([it["id"] for it in f_ids_list], ["1002", "3002"])
+
+        # 3. 按分类筛选 (忽略大小写)
+        f_cat = agnes_samples_filter_items(items, category="PORTRAIT")
+        self.assertEqual(len(f_cat), 2)
+        self.assertEqual([it["id"] for it in f_cat], ["1001", "1002"])
+
+        # 4. limit 限制
+        f_lim = agnes_samples_filter_items(items, limit=2)
+        self.assertEqual(len(f_lim), 2)
+        self.assertEqual([it["id"] for it in f_lim], ["1001", "1002"])
+
+    def test_render_single_sample_validation_and_errors(self):
+        # 1. 非 dict 格式
+        r1 = agnes_samples_render_single("invalid", out_dir=self.tmp_path)
+        self.assertFalse(r1["ok"])
+        self.assertIn("expected dict", r1["error"])
+
+        # 2. 缺少 ID
+        r2 = agnes_samples_render_single({"title": "无 ID"}, out_dir=self.tmp_path)
+        self.assertFalse(r2["ok"])
+        self.assertIn("ID cannot be empty", r2["error"])
+
+        # 3. prompt 长度小于 40 字符
+        r3 = agnes_samples_render_single({"id": "1001", "title": "短词", "agnes_prompt": "too short"}, out_dir=self.tmp_path)
+        self.assertFalse(r3["ok"])
+        self.assertEqual(r3["error"], "prompt too short")
+
+        # 4. 未提供有效的 generator
+        item = {
+            "id": "1001",
+            "title": "测试生成",
+            "agnes_prompt": "A" * 60,
+        }
+        r4 = agnes_samples_render_single(item, out_dir=self.tmp_path, generate_fn="not_callable")
+        self.assertFalse(r4["ok"])
+        self.assertIn("not available or not callable", r4["error"])
+
+    def test_render_single_sample_dry_run_and_skip(self):
+        item = {
+            "id": "1001",
+            "title": "室内棚拍",
+            "agnes_size": "1088x1456",
+            "agnes_prompt": "Editorial fashion photography of East Asian model in studio with smoke trails.",
+        }
+
+        # 1. dry-run
+        r_dry = agnes_samples_render_single(item, out_dir=self.tmp_path, dry_run=True)
+        self.assertTrue(r_dry["ok"])
+        self.assertTrue(r_dry["dry_run"])
+        self.assertEqual(r_dry["file"], "1001_室内棚拍.png")
+        self.assertEqual(r_dry["size"], "1088x1456")
+        self.assertFalse(Path(r_dry["path"]).exists())
+
+        # 2. 模拟已存在大于 20KB 的文件
+        existing_file = self.tmp_path / "1001_室内棚拍.png"
+        existing_file.write_bytes(b"x" * 25_000)
+
+        r_skip = agnes_samples_render_single(item, out_dir=self.tmp_path)
+        self.assertTrue(r_skip["ok"])
+        self.assertTrue(r_skip["skipped"])
+        self.assertEqual(r_skip["kb"], 24)
+
+        # 3. force 覆盖跳过逻辑并调用生成
+        mock_gen = MagicMock(return_value={"ok": True, "cost_s": 0.88, "via": "new-api"})
+        mock_saver = MagicMock()
+        r_force = agnes_samples_render_single(
+            item,
+            out_dir=self.tmp_path,
+            force=True,
+            generate_fn=mock_gen,
+            save_image_fn=mock_saver,
+        )
+        self.assertTrue(r_force["ok"])
+        self.assertFalse(r_force.get("skipped", False))
+        mock_gen.assert_called_once()
+        mock_saver.assert_called_once()
+
+    def test_render_single_sample_mock_success_and_failure(self):
+        item = {
+            "id": "2001",
+            "title": "汽水广告",
+            "agnes_size": "1088x1456",
+            "agnes_prompt": "Commercial product shot of citrus soda bottle with energetic splash and condensation.",
+        }
+
+        # 1. 成功生成
+        def fake_gen(prompt, size, model, retries):
+            return {"ok": True, "cost_s": 1.25, "via": "mock-api", "model": model}
+
+        def fake_save(res, path):
+            Path(path).write_bytes(b"fake_image_data" * 1500)
+
+        r_ok = agnes_samples_render_single(
+            item,
+            out_dir=self.tmp_path,
+            generate_fn=fake_gen,
+            save_image_fn=fake_save,
+        )
+        self.assertTrue(r_ok["ok"])
+        self.assertEqual(r_ok["id"], "2001")
+        self.assertEqual(r_ok["file"], "2001_汽水广告.png")
+        self.assertEqual(r_ok["cost_s"], 1.25)
+        self.assertEqual(r_ok["via"], "mock-api")
+        self.assertTrue(Path(r_ok["path"]).is_file())
+
+        # 2. 生成失败 (API 返回 ok=False)
+        def fail_gen(prompt, size, model, retries):
+            return {"ok": False, "error": "rate limit exceeded"}
+
+        item_fail = {
+            "id": "2002",
+            "title": "失败案例",
+            "agnes_prompt": "A" * 60,
+        }
+        r_fail = agnes_samples_render_single(
+            item_fail,
+            out_dir=self.tmp_path,
+            generate_fn=fail_gen,
+        )
+        self.assertFalse(r_fail["ok"])
+        self.assertEqual(r_fail["error"], "rate limit exceeded")
+
+        # 3. 抛出异常
+        def err_gen(prompt, size, model, retries):
+            raise ConnectionResetError("network disconnected")
+
+        r_err = agnes_samples_render_single(
+            item_fail,
+            out_dir=self.tmp_path,
+            generate_fn=err_gen,
+        )
+        self.assertFalse(r_err["ok"])
+        self.assertIn("network disconnected", r_err["error"])
+
+    def test_run_batch_agnes_samples_and_cli(self):
+        batch_out = self.tmp_path / "batch_out"
+
+        # 1. run_batch_agnes_samples dry run
+        results_dry = agnes_samples_run_batch(
+            ids="1001,1002",
+            out_dir=batch_out,
+            dry_run=True,
+        )
+        self.assertEqual(len(results_dry), 2)
+        self.assertTrue(all(r["ok"] and r.get("dry_run") for r in results_dry))
+        report_file = batch_out / "batch_report.json"
+        self.assertTrue(report_file.is_file())
+        report_data = json.loads(report_file.read_text(encoding="utf-8"))
+        self.assertEqual(len(report_data), 2)
+
+        # 2. run_batch_agnes_samples with mock generator
+        real_batch_out = self.tmp_path / "batch_real"
+        def mock_gen(prompt, size, model, retries):
+            return {"ok": True, "cost_s": 0.5, "via": "mock"}
+
+        def mock_save(res, path):
+            Path(path).write_bytes(b"img" * 8000)
+
+        results_real = agnes_samples_run_batch(
+            limit=2,
+            out_dir=real_batch_out,
+            workers=1,
+            generate_fn=mock_gen,
+            save_image_fn=mock_save,
+        )
+        self.assertEqual(len(results_real), 2)
+        self.assertTrue(all(r["ok"] for r in results_real))
+        self.assertTrue((real_batch_out / "batch_report.json").is_file())
+
+        # 3. CLI --list-items
+        self.assertEqual(agnes_samples_main(["--list-items"]), 0)
+
+        # 4. CLI --dry-run
+        cli_out = self.tmp_path / "cli_dry"
+        self.assertEqual(agnes_samples_main(["--dry-run", "-n", "2", "-o", str(cli_out)]), 0)
+        self.assertTrue((cli_out / "batch_report.json").is_file())
+
+        # 5. CLI 传递不存在的 lib 时抛出异常或返回非 0
+        with self.assertRaises(FileNotFoundError):
+            agnes_samples_main(["--lib", str(self.tmp_path / "not_there.json")])
+
+    def test_list_items_and_one_compat(self):
+        items = agnes_samples_list_items()
+        self.assertGreaterEqual(len(items), 40)
+        self.assertEqual(items[0]["id"], "1001")
+        self.assertIn("category", items[0])
+        self.assertIn("agnes_size", items[0])
+
+        # test one() compat with dry run
+        mock_item = {
+            "id": "9999",
+            "title": "兼容测试",
+            "agnes_prompt": "A" * 50,
+        }
+        res = agnes_samples_render_single(mock_item, out_dir=self.tmp_path, dry_run=True)
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["id"], "9999")
 
 
 if __name__ == "__main__":
