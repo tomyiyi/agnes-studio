@@ -133,6 +133,20 @@ def get_local_newapi_config(key_path: Path | str | None = None) -> dict:
         ]
     }
 
+def resolve_image_base_url(req_body, local_cfg):
+    """Resolve the image-generation endpoint without falling back to chat routing."""
+    explicit = str(req_body.get("base_url") or "").strip()
+    if explicit:
+        return explicit.rstrip("/")
+
+    if local_cfg.get("detected"):
+        configured = local_cfg.get("image_base_url") or local_cfg.get("base_url")
+        if configured:
+            return str(configured).strip().rstrip("/")
+
+    return "http://127.0.0.1:13000/v1"
+
+
 class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(PUBLIC_DIR), **kwargs)
@@ -282,12 +296,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
         # 2. 调用 Agnes 生成留白底图
         if parsed_path == "/api/generate-image":
             local_cfg = get_local_newapi_config()
-            default_base = (
-                local_cfg.get("image_base_url")
-                or local_cfg.get("base_url")
-                or "http://127.0.0.1:13000/v1"
-            )
-            base_url = str(req_body.get("base_url") or default_base).strip().rstrip("/")
+            base_url = resolve_image_base_url(req_body, local_cfg)
             api_key = str(req_body.get("api_key") or "").strip() or local_cfg.get("api_key", "")
             model = str(req_body.get("model") or "agnes-image-2.5-flash").strip()
             prompt = str(req_body.get("prompt") or "").strip()
