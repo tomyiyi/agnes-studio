@@ -28,6 +28,18 @@ DEFAULT_SIZE = "1088x1456"
 DEFAULT_RETRIES = 2
 DEFAULT_WORKERS = 3
 
+
+def classify_generation_error(error: object) -> str:
+    """将网关/认证/业务失败分层，避免报告把 502 误报成 Skill 失败。"""
+    text = str(error or "").lower()
+    if "http 502" in text or "bad gateway" in text:
+        return "gateway_502"
+    if any(token in text for token in ("http 401", "http 403", "unauthorized", "forbidden", "token_rejected")):
+        return "auth"
+    if "timeout" in text or "timed out" in text:
+        return "timeout"
+    return "generation_error"
+
 # 统一主体，便于横向比风格；净框后缀去水印/角标
 BASE_SUBJECT = (
     "editorial photograph of a young East Asian woman in a light linen dress, "
@@ -168,12 +180,14 @@ def render_single_skill_sample(
             "id": sid,
             "ok": False,
             "error": str(err_msg or "Unknown generation error")[:220],
+            "error_class": classify_generation_error(err_msg),
         }
     except Exception as exc:
         return {
             "id": sid,
             "ok": False,
             "error": str(exc)[:220],
+            "error_class": classify_generation_error(exc),
         }
 
 

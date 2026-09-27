@@ -330,6 +330,7 @@ from batch_skill71_samples import (
     run_batch_skill_samples as skill71_run_batch,
     list_skills as skill71_list_skills,
     one as skill71_one,
+    classify_generation_error as skill71_classify_error,
 )
 import merge_skill71_gallery
 from merge_skill71_gallery import (
@@ -5430,6 +5431,12 @@ class TestBatchSkill71Samples(unittest.TestCase):
         self.assertEqual(skill71_slugify(None), "item")
         self.assertEqual(skill71_slugify("a" * 50), "a" * 28)
 
+    def test_classify_generation_error(self):
+        self.assertEqual(skill71_classify_error("HTTP 502: Bad Gateway"), "gateway_502")
+        self.assertEqual(skill71_classify_error("HTTP 401: Unauthorized"), "auth")
+        self.assertEqual(skill71_classify_error("upstream timed out"), "timeout")
+        self.assertEqual(skill71_classify_error("invalid prompt"), "generation_error")
+
     def test_load_skills_index_default(self):
         skills = skill71_load_index()
         self.assertEqual(len(skills), 71)
@@ -7231,5 +7238,4 @@ class TestComposeBeautyCovers(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
 
