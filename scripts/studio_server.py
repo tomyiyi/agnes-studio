@@ -147,6 +147,28 @@ def resolve_image_base_url(req_body, local_cfg):
     return "http://127.0.0.1:13000/v1"
 
 
+def list_generated_images(root=GENERATED_DIR, limit=24):
+    """Return safe, newest-first generated image metadata for the Studio UI."""
+    allowed = {".png", ".jpg", ".jpeg", ".webp"}
+    root = Path(root)
+    if not root.is_dir():
+        return []
+    files = [p for p in root.iterdir() if p.is_file() and p.suffix.lower() in allowed]
+    files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    items = []
+    for path in files[:max(0, int(limit))]:
+        stat = path.stat()
+        rel = f"assets/generated/{path.name}"
+        items.append({
+            "name": path.name,
+            "file_path": rel,
+            "full_url": f"/assets/generated/{path.name}",
+            "size_bytes": stat.st_size,
+            "mtime": stat.st_mtime,
+        })
+    return items
+
+
 class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(PUBLIC_DIR), **kwargs)
@@ -171,6 +193,10 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed_path = urllib.parse.urlparse(self.path).path.rstrip("/")
+        if parsed_path == "/api/generated-images":
+            self._send_json({"success": True, "items": list_generated_images()})
+            return
+
         if parsed_path == "/api/config":
             cfg = get_local_newapi_config()
             # 为前端提供脱敏显示的 key 和全量配置

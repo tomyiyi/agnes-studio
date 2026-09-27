@@ -2484,6 +2484,27 @@ function renderSkills() {
       }
     }
 
+    function upsertGeneratedBackgroundOption(filePath, labelPrefix = '🕘 历史生图') {
+      const select = document.getElementById('custom-bg-select');
+      if (!select || !filePath) return;
+      if (Array.from(select.options).some((option) => option.value === filePath)) return;
+      const opt = document.createElement('option');
+      opt.value = filePath;
+      opt.innerText = `${labelPrefix} (${filePath.split('/').pop()})`;
+      select.insertBefore(opt, select.firstChild);
+    }
+
+    async function loadGeneratedBackgrounds() {
+      try {
+        const res = await fetch('/api/generated-images');
+        if (!res.ok) return;
+        const data = await res.json();
+        (data.items || []).forEach((item) => upsertGeneratedBackgroundOption(item.file_path));
+      } catch (err) {
+        console.warn('历史生图资产加载失败:', err);
+      }
+    }
+
     async function loadStudioConfig() {
       try {
         const res = await fetch('/api/config');
@@ -2626,6 +2647,7 @@ function renderSkills() {
     function resetToLocalConfig() {
       localStorage.removeItem('agnes_studio_config');
       loadStudioConfig();
+      loadGeneratedBackgrounds();
     }
 
     // ==================== 实时自定义海报光栅化渲染器 ====================
@@ -2801,11 +2823,8 @@ function renderSkills() {
         if (data.success && data.file_path) {
           const select = document.getElementById('custom-bg-select');
           if (select) {
-            const opt = document.createElement('option');
-            opt.value = data.file_path;
-            opt.innerText = `✨ 现场生图 (${data.file_path.split('/').pop()})`;
-            select.insertBefore(opt, select.firstChild);
-            select.selectedIndex = 0;
+            upsertGeneratedBackgroundOption(data.file_path, '✨ 现场生图');
+            select.value = data.file_path;
           }
           showNotification(`✓ 底图生成成功 (${data.cost_seconds}s)！已自动应用，可点击「光栅化渲染」`, 'success');
         } else {
