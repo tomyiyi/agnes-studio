@@ -82,7 +82,7 @@ except Exception as e:
     vision_inspect_artwork = None
 
 LOCAL_KEY_PATH = Path.home() / ".new-api" / "local_key.json"
-IMAGE_BASE_DEFAULT = "http://192.168.1.164:3000/v1"
+IMAGE_BASE_DEFAULT = "http://127.0.0.1:13000/v1"
 CHAT_BASE_DEFAULT = "http://127.0.0.1:18045/v1"
 
 def get_local_newapi_config(key_path: Path | str | None = None) -> dict:
