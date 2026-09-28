@@ -172,7 +172,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                     "url": cfg["base_url"]
                 })
             preset_endpoints.extend([
-                {"name": "本地 New API 负载均衡 (127.0.0.1:3000)", "url": "http://127.0.0.1:3000/v1"},
+                {"name": "本地 Omarchy New API (127.0.0.1:13000)", "url": "http://127.0.0.1:13000/v1"},
                 {"name": "Agnes AI 官方端点", "url": "https://apihub.agnes-ai.com/v1"},
                 {"name": "自定义 / OneAPI 聚合网关", "url": ""}
             ])
@@ -282,7 +282,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
         # 2. 调用 Agnes 生成留白底图
         if parsed_path == "/api/generate-image":
             local_cfg = get_local_newapi_config()
-            default_base = local_cfg.get("base_url", "http://192.168.1.164:3000/v1") if local_cfg.get("detected") else "http://192.168.1.164:3000/v1"
+            default_base = local_cfg.get("base_url") or IMAGE_BASE_DEFAULT
             base_url = str(req_body.get("base_url") or default_base).strip().rstrip("/")
             api_key = str(req_body.get("api_key") or "").strip() or local_cfg.get("api_key", "")
             model = str(req_body.get("model") or "agnes-image-2.5-flash").strip()
