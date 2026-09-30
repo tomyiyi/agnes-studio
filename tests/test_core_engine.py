@@ -3098,22 +3098,90 @@ class TestGeminiEngine(unittest.TestCase):
         self.assertFalse(res_fail["ok"])
         self.assertEqual(res_fail["error"], "Gateway timeout")
 
-    def test_detect_visual_subjects_graceful_degradation(self):
-        # 无可用视觉模型时，优雅降级返回空列表
+    def test_detect_visual_subjects_missing_file_and_empty(self):
         self.assertEqual(detect_visual_subjects(""), [])
         self.assertEqual(detect_visual_subjects(None), [])
         self.assertEqual(detect_visual_subjects(str(self.tmp_path / "not_found.png")), [])
-        # 即使文件存在，也返回空（无视觉模型）
+
+    @patch("agnes_engine.call_agnes")
+    def test_detect_visual_subjects_success_and_normalization(self, mock_call):
         img_f = self.tmp_path / "test.png"
         img_f.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        # Coordinates with swapped min/max and string values
+        mock_call.return_value = {
+            "ok": True,
+            "content": json.dumps([
+                {"x_min": 0.8, "x_max": 0.2, "y_min": 0.9, "y_max": 0.3},
+                {"x_min": "invalid", "x_max": 0.5, "y_min": 0.1, "y_max": 0.2},
+                {"x_min": 0.0, "x_max": 1.5, "y_min": -0.5, "y_max": 1.0},
+            ])
+        }
+
+        boxes = detect_visual_subjects(str(img_f))
+        self.assertEqual(len(boxes), 2)
+        # Swapped coords normalized
+        self.assertAlmostEqual(boxes[0]["x_min"], 0.2)
+        self.assertAlmostEqual(boxes[0]["x_max"], 0.8)
+        self.assertAlmostEqual(boxes[0]["y_min"], 0.3)
+        self.assertAlmostEqual(boxes[0]["y_max"], 0.9)
+        # Clamped coords
+        self.assertAlmostEqual(boxes[1]["x_min"], 0.0)
+        self.assertAlmostEqual(boxes[1]["x_max"], 1.0)
+        self.assertAlmostEqual(boxes[1]["y_min"], 0.0)
+        self.assertAlmostEqual(boxes[1]["y_max"], 1.0)
+
+    @patch("agnes_engine.call_agnes")
+    def test_detect_visual_subjects_api_failure(self, mock_call):
+        img_f = self.tmp_path / "test.png"
+        img_f.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        mock_call.return_value = {"ok": False, "error": "timeout"}
         self.assertEqual(detect_visual_subjects(str(img_f)), [])
 
-    def test_vision_inspect_artwork_not_available(self):
-        # 无可用视觉模型时，返回明确的不支持状态
-        res = vision_inspect_artwork(str(self.tmp_path / "artwork.png"), title="测试")
-        self.assertFalse(res["ok"])
-        self.assertFalse(res["vision_available"])
-        self.assertIn("无可用视觉", res["error"])
+    def test_vision_inspect_artwork_missing_file_and_empty(self):
+        res_empty = vision_inspect_artwork("")
+        self.assertFalse(res_empty["ok"])
+        self.assertIn("图片路径不能为空", res_empty["error"])
+
+        res_missing = vision_inspect_artwork(str(self.tmp_path / "not_found.png"))
+        self.assertFalse(res_missing["ok"])
+        self.assertIn("文件不存在", res_missing["error"])
+
+    @patch("agnes_engine.call_agnes")
+    def test_vision_inspect_artwork_success_and_failures(self, mock_call):
+        img_f = self.tmp_path / "artwork.png"
+        img_f.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        # Success case
+        mock_call.return_value = {
+            "ok": True,
+            "content": json.dumps({
+                "aesthetic_score": 95,
+                "occlusion_risk": "low",
+                "text_legibility": "excellent",
+                "negative_space_quality": "balanced",
+                "critique": "构图严谨，留白充分。",
+                "suggestions": ["无修改建议"]
+            }),
+            "cost_s": 0.52,
+        }
+        res = vision_inspect_artwork(str(img_f), title="艺术海报")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["inspection"]["aesthetic_score"], 95)
+        self.assertEqual(res["cost_s"], 0.52)
+
+        # Non-dict failure
+        mock_call.return_value = {"ok": True, "content": '["score", 95]'}
+        res_non_dict = vision_inspect_artwork(str(img_f))
+        self.assertFalse(res_non_dict["ok"])
+        self.assertIn("质检结果格式非字典对象", res_non_dict["error"])
+
+        # Call error
+        mock_call.return_value = {"ok": False, "error": "Quota exceeded"}
+        res_call_err = vision_inspect_artwork(str(img_f))
+        self.assertFalse(res_call_err["ok"])
+        self.assertEqual(res_call_err["error"], "Quota exceeded")
 
 class TestRenderCinemaPoster(unittest.TestCase):
     """测试电影级海报渲染器 render_cinema_poster 及其版式模板规范与鲁棒性"""

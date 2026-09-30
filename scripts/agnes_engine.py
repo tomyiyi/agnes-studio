@@ -324,12 +324,6 @@ def refine_prompt_for_agnes(
     return {"ok": True, "prompt": enhanced, "cost_s": res.get("cost_s")}
 
 
-_VISION_UNAVAILABLE_MSG = (
-    "当前 New API 网关无可用视觉理解模型（Agnes 全系文本模型不支持图像输入），"
-    "视觉检测/审查功能暂不可用。"
-)
-
-
 def detect_visual_subjects(
     image_path: str,
     *,
@@ -338,17 +332,75 @@ def detect_visual_subjects(
     api_key: Optional[str] = None,
 ) -> List[Dict[str, float]]:
     """
-    检测图片中的人脸与高显著性主体保护区。
-    当前无可用视觉模型，返回空列表（调用方应视为"无保护区"继续流程）。
+    使用 Agnes 多模态视觉能力检测图片中的人脸与高显著性主体保护区。
+    返回标准化的 0.0 ~ 1.0 浮点坐标列表：[{"x_min": ..., "x_max": ..., "y_min": ..., "y_max": ...}]
     """
-    print(f"⚠️ [Agnes Vision] {_VISION_UNAVAILABLE_MSG}")
+    if not image_path:
+        return []
+
+    try:
+        img_file = Path(image_path).resolve()
+        if not img_file.is_file():
+            return []
+        data_uri = encode_image_data_uri(img_file)
+    except Exception as e:
+        print(f"⚠️ [Agnes Vision] 准备图片异常: {e}")
+        return []
+
+    try:
+        prompt = (
+            "Analyze this image and identify all human faces, key figures, or primary focal subject regions that MUST NOT be covered by poster text. "
+            "Return strictly a JSON array of objects with normalized coordinates (range 0.0 to 1.0): "
+            "[{\"x_min\": float, \"x_max\": float, \"y_min\": float, \"y_max\": float}]. "
+            "Coordinate origin (0, 0) is top-left, and (1.0, 1.0) is bottom-right. "
+            "If no human faces or focal subjects are present, return []. Output ONLY the JSON array."
+        )
+
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": data_uri}},
+                ],
+            }
+        ]
+
+        res = call_gemini(
+            messages,
+            model=model,
+            temperature=0.1,
+            max_tokens=400,
+            base_url=base_url,
+            api_key=api_key,
+        )
+
+        if not res.get("ok"):
+            return []
+
+        raw = _strip_markdown_codeblock(res.get("content", ""))
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            valid_boxes = []
+            for b in parsed:
+                if isinstance(b, dict) and all(k in b for k in ("x_min", "x_max", "y_min", "y_max")):
+                    try:
+                        x0 = max(0.0, min(1.0, float(b["x_min"])))
+                        x1 = max(0.0, min(1.0, float(b["x_max"])))
+                        y0 = max(0.0, min(1.0, float(b["y_min"])))
+                        y1 = max(0.0, min(1.0, float(b["y_max"])))
+                        valid_boxes.append({
+                            "x_min": min(x0, x1),
+                            "x_max": max(x0, x1),
+                            "y_min": min(y0, y1),
+                            "y_max": max(y0, y1),
+                        })
+                    except (ValueError, TypeError):
+                        continue
+            return valid_boxes
+    except Exception as e:
+        print(f"⚠️ [Agnes Vision] 主体识别异常: {e}")
     return []
-
-
-# 向后兼容
-def detect_visual_subjects_gemini(*args, **kwargs) -> List[Dict[str, float]]:
-    """已废弃：请使用 detect_visual_subjects"""
-    return detect_visual_subjects(*args, **kwargs)
 
 
 def vision_inspect_artwork(
@@ -360,18 +412,76 @@ def vision_inspect_artwork(
     api_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    视觉与排印美学质量审查。
-    当前无可用视觉模型，返回明确的不支持状态（而非静默失败）。
+    对生成的排版海报或留白底图进行 Agnes 多模态视觉审美质检与安全区评估
     """
-    return {
-        "ok": False,
-        "error": _VISION_UNAVAILABLE_MSG,
-        "vision_available": False,
-        "image_path": image_path,
-        "title": title,
-    }
-    print("简报结果:", json.dumps(brief_res, ensure_ascii=False, indent=2))
+    if not image_path:
+        return {"ok": False, "error": "图片路径不能为空"}
 
+    try:
+        img_file = Path(image_path).resolve()
+        if not img_file.is_file():
+            return {"ok": False, "error": f"文件不存在: {image_path}"}
+        data_uri = encode_image_data_uri(img_file)
+    except Exception as e:
+        return {"ok": False, "error": f"读取文件异常: {e}"}
+
+    try:
+        prompt = f"""请作为资深平面设计审稿总监与视觉质检员，对这张商业海报作品进行多模态审美审查。
+当前标题内容: 「{title}」
+
+审查维度：
+1. 主体与排版避障（Face & Subject Occlusion）：文字是否压住五官或关键主体；
+2. 负空间留白（Negative Space & Breathing）：是否有充分的呼吸感；
+3. 字体层级与排印（Typography Hierarchy）：字阶对比、可读性与字距美感；
+4. 综合美学评分（0 - 100 分）；
+5. 明确的修改建议与改进点。
+
+请严格仅输出如下 JSON 格式：
+{{
+  "aesthetic_score": 92,
+  "occlusion_risk": "low" | "medium" | "high",
+  "text_legibility": "excellent" | "good" | "poor",
+  "negative_space_quality": "balanced" | "crowded" | "empty",
+  "critique": "简明扼要的专业评语（50字内）",
+  "suggestions": ["修改建议1", "修改建议2"]
+}}"""
+
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": data_uri}},
+                ],
+            }
+        ]
+
+        res = call_gemini(
+            messages,
+            model=model,
+            temperature=0.3,
+            max_tokens=600,
+            base_url=base_url,
+            api_key=api_key,
+        )
+
+        if not res.get("ok"):
+            return {"ok": False, "error": res.get("error")}
+
+        raw = _strip_markdown_codeblock(res.get("content", ""))
+        parsed = json.loads(raw)
+        if not isinstance(parsed, dict):
+            return {"ok": False, "error": "质检结果格式非字典对象", "raw": raw}
+        return {"ok": True, "inspection": parsed, "cost_s": res.get("cost_s")}
+    except Exception as e:
+        return {"ok": False, "error": f"质检执行失败: {e}"}
+
+
+
+# 向后兼容
+def detect_visual_subjects_gemini(*args, **kwargs) -> List[Dict[str, float]]:
+    """已废弃：请使用 detect_visual_subjects"""
+    return detect_visual_subjects(*args, **kwargs)
 
 if __name__ == "__main__":
     print("=== 测试 Agnes 引擎基本能力 ===")

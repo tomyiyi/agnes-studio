@@ -514,7 +514,7 @@ class TestEndpointContract(unittest.TestCase):
         self.assertEqual(agnes_engine.detect_visual_subjects(missing_file), [])
         inspect_res = agnes_engine.vision_inspect_artwork(missing_file)
         self.assertFalse(inspect_res["ok"])
-        self.assertIn("无可用视觉", inspect_res.get("error", ""))
+        self.assertIn("文件不存在", inspect_res.get("error", ""))
 
         # 4. 验证 WebP / PNG / JPEG base64 MIME 正确性
         with tempfile.TemporaryDirectory() as tmpdir:
