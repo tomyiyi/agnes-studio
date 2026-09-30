@@ -133,24 +133,30 @@ def reset_rate_limiter() -> None:
 
 def load_credentials() -> Tuple[str, str, str]:
     """读取网关配置，返回 (base_url, api_key, chat_model)"""
-    env_base = os.getenv("AGNES_BASE_URL") or os.getenv("GEMINI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
-    env_key = os.getenv("AGNES_API_KEY") or os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY", "")
+    # Agnes 专用变量优先级最高；OPENAI_* 仅作最低优先级回退（可能是过期残留）
+    agnes_base = os.getenv("AGNES_BASE_URL") or os.getenv("AGNES_GATEWAY_URL")
+    agnes_key = os.getenv("AGNES_API_KEY") or os.getenv("AGNES_GATEWAY_KEY")
     env_model = os.getenv("AGNES_CHAT_MODEL") or os.getenv("AGNES_MODEL") or os.getenv("GEMINI_CHAT_MODEL") or os.getenv("GEMINI_MODEL") or os.getenv("CHAT_MODEL")
+    # 通用回退（低优先级）
+    fallback_base = os.getenv("GEMINI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+    fallback_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY", "")
 
-    base = env_base or DEFAULT_BASE
-    key = env_key
+    base = agnes_base or DEFAULT_BASE
+    key = agnes_key
     model = env_model or DEFAULT_CHAT_MODEL
+    # 标记是否用了明确的 Agnes 配置（vs 通用回退）
+    has_explicit_agnes = bool(agnes_base)
 
     if KEY_PATH.exists():
         try:
             with open(KEY_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            # 优先使用 New API 网关配置
-            if not env_base:
-                base = data.get("chat_base_url") or DEFAULT_BASE
+            # 本地 New API 网关配置优先于通用 OPENAI_* 回退
+            if not has_explicit_agnes:
+                base = data.get("chat_base_url") or fallback_base or DEFAULT_BASE
             # 使用本地 New API 密钥
             if not key:
-                key = data.get("api_key") or key
+                key = data.get("api_key") or fallback_key or key
             if not env_model:
                 chat_models = (data.get("models") or {}).get("chat") or []
                 allowed_models = [item for item in chat_models if item in CHAT_MODEL_ALLOWLIST]
