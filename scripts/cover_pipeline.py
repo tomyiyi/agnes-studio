@@ -137,6 +137,37 @@ def classify_generation_error(error: object) -> str:
     return "generation_error"
 
 
+def classify_pipeline_error(error: object) -> str:
+    """对封面流水线排版、门禁校验及渲染失败进行结构化分层。"""
+    text = str(error or "").strip()
+    text_l = text.lower()
+    if "missing_source_asset" in text_l:
+        return "MISSING_SOURCE_ASSET"
+    if "missing_brief" in text_l:
+        return "MISSING_BRIEF"
+    if "invalid_brief" in text_l:
+        return "INVALID_BRIEF"
+    if "[head]" in text:
+        return "QA_HEAD"
+    if "[layout]" in text:
+        return "QA_LAYOUT"
+    if "[face]" in text:
+        return "QA_FACE"
+    if "[vignette]" in text:
+        return "QA_VIGNETTE"
+    if "[copy]" in text:
+        return "QA_COPY"
+    if "[sharpness]" in text:
+        return "QA_SHARPNESS"
+    if "http 502" in text_l or "bad gateway" in text_l:
+        return "gateway_502"
+    if any(tok in text_l for tok in ("http 401", "http 403", "unauthorized", "forbidden", "token_rejected")):
+        return "auth"
+    if "timeout" in text_l or "timed out" in text_l:
+        return "timeout"
+    return "pipeline_error"
+
+
 def preflight_source_asset(path: Path | str | None) -> dict[str, Any]:
     """检查本地源素材是否存在、为普通文件且具备可读权限。"""
     if path is None or not str(path).strip():
@@ -1142,6 +1173,7 @@ def run_platform(
         list_sim = str(render_wechat_list_sim(named_png, OUT / f"{stem}_list_sim.jpg"))
 
     report = {
+        "ok": True,
         "platform": platform,
         "label": spec["label"],
         "canvas": f"{spec['w']}×{spec['h']}",
@@ -1175,12 +1207,30 @@ def run_platform(
 
 
 
-def run_brief_batch(brief_path: Path, platforms: list[str] | None = None) -> list[dict]:
+def run_brief_batch(brief_path: Path | str, platforms: list[str] | None = None) -> list[dict]:
     """一键：单份简报 → 多规格出图（含人脸避让/QA/命名）。"""
-    from cover_style import load_brief, resolve_style
+    bp = Path(brief_path)
+    if not bp.is_file():
+        err = f"MISSING_BRIEF: {bp} does not exist"
+        return [{
+            "platform": "all",
+            "ok": False,
+            "error": err,
+            "error_class": "MISSING_BRIEF",
+        }]
+    try:
+        from cover_style import load_brief, resolve_style
+        brief = load_brief(bp)
+        style = resolve_style(brief)
+    except Exception as e:
+        err = f"INVALID_BRIEF: {e}"
+        return [{
+            "platform": "all",
+            "ok": False,
+            "error": err,
+            "error_class": "INVALID_BRIEF",
+        }]
 
-    brief = load_brief(brief_path)
-    style = resolve_style(brief)
     plats = platforms or list(PLATFORMS)
     if brief.get("platform") and brief["platform"] in PLATFORMS and not platforms:
         plats = [brief["platform"]] + [p for p in PLATFORMS if p != brief["platform"]]
@@ -1213,11 +1263,23 @@ def run_brief_batch(brief_path: Path, platforms: list[str] | None = None) -> lis
                 **kwargs,
             ))
         except SystemExit as e:
-            print(f"· FAIL {name}: {e}")
-            reports.append({"platform": name, "ok": False, "error": str(e)})
+            err_msg = str(e)
+            print(f"· FAIL {name}: {err_msg}")
+            reports.append({
+                "platform": name,
+                "ok": False,
+                "error": err_msg,
+                "error_class": classify_pipeline_error(err_msg),
+            })
         except Exception as e:
-            print(f"· ERROR {name}: {e}")
-            reports.append({"platform": name, "ok": False, "error": str(e)})
+            err_msg = str(e)
+            print(f"· ERROR {name}: {err_msg}")
+            reports.append({
+                "platform": name,
+                "ok": False,
+                "error": err_msg,
+                "error_class": classify_pipeline_error(err_msg),
+            })
     return reports
 
 def main(argv: list[str] | None = None) -> None:

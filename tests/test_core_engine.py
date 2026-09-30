@@ -60,6 +60,7 @@ from cover_pipeline import (
     build_contact_sheet,
     qa_thumbnail_ok,
     classify_generation_error as cover_classify_error,
+    classify_pipeline_error as cover_pipeline_classify_error,
     generate_cover_subject,
     preflight_source_asset,
     preflight_source_assets,
@@ -1027,6 +1028,22 @@ class TestCoverPipeline(unittest.TestCase):
         self.assertEqual(cover_classify_error("HTTP 403: Forbidden"), "auth")
         self.assertEqual(cover_classify_error("Connection timed out"), "timeout")
         self.assertEqual(cover_classify_error("some prompt error"), "generation_error")
+        self.assertEqual(cover_classify_error("MISSING_SOURCE_ASSET: missing.png"), "MISSING_SOURCE_ASSET")
+
+    def test_classify_pipeline_error(self):
+        self.assertEqual(cover_pipeline_classify_error("MISSING_SOURCE_ASSET: no file"), "MISSING_SOURCE_ASSET")
+        self.assertEqual(cover_pipeline_classify_error("MISSING_BRIEF: no brief"), "MISSING_BRIEF")
+        self.assertEqual(cover_pipeline_classify_error("INVALID_BRIEF: broken json"), "INVALID_BRIEF")
+        self.assertEqual(cover_pipeline_classify_error("[head] face box clipped: {...}"), "QA_HEAD")
+        self.assertEqual(cover_pipeline_classify_error("[layout] subject placement failed"), "QA_LAYOUT")
+        self.assertEqual(cover_pipeline_classify_error("[face] title would occlude face"), "QA_FACE")
+        self.assertEqual(cover_pipeline_classify_error("[vignette] too heavy, corners/center=0.42"), "QA_VIGNETTE")
+        self.assertEqual(cover_pipeline_classify_error("[copy] ['forbidden keyword']"), "QA_COPY")
+        self.assertEqual(cover_pipeline_classify_error("[sharpness] too soft, lap_mean=1.8"), "QA_SHARPNESS")
+        self.assertEqual(cover_pipeline_classify_error("HTTP 502: Bad Gateway"), "gateway_502")
+        self.assertEqual(cover_pipeline_classify_error("HTTP 401: Unauthorized"), "auth")
+        self.assertEqual(cover_pipeline_classify_error("Connection timed out"), "timeout")
+        self.assertEqual(cover_pipeline_classify_error("Unexpected renderer crash"), "pipeline_error")
 
     def test_generate_cover_subject_validation_and_dry_run(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1507,6 +1524,59 @@ class TestCoverPipeline(unittest.TestCase):
                 self.assertEqual(r["error_class"], "MISSING_SOURCE_ASSET")
                 self.assertIn("does not exist", r["error"])
 
+            # 3. run_brief_batch 遇到不存在的 brief 文件
+            reports_no_brief = run_brief_batch(tmp_path / "non_existent_brief.json")
+            self.assertEqual(len(reports_no_brief), 1)
+            self.assertFalse(reports_no_brief[0]["ok"])
+            self.assertEqual(reports_no_brief[0]["error_class"], "MISSING_BRIEF")
+            self.assertIn("MISSING_BRIEF", reports_no_brief[0]["error"])
+
+            # 4. run_brief_batch 遇到非法 json 的 brief 文件
+            bad_brief = tmp_path / "corrupt_brief.json"
+            bad_brief.write_text("{broken-json", encoding="utf-8")
+            reports_bad_brief = run_brief_batch(bad_brief)
+            self.assertEqual(len(reports_bad_brief), 1)
+            self.assertFalse(reports_bad_brief[0]["ok"])
+            self.assertEqual(reports_bad_brief[0]["error_class"], "INVALID_BRIEF")
+
+            # 5. run_brief_batch 捕获 run_platform 门禁异常并结构化分类
+            valid_src = tmp_path / "valid_subj.png"
+            Image.new("RGB", (100, 100)).save(valid_src)
+            brief_valid = tmp_path / "brief_valid.json"
+            brief_valid.write_text(
+                json.dumps({
+                    "goal": "时尚封面",
+                    "source_asset": str(valid_src),
+                }, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            with patch("cover_pipeline.run_platform", side_effect=SystemExit("[head] face box clipped: {'y_min': 0.01}")):
+                reports_head_fail = run_brief_batch(brief_valid, platforms=["xhs"])
+                self.assertEqual(len(reports_head_fail), 1)
+                self.assertFalse(reports_head_fail[0]["ok"])
+                self.assertEqual(reports_head_fail[0]["error_class"], "QA_HEAD")
+                self.assertIn("face box clipped", reports_head_fail[0]["error"])
+
+            with patch("cover_pipeline.run_platform", side_effect=SystemExit("[sharpness] too soft, lap_mean=1.5")):
+                reports_sharp_fail = run_brief_batch(brief_valid, platforms=["xhs"])
+                self.assertEqual(len(reports_sharp_fail), 1)
+                self.assertFalse(reports_sharp_fail[0]["ok"])
+                self.assertEqual(reports_sharp_fail[0]["error_class"], "QA_SHARPNESS")
+
+            with patch("cover_pipeline.run_platform", side_effect=RuntimeError("unexpected canvas crash")):
+                reports_err = run_brief_batch(brief_valid, platforms=["xhs"])
+                self.assertEqual(len(reports_err), 1)
+                self.assertFalse(reports_err[0]["ok"])
+                self.assertEqual(reports_err[0]["error_class"], "pipeline_error")
+
+            # 6. run_platform 成功返回值必须具备 ok: True 结构化契约
+            fake_success_report = {"platform": "xhs", "label": "小红书", "ok": True}
+            with patch("cover_pipeline.run_platform", return_value=fake_success_report):
+                reports_ok = run_brief_batch(brief_valid, platforms=["xhs"])
+                self.assertEqual(len(reports_ok), 1)
+                self.assertTrue(reports_ok[0]["ok"])
+                self.assertEqual(reports_ok[0]["platform"], "xhs")
+
 
 class TestVisionSubjectDetector(unittest.TestCase):
     """测试多模态视觉主体检测与文字避障碰撞检测"""
@@ -1954,14 +2024,14 @@ class TestAgnesGateway(unittest.TestCase):
         self.tmp_dir.cleanup()
 
     def test_gateway_constants(self):
-        self.assertEqual(agnes_gateway.DEFAULT_BASE, "http://127.0.0.1:3000/v1")
+        self.assertEqual(agnes_gateway.DEFAULT_BASE, "http://127.0.0.1:13000/v1")
         self.assertEqual(agnes_gateway.DEFAULT_MODEL, "agnes-image-2.5-flash")
 
     def test_load_gateway_defaults(self):
         non_existent_key = self.tmp_path / "no_key.json"
         with patch.dict("os.environ", {}, clear=True):
             base, key, model = load_gateway(key_path=non_existent_key)
-            self.assertEqual(base, "http://127.0.0.1:3000/v1")
+            self.assertEqual(base, "http://127.0.0.1:13000/v1")
             self.assertEqual(key, "")
             self.assertEqual(model, "agnes-image-2.5-flash")
 
@@ -2389,6 +2459,49 @@ class TestAutonomousFollowup(unittest.TestCase):
         content = Path(out_path).read_text(encoding="utf-8")
         self.assertIn("新增自主生成海报**: 0 张", content)
         self.assertIn("0.0 / 100 分", content)
+
+    @patch("urllib.request.urlopen")
+    def test_check_and_heal_server_uses_image_gateway_from_config(self, mock_urlopen):
+        config_resp = MagicMock()
+        config_resp.status = 200
+        config_resp.read.return_value = json.dumps({
+            "image_base_url": "http://127.0.0.1:13000/v1",
+        }).encode("utf-8")
+        models_resp = MagicMock()
+        models_resp.status = 200
+        config_resp.__enter__.return_value = config_resp
+        models_resp.__enter__.return_value = models_resp
+        mock_urlopen.side_effect = [config_resp, models_resp]
+
+        server_alive, new_api_alive = check_and_heal_server(
+            server_url="http://127.0.0.1:8088/api/config",
+            api_key="test_key",
+            auto_heal=False,
+        )
+
+        self.assertTrue(server_alive)
+        self.assertTrue(new_api_alive)
+        models_request = mock_urlopen.call_args_list[1].args[0]
+        self.assertEqual(models_request.full_url, "http://127.0.0.1:13000/v1/models")
+
+    @patch("autonomous_followup.get_local_auth_key", return_value="")
+    @patch("urllib.request.urlopen")
+    def test_check_and_heal_server_does_not_use_embedded_api_key(self, mock_urlopen, _mock_local_auth):
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = b"{}"
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        with patch.dict("os.environ", {"AGNES_API_KEY": "", "NEW_API_KEY": ""}, clear=False):
+            check_and_heal_server(
+                server_url="http://127.0.0.1:8088/api/config",
+                api_base="http://127.0.0.1:13000/v1",
+                auto_heal=False,
+            )
+
+        models_request = mock_urlopen.call_args_list[1].args[0]
+        self.assertNotIn("Authorization", models_request.headers)
 
     @patch("urllib.request.urlopen")
     def test_check_and_heal_server_healthy(self, mock_urlopen):
@@ -8141,4 +8254,3 @@ class TestComposeBeautyCovers(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

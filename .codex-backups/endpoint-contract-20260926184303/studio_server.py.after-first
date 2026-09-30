@@ -27,12 +27,11 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 DIR = Path(__file__).resolve().parent.parent
 
-def ensure_venv():
-    """在直接运行服务时，自动自提至项目 .venv 环境（如存在且当前非虚拟环境）"""
-    venv_py = DIR / ".venv" / "bin" / "python"
-    if venv_py.exists() and sys.executable != str(venv_py) and os.environ.get("AGNES_VENV_SWITCHED") != "1":
-        os.environ["AGNES_VENV_SWITCHED"] = "1"
-        os.execv(str(venv_py), [str(venv_py)] + sys.argv)
+# 自动自提至项目 .venv 环境（如存在且当前非虚拟环境）
+VENV_PY = DIR / ".venv" / "bin" / "python"
+if VENV_PY.exists() and sys.executable != str(VENV_PY) and os.environ.get("AGNES_VENV_SWITCHED") != "1":
+    os.environ["AGNES_VENV_SWITCHED"] = "1"
+    os.execv(str(VENV_PY), [str(VENV_PY)] + sys.argv)
 
 PUBLIC_DIR = DIR / "public"
 ASSETS_DIR = PUBLIC_DIR / "assets"
@@ -47,13 +46,8 @@ def get_base64_image(image_path):
     try:
         with open(image_path, "rb") as f:
             data = f.read()
-        ext = os.path.splitext(str(image_path))[1].lower().lstrip(".")
-        if ext == "png":
-            mime = "image/png"
-        elif ext == "webp":
-            mime = "image/webp"
-        else:
-            mime = "image/jpeg"
+        ext = os.path.splitext(str(image_path))[1].lower().replace(".", "")
+        mime = "image/png" if ext == "png" else "image/jpeg"
         return f"data:{mime};base64,{base64.b64encode(data).decode('utf-8')}"
     except Exception as e:
         print(f"⚠️ [Base64 Error] 读取图片失败 {image_path}: {e}")
@@ -62,7 +56,6 @@ def get_base64_image(image_path):
 # 尝试引入海报排版引擎与 Gemini 智能引擎
 sys.path.insert(0, str(DIR / "scripts"))
 try:
-    import env_config
     from pro_poster_renderer import render_html_to_poster as _renderer, FONTS_DIR as _FONTS_DIR
     render_html_to_poster = _renderer
     FONTS_DIR = _FONTS_DIR
@@ -82,15 +75,14 @@ except Exception as e:
     vision_inspect_artwork = None
 
 LOCAL_KEY_PATH = Path.home() / ".new-api" / "local_key.json"
-IMAGE_BASE_DEFAULT = "http://127.0.0.1:13000/v1"
+IMAGE_BASE_DEFAULT = "http://192.168.1.164:3000/v1"
 CHAT_BASE_DEFAULT = "http://127.0.0.1:18045/v1"
 
-def get_local_newapi_config(key_path: Path | str | None = None) -> dict:
+def get_local_newapi_config():
     """读取本地 New API 配置文件（如果存在）"""
-    target_path = Path(key_path) if key_path is not None else LOCAL_KEY_PATH
-    if target_path.exists():
+    if LOCAL_KEY_PATH.exists():
         try:
-            with open(target_path, "r", encoding="utf-8") as f:
+            with open(LOCAL_KEY_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
             return {
                 "detected": True,
@@ -156,8 +148,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        parsed_path = urllib.parse.urlparse(self.path).path.rstrip("/")
-        if parsed_path == "/api/config":
+        if self.path == "/api/config":
             cfg = get_local_newapi_config()
             # 为前端提供脱敏显示的 key 和全量配置
             masked_key = ""
@@ -172,7 +163,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                     "url": cfg["base_url"]
                 })
             preset_endpoints.extend([
-                {"name": "本地 Omarchy New API (127.0.0.1:13000)", "url": "http://127.0.0.1:13000/v1"},
+                {"name": "本地 New API 负载均衡 (127.0.0.1:3000)", "url": "http://127.0.0.1:3000/v1"},
                 {"name": "Agnes AI 官方端点", "url": "https://apihub.agnes-ai.com/v1"},
                 {"name": "自定义 / OneAPI 聚合网关", "url": ""}
             ])
@@ -182,8 +173,6 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 "detected": cfg["detected"],
                 "local_key_detected": cfg["detected"],
                 "base_url": cfg["base_url"],
-                "image_base_url": cfg["image_base_url"],
-                "chat_base_url": cfg["chat_base_url"],
                 "masked_api_key": masked_key,
                 "has_api_key": bool(cfg["api_key"]),
                 # 不向前端回传明文密钥；调用时由服务端按需注入本地密钥
@@ -196,30 +185,20 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             self._send_json(resp)
             return
 
-        if parsed_path.startswith("/api/") or parsed_path == "/api":
-            self._send_json({"success": False, "error": f"Endpoint not found: {parsed_path}"}, status=404)
-            return
-
         super().do_GET()
 
     def do_POST(self):
-        parsed_path = urllib.parse.urlparse(self.path).path.rstrip("/")
-        try:
-            content_len = int(self.headers.get("Content-Length", 0))
-        except (ValueError, TypeError):
-            content_len = 0
+        content_len = int(self.headers.get("Content-Length", 0))
         post_data = self.rfile.read(content_len) if content_len > 0 else b"{}"
         try:
             req_body = json.loads(post_data.decode("utf-8"))
-            if not isinstance(req_body, dict):
-                req_body = {}
         except Exception:
             req_body = {}
 
         # 1. 连通性测试 API
-        if parsed_path == "/api/test-connection":
-            base_url = str(req_body.get("base_url") or "").strip().rstrip("/")
-            api_key = str(req_body.get("api_key") or "").strip()
+        if self.path == "/api/test-connection":
+            base_url = req_body.get("base_url", "").strip().rstrip("/")
+            api_key = req_body.get("api_key", "").strip()
             if not api_key:
                 local_cfg = get_local_newapi_config()
                 if local_cfg["detected"]:
@@ -232,10 +211,6 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
             if not base_url:
                 self._send_json({"success": False, "error": "请提供有效的 Base URL"}, status=400)
-                return
-
-            if not (base_url.startswith("http://") or base_url.startswith("https://")):
-                self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
                 return
 
             models_url = f"{base_url}/models"
@@ -252,7 +227,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                     res_json = json.loads(raw)
                     model_list = []
                     if "data" in res_json and isinstance(res_json["data"], list):
-                        model_list = [str(m["id"]) for m in res_json["data"] if isinstance(m, dict) and m.get("id")]
+                        model_list = [m.get("id") for m in res_json["data"] if isinstance(m, dict) and "id" in m]
                     
                     # 过滤生图相关模型
                     image_models = [m for m in model_list if "image" in m.lower() or "dall-e" in m.lower()]
@@ -280,21 +255,17 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 return
 
         # 2. 调用 Agnes 生成留白底图
-        if parsed_path == "/api/generate-image":
+        if self.path == "/api/generate-image":
             local_cfg = get_local_newapi_config()
-            default_base = local_cfg.get("base_url") or IMAGE_BASE_DEFAULT
-            base_url = str(req_body.get("base_url") or default_base).strip().rstrip("/")
-            api_key = str(req_body.get("api_key") or "").strip() or local_cfg.get("api_key", "")
-            model = str(req_body.get("model") or "agnes-image-2.5-flash").strip()
-            prompt = str(req_body.get("prompt") or "").strip()
-            size = str(req_body.get("size") or "1024x1024")
+            default_base = local_cfg.get("base_url", "http://192.168.1.164:3000/v1") if local_cfg.get("detected") else "http://192.168.1.164:3000/v1"
+            base_url = (req_body.get("base_url") or default_base).strip().rstrip("/")
+            api_key = req_body.get("api_key", "").strip() or local_cfg.get("api_key", "")
+            model = req_body.get("model", "agnes-image-2.5-flash").strip()
+            prompt = req_body.get("prompt", "").strip()
+            size = req_body.get("size", "1024x1024")
 
             if not prompt:
                 self._send_json({"success": False, "error": "提示词不能为空"}, status=400)
-                return
-
-            if not (base_url.startswith("http://") or base_url.startswith("https://")):
-                self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
                 return
 
             gen_url = f"{base_url}/images/generations"
@@ -325,7 +296,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                         remote_url = item.get("url")
                         b64_data = item.get("b64_json")
 
-                    timestamp = time.time_ns()
+                    timestamp = int(time.time())
                     out_filename = f"agnes_{timestamp}.png"
                     out_path = GENERATED_DIR / out_filename
 
@@ -334,10 +305,10 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                         import base64
                         with open(out_path, "wb") as img_f:
                             img_f.write(base64.b64decode(b64_data))
-                    elif remote_url and (remote_url.startswith("http://") or remote_url.startswith("https://")):
+                    elif remote_url:
                         urllib.request.urlretrieve(remote_url, str(out_path))
                     else:
-                        self._send_json({"success": False, "error": "未能从模型响应中提取有效的图片数据"}, status=500)
+                        self._send_json({"success": False, "error": "未能从模型响应中提取图片数据"}, status=500)
                         return
 
                     self._send_json({
@@ -354,53 +325,31 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 return
 
         # 3. 动态渲染自定义商业海报 (Render Poster)
-        if parsed_path == "/api/render-poster":
+        if self.path == "/api/render-poster":
             if not render_html_to_poster:
                 self._send_json({"success": False, "error": "排版引擎不可用，请确保已安装 playwright 及其浏览器依赖"}, status=500)
                 return
 
-            style = str(req_body.get("style") or "swiss_01")
-            title = str(req_body.get("title") or "苏黎世秩序")
-            subtitle = str(req_body.get("subtitle") or "STRUCTURE & ESSENCE")
-            body = str(req_body.get("body") or "设计不是情绪的宣泄，而是对客观秩序的精确度量。让字符锚定在理性的基准线上。")
-            author = str(req_body.get("author") or "TOM // AGNES STUDIO")
+            style = req_body.get("style", "swiss_01")
+            title = req_body.get("title", "苏黎世秩序")
+            subtitle = req_body.get("subtitle", "STRUCTURE & ESSENCE")
+            body = req_body.get("body", "设计不是情绪的宣泄，而是对客观秩序的精确度量。让字符锚定在理性的基准线上。")
+            author = req_body.get("author", "TOM // AGNES STUDIO")
+            title = escape(title, quote=True)
+            subtitle = escape(subtitle, quote=True)
+            body = escape(body, quote=True)
+            author = escape(author, quote=True)
 
             # 兼容前端 background_img 与历史 bg_image 两种字段名
-            bg_image_rel = str(req_body.get("bg_image") or req_body.get("background_img") or "assets/poster_pro_swiss_01.png").strip()
+            bg_image_rel = req_body.get("bg_image") or req_body.get("background_img") or "assets/poster_pro_swiss_01.png"
 
-            if bg_image_rel.startswith("data:image/"):
-                bg_uri = bg_image_rel
-            else:
-                # 定位底图绝对路径（限制在 public/、experiments/、outputs/ 内，防止路径穿越；支持 public/ 前缀与 query 参数）
-                clean_rel = bg_image_rel.split("?")[0].split("#")[0].strip()
-                rel_clean = clean_rel.lstrip("/")
-                if rel_clean.startswith("public/"):
-                    rel_clean = rel_clean[len("public/"):].lstrip("/")
-                bg_abs_path = (PUBLIC_DIR / rel_clean).resolve()
+            # 定位底图绝对路径（限制在 public/ 内，防止路径穿越）
+            bg_abs_path = (PUBLIC_DIR / bg_image_rel.lstrip("/")).resolve()
+            if not str(bg_abs_path).startswith(str(PUBLIC_DIR.resolve())) or not bg_abs_path.exists():
+                bg_abs_path = ASSETS_DIR / "agnes_1789995698_9987.png"
 
-                allowed_dirs = [
-                    PUBLIC_DIR.resolve(),
-                    (DIR / "experiments").resolve(),
-                    (DIR / "outputs").resolve(),
-                ]
-                def is_under_allowed_dir(candidate):
-                    if not candidate.is_file():
-                        return False
-                    return any(
-                        candidate == allowed_dir or allowed_dir in candidate.parents
-                        for allowed_dir in allowed_dirs
-                    )
-
-                is_valid = is_under_allowed_dir(bg_abs_path)
-                if not is_valid:
-                    alt_abs = (DIR / clean_rel.lstrip("/")).resolve()
-                    if is_under_allowed_dir(alt_abs):
-                        bg_abs_path = alt_abs
-                    else:
-                        bg_abs_path = ASSETS_DIR / "agnes_1789995698_9987.png"
-                bg_uri = get_base64_image(str(bg_abs_path))
-
-            timestamp = time.time_ns()
+            bg_uri = get_base64_image(str(bg_abs_path))
+            timestamp = int(time.time())
             out_filename = f"poster_custom_{timestamp}.png"
             out_abs_path = str(ASSETS_DIR / out_filename)
 
@@ -422,23 +371,17 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             return
 
         # 4. Gemini 智能简报与文案生成
-        if parsed_path == "/api/gemini/generate-brief":
-            topic = str(req_body.get("topic") or "").strip()
-            platform = str(req_body.get("platform") or "wechat")
-            tone = str(req_body.get("tone") or "luxury")
-            goal = str(req_body.get("goal") or "editorial")
+        if self.path == "/api/gemini/generate-brief":
+            topic = req_body.get("topic", "").strip()
+            platform = req_body.get("platform", "wechat")
+            tone = req_body.get("tone", "luxury")
+            goal = req_body.get("goal", "editorial")
             base_url = req_body.get("chat_base_url") or req_body.get("base_url")
             api_key = req_body.get("api_key")
 
             if not topic:
                 self._send_json({"success": False, "error": "请输入创意主题"}, status=400)
                 return
-
-            if base_url:
-                base_url = str(base_url).strip().rstrip("/")
-                if not (base_url.startswith("http://") or base_url.startswith("https://")):
-                    self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
-                    return
 
             if not generate_creative_brief:
                 self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
@@ -447,7 +390,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             if not api_key:
                 local_cfg = get_local_newapi_config()
                 if local_cfg["detected"]:
-                    api_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY") or local_cfg["api_key"]
+                    api_key = local_cfg["api_key"]
                     if not base_url:
                         base_url = local_cfg["chat_base_url"]
 
@@ -459,22 +402,16 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             return
 
         # 5. Gemini 物理光学 Prompt 编译与增强
-        if parsed_path == "/api/gemini/refine-prompt":
-            raw_prompt = str(req_body.get("prompt") or "").strip()
-            aspect_ratio = str(req_body.get("aspect_ratio") or "1:1")
-            negative_space_zone = str(req_body.get("negative_space") or "top-left")
+        if self.path == "/api/gemini/refine-prompt":
+            raw_prompt = req_body.get("prompt", "").strip()
+            aspect_ratio = req_body.get("aspect_ratio", "1:1")
+            negative_space_zone = req_body.get("negative_space", "top-left")
             base_url = req_body.get("chat_base_url") or req_body.get("base_url")
             api_key = req_body.get("api_key")
 
             if not raw_prompt:
                 self._send_json({"success": False, "error": "请输入原始提示词"}, status=400)
                 return
-
-            if base_url:
-                base_url = str(base_url).strip().rstrip("/")
-                if not (base_url.startswith("http://") or base_url.startswith("https://")):
-                    self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
-                    return
 
             if not refine_prompt_for_agnes:
                 self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
@@ -483,7 +420,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             if not api_key:
                 local_cfg = get_local_newapi_config()
                 if local_cfg["detected"]:
-                    api_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY") or local_cfg["api_key"]
+                    api_key = local_cfg["api_key"]
                     if not base_url:
                         base_url = local_cfg["chat_base_url"]
 
@@ -495,9 +432,9 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             return
 
         # 6. Gemini 视觉多模态审美与排版审查
-        if parsed_path == "/api/gemini/vision-inspect":
-            image_rel = str(req_body.get("image_path") or "").strip()
-            title = str(req_body.get("title") or "")
+        if self.path == "/api/gemini/vision-inspect":
+            image_rel = req_body.get("image_path", "").strip()
+            title = req_body.get("title", "")
             base_url = req_body.get("chat_base_url") or req_body.get("base_url")
             api_key = req_body.get("api_key")
 
@@ -505,46 +442,18 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "请提供待质检图片路径"}, status=400)
                 return
 
-            ALLOWED_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
-            clean_rel = image_rel.split("?")[0].split("#")[0].strip()
-            ext = os.path.splitext(clean_rel)[1].lower()
-            if ext not in ALLOWED_IMAGE_EXTS:
-                self._send_json({"success": False, "error": "只支持 PNG、JPG、JPEG、WEBP 格式的图片文件"}, status=400)
-                return
+            img_abs = (PUBLIC_DIR / image_rel.lstrip("/")).resolve()
+            if not img_abs.exists():
+                img_abs = (DIR / image_rel.lstrip("/")).resolve()
 
-            if base_url:
-                base_url = str(base_url).strip().rstrip("/")
-                if not (base_url.startswith("http://") or base_url.startswith("https://")):
-                    self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
-                    return
-
-            rel_clean = clean_rel.lstrip("/")
-            if rel_clean.startswith("public/"):
-                rel_clean = rel_clean[len("public/"):].lstrip("/")
-            img_abs = (PUBLIC_DIR / rel_clean).resolve()
-
-            allowed_dirs = [
-                PUBLIC_DIR.resolve(),
-                (DIR / "experiments").resolve(),
-                (DIR / "outputs").resolve(),
-            ]
-            is_in_allowed_dir = any(str(img_abs).startswith(str(d)) for d in allowed_dirs)
-            if not is_in_allowed_dir or not img_abs.exists() or not img_abs.is_file():
-                alt_abs = (DIR / clean_rel.lstrip("/")).resolve()
-                if any(str(alt_abs).startswith(str(d)) for d in allowed_dirs) and alt_abs.is_file():
-                    img_abs = alt_abs
-                else:
-                    self._send_json({"success": False, "error": f"找不到图片文件: {image_rel}"}, status=404)
-                    return
-
-            if not vision_inspect_artwork:
-                self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
+            if not img_abs.exists() or not img_abs.is_file():
+                self._send_json({"success": False, "error": f"找不到图片文件: {image_rel}"}, status=404)
                 return
 
             if not api_key:
                 local_cfg = get_local_newapi_config()
                 if local_cfg["detected"]:
-                    api_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY") or local_cfg["api_key"]
+                    api_key = local_cfg["api_key"]
                     if not base_url:
                         base_url = local_cfg["chat_base_url"]
 
@@ -555,26 +464,11 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": res.get("error")}, status=500)
             return
 
-        self._send_json({"success": False, "error": f"Endpoint not found: {parsed_path}"}, status=404)
+        super().do_POST()
 
 def generate_custom_poster_html(style, title, subtitle, body, author, bg_uri):
     """根据自定义参数生成对应流派的高保真 HTML 排印代码"""
-    s = (style or "swiss_01").lower()
-    title = escape(str(title or ""), quote=True)
-    subtitle = escape(str(subtitle or ""), quote=True)
-    body = escape(str(body or ""), quote=True)
-    author = escape(str(author or ""), quote=True)
-    bg_uri = (
-        str(bg_uri or "")
-        .replace("\r", "")
-        .replace("\n", "")
-        .replace("'", "%27")
-        .replace('"', "%22")
-        .replace("<", "%3C")
-        .replace(">", "%3E")
-    )
-
-    if "cyber" in s:
+    if "cyber" in style:
         return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'SmileySans'; src: url('file://{FONTS_DIR}/SmileySans-Oblique.ttf') format('truetype'); }}
@@ -628,7 +522,7 @@ def generate_custom_poster_html(style, title, subtitle, body, author, bg_uri):
   </div>
 </body></html>"""
     
-    elif "chinese" in s:
+    elif "chinese" in style:
         return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'LXGWWenKai'; src: url('file://{FONTS_DIR}/LXGWWenKai-Regular.ttf') format('truetype'); }}
@@ -664,7 +558,7 @@ def generate_custom_poster_html(style, title, subtitle, body, author, bg_uri):
   <div class="footer-caption">{subtitle} // {author}</div>
 </body></html>"""
 
-    elif "cinema" in s:
+    elif "cinema" in style:
         return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
   @font-face {{ font-family: 'SmileySans'; src: url('file://{FONTS_DIR}/SmileySans-Oblique.ttf') format('truetype'); }}
@@ -762,7 +656,6 @@ def run(port=8088):
     httpd.serve_forever()
 
 if __name__ == "__main__":
-    ensure_venv()
     p = 8088
     if len(sys.argv) > 1:
         try:

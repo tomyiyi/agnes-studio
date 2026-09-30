@@ -40,7 +40,7 @@ Agnes Studio 不仅是一个本地生图工作台，更是与开源生态保持�
 
 | 监控项 | 检查端点 / 方式 | 正常指标 (Healthy) | 告警指标 (Warning/Critical) | 处理机制 |
 | :--- | :--- | :--- | :--- | :--- |
-| **本地 New API 网关** | `http://127.0.0.1:3000/v1/models` | HTTP 200, 耗时 < 100ms | 连接超时或 HTTP 500 | 自动触发重启 Docker 容器检查 |
+| **本地 New API 网关** | `http://127.0.0.1:13000/v1/models` | HTTP 200, 耗时 < 100ms | 连接超时或 HTTP 500 | 自动触发重启 Docker 容器检查 |
 | **Agnes 渠道上游池** | `apihub.agnes-ai.com/v1/models` | 6 渠道全部 200，平均耗时 < 2s | 某个渠道连续失败 3 次 | 触发 New API 内部自动熔断（Auto-Disable） |
 | **上游 Garden-Skills** | `api.github.com/repos/.../commits` | Commit SHA 与本地吻合 | 发现远端新 commit hash | 标记提示可更新，提供一键提取新模板指令 |
 | **数据库安全备份** | 本地文件大小与时间戳检测 | 每日生成，文件体积 > 50KB | 超过 24 小时未生成备份 | 自动补跑 `backup_db.sh` 脚本 |

@@ -3,7 +3,7 @@
   "updated_at": "2026-09-23T14:20:00Z",
   "gateway": {
     "name": "New API 负载均衡",
-    "base_url": "http://127.0.0.1:3000/v1",
+    "base_url": "http://127.0.0.1:13000/v1",
     "local_key": "~/.new-api/local_key.json",
     "rotation": "Agnes-Hub-01..06 多 Key 权重分流 + 失败熔断 + 自动探活",
     "models": [
@@ -32,7 +32,7 @@
       "version": "v1.0.0-rc.34",
       "status": "healthy",
       "github": "https://github.com/QuantumNous/new-api",
-      "endpoint": "http://127.0.0.1:3000",
+      "endpoint": "http://127.0.0.1:13000",
       "upstream_count": 6,
       "upstream_type": "Agnes 免费/官方多 Key 聚合池（Hub-01..06）",
       "features": [

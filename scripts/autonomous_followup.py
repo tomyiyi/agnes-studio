@@ -5,7 +5,7 @@ Agnes Studio - 24/7 自主跟进守护与晨报生成器 (Autonomous Follow-up &
 ==================================================================================
 持续跟进至早上 8:00：
 1. 循环探测 GitHub 远程 MacBook Pro M5 最新提交并安全同步；
-2. 守护端口 8088 (studio_server.py) 与宿主机 New API (192.168.1.164:3000) 状态，异常自动拉起自愈；
+2. 守护端口 8088 (studio_server.py) 与配置声明的 New API 状态，异常自动拉起自愈；
 3. 周期性驱动批量商业海报生成、Playwright 光栅化与 Gemini 2.5 视觉质检；
 4. 准点于早上 8:00 汇总全夜巡检与演进成果，自动撰写并交付《晨报》。
 """
@@ -71,7 +71,7 @@ def post_event(kind, payload, inbox_file=None):
 def check_and_sync_git(cwd=None, proxy=None, timeout=30):
     """检查并同步 MacBook Pro M5 提交"""
     target_dir = Path(cwd) if cwd is not None else DIR
-    proxy_val = os.environ.get("AGNES_GIT_PROXY", "http://192.168.1.164:7897") if proxy is None else proxy
+    proxy_val = os.environ.get("AGNES_GIT_PROXY", "http://Omarchy 本机代理（按当前运行配置）") if proxy is None else proxy
     try:
         # 使用物理机 Clash Verge 代理加速访问 GitHub
         cmd_fetch = ["git"]
@@ -113,9 +113,10 @@ def check_and_sync_git(cwd=None, proxy=None, timeout=30):
 def check_and_heal_server(server_url=None, api_base=None, api_key=None, auto_heal=True):
     """检查 8088 端口服务与 New API 健康度，异常时自动拉起自愈"""
     srv_url = server_url or os.environ.get("AGNES_STUDIO_SERVER_URL") or "http://127.0.0.1:8088/api/config"
-    target_api_base = api_base or os.environ.get("AGNES_API_BASE") or os.environ.get("NEW_API_BASE") or "http://192.168.1.164:3000"
+    explicit_api_base = api_base or os.environ.get("AGNES_API_BASE") or os.environ.get("NEW_API_BASE")
+    target_api_base = explicit_api_base or "http://127.0.0.1:13000/v1"
     target_key = api_key if api_key is not None else (
-        os.environ.get("AGNES_API_KEY") or get_local_auth_key() or "sk-dtG1nh9qwKOFcW2F40rP04xuCToCECtnyxuaTTpSAiCO2FKw"
+        os.environ.get("AGNES_API_KEY") or os.environ.get("NEW_API_KEY") or get_local_auth_key() or ""
     )
 
     server_alive = False
@@ -124,6 +125,16 @@ def check_and_heal_server(server_url=None, api_base=None, api_key=None, auto_hea
         with urllib.request.urlopen(req, timeout=3) as resp:
             if resp.status == 200:
                 server_alive = True
+                if not explicit_api_base:
+                    try:
+                        config = json.loads(resp.read().decode("utf-8"))
+                        target_api_base = (
+                            config.get("image_base_url")
+                            or config.get("base_url")
+                            or target_api_base
+                        )
+                    except (AttributeError, TypeError, ValueError, json.JSONDecodeError):
+                        pass
     except Exception:
         server_alive = False
 
@@ -149,7 +160,8 @@ def check_and_heal_server(server_url=None, api_base=None, api_key=None, auto_hea
     # 检测黑苹果物理机 New API 网关
     new_api_alive = False
     try:
-        models_url = f"{target_api_base.rstrip('/')}/v1/models"
+        target_api_base = target_api_base.rstrip("/")
+        models_url = f"{target_api_base}/models" if target_api_base.endswith("/v1") else f"{target_api_base}/v1/models"
         req = urllib.request.Request(models_url)
         if target_key:
             req.add_header("Authorization", f"Bearer {target_key}")
@@ -284,7 +296,7 @@ def generate_morning_report(history, report_file=None, now=None):
 
 **生成时间**: {current_dt.strftime('%Y-%m-%d %H:%M:%S')}  
 **守护范围**: 跨机协作代码同步、本地 Studio Server 守护、自主海报生成流水线演进  
-**宿主机网关**: New API Hub (`192.168.1.164:3000`) & Clash Verge (`192.168.1.164:7897`)  
+**宿主机网关**: New API Hub (`127.0.0.1:13000`) & Clash Verge (`Omarchy 本机代理（按当前运行配置）`)  
 
 ---
 

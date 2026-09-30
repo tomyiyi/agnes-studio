@@ -23,7 +23,7 @@
 ```
 
 **经验：生图必须走 Agnes 工作台 / New API 轮换池**（不要单 Key 直连 apihub，**不要 MiMo `image_gen`**）：
-`scripts/agnes_gateway.py` → `http://127.0.0.1:3000/v1/images/generations`  
+`scripts/agnes_gateway.py` → `http://127.0.0.1:13000/v1/images/generations`  
 渠道池 `Agnes-Hub-01..06` 权重分流 + 熔断 + 探活；Token 在 `~/.new-api/local_key.json`。
 
 **风格 Skill（71 项合集，2026-09-24 全局安装）**：简报加 `style_skill: "S05"`（或 `cover_style.py --style-skill S05`）。

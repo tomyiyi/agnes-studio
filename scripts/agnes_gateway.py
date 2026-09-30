@@ -5,7 +5,7 @@ Agnes 生图客户端（经 New API 轮换）
 =================================
 
 经验沉淀：
-  - 不直连 apihub 打单 Key，统一走本机 New API（127.0.0.1:3000）
+  - 不直连 apihub 打单 Key，统一走本机 New API（127.0.0.1:13000）
   - New API 渠道池 Agnes-Hub-01..06 多 Key 权重轮换 + 失败熔断 + 自动探活
   - Token 从 ~/.new-api/local_key.json 读取，不写死在代码
   - 超时重试沿用网关 RetryTimes，客户端只做幂等落地
@@ -29,7 +29,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_KEY_PATH = Path.home() / ".new-api" / "local_key.json"
-DEFAULT_BASE = "http://127.0.0.1:3000/v1"
+DEFAULT_BASE = "http://127.0.0.1:13000/v1"
 DEFAULT_MODEL = "agnes-image-2.5-flash"
 
 

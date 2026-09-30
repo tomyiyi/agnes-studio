@@ -1,0 +1,77 @@
+2026-09-27T04:09:46: 127.0.0.1 - - [27/Sep/2026 04:09:46] "GET /api/config HTTP/1.1" 200 -
+2026-09-27T04:10:08: 127.0.0.1 - - [27/Sep/2026 04:10:08] "GET / HTTP/1.1" 200 -
+2026-09-27T04:10:08: 127.0.0.1 - - [27/Sep/2026 04:10:08] "POST /api/test-connection HTTP/1.1" 400 -
+2026-09-27T04:10:16: 127.0.0.1 - - [27/Sep/2026 04:10:16] "POST /api/test-connection HTTP/1.1" 200 -
+2026-09-27T04:13:49: 127.0.0.1 - - [27/Sep/2026 04:13:49] "GET /api/config HTTP/1.1" 200 -
+2026-09-27T05:38:14: 127.0.0.1 - - [27/Sep/2026 05:38:14] "GET /api/config HTTP/1.1" 200 -
+2026-09-27T06:46:43: 127.0.0.1 - - [27/Sep/2026 06:46:43] "GET /api/config HTTP/1.1" 200 -
+2026-09-27T10:57:29: 127.0.0.1 - - [27/Sep/2026 10:57:29] "GET / HTTP/1.1" 200 -
+2026-09-27T10:57:29: 127.0.0.1 - - [27/Sep/2026 10:57:29] code 404, message File not found
+2026-09-27T10:57:29: 127.0.0.1 - - [27/Sep/2026 10:57:29] "GET /health HTTP/1.1" 404 -
+2026-09-27T10:57:29: 127.0.0.1 - - [27/Sep/2026 10:57:29] "GET /api/health HTTP/1.1" 404 -
+2026-09-27T10:57:29: 127.0.0.1 - - [27/Sep/2026 10:57:29] "GET /api/status HTTP/1.1" 404 -
+2026-09-27T10:57:29: 127.0.0.1 - - [27/Sep/2026 10:57:29] code 404, message File not found
+2026-09-27T10:57:29: 127.0.0.1 - - [27/Sep/2026 10:57:29] "GET /v1/models HTTP/1.1" 404 -
+2026-09-27T10:57:42: 127.0.0.1 - - [27/Sep/2026 10:57:42] "GET /api/config HTTP/1.1" 200 -
+2026-09-27T11:08:02: 127.0.0.1 - - [27/Sep/2026 11:08:02] "GET /api/config HTTP/1.1" 200 -
+2026-09-27T11:19:05: 127.0.0.1 - - [27/Sep/2026 11:19:05] "GET /api/config HTTP/1.1" 200 -
+2026-09-27T11:19:12: 127.0.0.1 - - [27/Sep/2026 11:19:12] "GET /api/config HTTP/1.1" 200 -
+2026-09-27T11:26:25: 127.0.0.1 - - [27/Sep/2026 11:26:25] "POST /api/generate-image HTTP/1.1" 200 -
+2026-09-27T11:26:47: 127.0.0.1 - - [27/Sep/2026 11:26:47] "POST /api/generate-image HTTP/1.1" 200 -
+2026-09-27T11:27:12: 127.0.0.1 - - [27/Sep/2026 11:27:12] "POST /api/generate-image HTTP/1.1" 200 -
+2026-09-28T01:34:20: 127.0.0.1 - - [28/Sep/2026 01:34:20] "GET /api/config HTTP/1.1" 200 -
+2026-09-28T02:26:56: 127.0.0.1 - - [28/Sep/2026 02:26:56] "GET /api/config HTTP/1.1" 200 -
+2026-09-28T02:28:04: Traceback (most recent call last):
+2026-09-28T02:28:04:   File "/home/tom/Work/agnes-studio/scripts/studio_server.py", line 771, in <module>
+2026-09-28T02:28:04:     pass
+2026-09-28T02:28:04:     
+2026-09-28T02:28:04:   File "/home/tom/Work/agnes-studio/scripts/studio_server.py", line 761, in run
+2026-09-28T02:28:04:     print(f"⚙️  模型网关: http://localhost:{port}/api/config")
+2026-09-28T02:28:04:     ^^^^^^^^^^^^^^^^
+2026-09-28T02:28:04:   File "/usr/lib/python3.14/socketserver.py", line 235, in serve_forever
+2026-09-28T02:28:04:     ready = selector.select(poll_interval)
+2026-09-28T02:28:04:   File "/usr/lib/python3.14/selectors.py", line 398, in select
+2026-09-28T02:28:04:     fd_event_list = self._selector.poll(timeout)
+2026-09-28T02:28:04: KeyboardInterrupt
+2026-09-28T02:28:07: 127.0.0.1 - - [28/Sep/2026 02:28:07] "GET /api/config HTTP/1.1" 200 -
+2026-09-28T02:36:56: Traceback (most recent call last):
+2026-09-28T02:36:56:   File "/home/tom/Work/agnes-studio/scripts/studio_server.py", line 772, in <module>
+2026-09-28T02:36:56:     run(p)
+2026-09-28T02:36:56:     ~~~^^^
+2026-09-28T02:36:56:   File "/home/tom/Work/agnes-studio/scripts/studio_server.py", line 762, in run
+2026-09-28T02:36:56:     httpd.serve_forever()
+2026-09-28T02:36:56:     ~~~~~~~~~~~~~~~~~~~^^
+2026-09-28T02:36:56:   File "/usr/lib/python3.14/socketserver.py", line 235, in serve_forever
+2026-09-28T02:36:56:     ready = selector.select(poll_interval)
+2026-09-28T02:36:56:   File "/usr/lib/python3.14/selectors.py", line 398, in select
+2026-09-28T02:36:56:     fd_event_list = self._selector.poll(timeout)
+2026-09-28T02:36:56: KeyboardInterrupt
+2026-09-28T02:36:58: 127.0.0.1 - - [28/Sep/2026 02:36:58] "GET / HTTP/1.1" 200 -
+2026-09-28T02:51:09: 127.0.0.1 - - [28/Sep/2026 02:51:09] code 404, message File not found
+2026-09-28T02:51:09: 127.0.0.1 - - [28/Sep/2026 02:51:09] "GET /mcp HTTP/1.1" 404 -
+2026-09-28T04:34:15: 127.0.0.1 - - [28/Sep/2026 04:34:15] "GET /api/config HTTP/1.1" 200 -
+2026-09-28T04:38:25: 127.0.0.1 - - [28/Sep/2026 04:38:25] "POST /api/generate-image HTTP/1.1" 200 -
+2026-09-28T04:39:12: 127.0.0.1 - - [28/Sep/2026 04:39:12] "GET /assets/generated/agnes_1790570301.png HTTP/1.1" 200 -
+2026-09-28T04:39:41: Traceback (most recent call last):
+2026-09-28T04:39:41:   File "/home/tom/Work/agnes-studio/scripts/studio_server.py", line 772, in <module>
+2026-09-28T04:39:41:     run(p)
+2026-09-28T04:39:41:     ~~~^^^
+2026-09-28T04:39:41:   File "/home/tom/Work/agnes-studio/scripts/studio_server.py", line 762, in run
+2026-09-28T04:39:41:     httpd.serve_forever()
+2026-09-28T04:39:41:     ~~~~~~~~~~~~~~~~~~~^^
+2026-09-28T04:39:41:   File "/usr/lib/python3.14/socketserver.py", line 235, in serve_forever
+2026-09-28T04:39:41:     ready = selector.select(poll_interval)
+2026-09-28T04:39:41:   File "/usr/lib/python3.14/selectors.py", line 398, in select
+2026-09-28T04:39:41:     fd_event_list = self._selector.poll(timeout)
+2026-09-28T04:39:41: KeyboardInterrupt
+2026-09-28T04:40:22: 127.0.0.1 - - [28/Sep/2026 04:40:22] "POST /api/generate-image HTTP/1.1" 200 -
+2026-09-28T04:40:36: 127.0.0.1 - - [28/Sep/2026 04:40:36] "POST /api/generate-image HTTP/1.1" 200 -
+2026-09-28T04:41:02: 127.0.0.1 - - [28/Sep/2026 04:41:02] "GET /assets/generated/agnes_1790570406130329166.png HTTP/1.1" 200 -
+2026-09-28T04:41:02: 127.0.0.1 - - [28/Sep/2026 04:41:02] "GET /assets/generated/agnes_1790570432772477621.png HTTP/1.1" 200 -
+2026-09-28T04:50:19: 127.0.0.1 - - [28/Sep/2026 04:50:19] "GET /api/config HTTP/1.1" 200 -
+2026-09-28T05:18:48: 127.0.0.1 - - [28/Sep/2026 05:18:48] "GET /api/config HTTP/1.1" 200 -
+2026-09-28T05:19:57: 127.0.0.1 - - [28/Sep/2026 05:19:57] "GET /api/config HTTP/1.1" 200 -
+2026-09-28T05:22:16: 127.0.0.1 - - [28/Sep/2026 05:22:16] "GET /api/config HTTP/1.1" 200 -
+2026-09-28T05:22:40: 127.0.0.1 - - [28/Sep/2026 05:22:40] "GET /api/config HTTP/1.1" 200 -
+2026-09-28T05:23:10: 127.0.0.1 - - [28/Sep/2026 05:23:10] "GET /api/config HTTP/1.1" 200 -
+2026-09-30T01:04:57: 127.0.0.1 - - [30/Sep/2026 01:04:57] "GET / HTTP/1.1" 200 -
