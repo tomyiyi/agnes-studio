@@ -6,8 +6,8 @@ Agnes Studio · Agnes 智能文案引擎 (Agnes Engine)
 通过 New API 网关调用 Agnes 模型，为 Agnes Studio 提供 AI 辅助能力：
   1. 智能海报文案与需求简报生成 (generate_creative_brief)
   2. 物理光学级 Agnes 生图提示词编译与增强 (refine_prompt_for_agnes)
-  3. 视觉主体识别 (detect_visual_subjects) — 暂无可用视觉模型，优雅降级
-  4. 视觉质量审查 (vision_inspect_artwork) — 暂无可用视觉模型，返回明确状态
+  3. 视觉主体识别 (detect_visual_subjects) — Agnes 多模态视觉
+  4. 视觉质量审查 (vision_inspect_artwork) — Agnes 多模态视觉审美质检
 
 迁移说明 (2026-09-30)：原 gemini_engine.py 已废弃，Gemini 已从 New API 下线
 """
@@ -19,6 +19,7 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -47,6 +48,87 @@ CHAT_MODEL_ALLOWLIST = {
     "agnes-2.5-pro-beta",
     "agnes-2.0-flash",
 }
+
+# ═══════════════════════════════════════════════════
+# Agnes API 全局限速器（令牌桶算法）
+# 学习自 github.com/prabakannan/agnes-video-generator/core/api/rate_limiter.py
+# 所有 Agnes API 调用共享同一个令牌桶，确保总调用频率不超过限制。
+# ═══════════════════════════════════════════════════
+
+# Agnes API 每分钟调用上限（可通过环境变量 AGNES_RATE_LIMIT 覆盖）
+_AGNES_RATE_LIMIT = int(os.environ.get("AGNES_RATE_LIMIT", "20"))
+# 预留 20% 余量：实际允许 80% 的配额
+_SAFETY_FACTOR = 0.8
+_EFFECTIVE_RATE = _AGNES_RATE_LIMIT * _SAFETY_FACTOR  # 16 次/分钟 ≈ 3.75 秒/次
+
+# 重试配置（学习自 agnes-video-generator/core/api/agnes_chat.py）
+_MAX_RETRIES = 3
+_RETRY_BASE_DELAY = 15  # 秒，指数退避基数：15s → 30s → 45s
+
+
+class AgnesRateLimiter:
+    """令牌桶限速器（线程安全）。当令牌不足时，acquire() 会阻塞直到令牌可用。"""
+
+    def __init__(self, rate_per_minute: float = _EFFECTIVE_RATE, max_burst: int = 4):
+        self.max_tokens = min(max_burst, rate_per_minute)
+        self.refill_rate = rate_per_minute / 60.0  # tokens per second
+        self.tokens = float(self.max_tokens)
+        self.last_refill = time.monotonic()
+        self._lock = threading.Lock()
+        self._total_waits = 0
+        self._total_wait_seconds = 0.0
+
+    def acquire(self) -> None:
+        """阻塞式获取一个令牌。桶中有令牌则立即消耗返回，否则等待。"""
+        with self._lock:
+            now = time.monotonic()
+            elapsed = now - self.last_refill
+            self.tokens = min(self.max_tokens, self.tokens + elapsed * self.refill_rate)
+            self.last_refill = now
+            if self.tokens >= 1.0:
+                self.tokens -= 1.0
+                return
+            wait_time = (1.0 - self.tokens) / self.refill_rate
+            self.tokens = 0.0
+            self.last_refill = now + wait_time
+            if wait_time > 0.05:
+                self._total_waits += 1
+            self._total_wait_seconds += wait_time
+        if wait_time > 0.05:
+            print(f"[RateLimiter] 限速等待 {wait_time:.1f}s", flush=True)
+        time.sleep(wait_time)
+
+    @property
+    def stats(self) -> dict:
+        return {
+            "total_waits": self._total_waits,
+            "total_wait_seconds": round(self._total_wait_seconds, 1),
+            "effective_rate_per_min": round(_EFFECTIVE_RATE, 1),
+            "max_burst": self.max_tokens,
+        }
+
+
+_rate_limiter_instance = None
+_rate_limiter_lock = threading.Lock()
+
+
+def get_rate_limiter() -> "AgnesRateLimiter":
+    """获取全局速率限制器实例（线程安全单例）。"""
+    global _rate_limiter_instance
+    if _rate_limiter_instance is None:
+        with _rate_limiter_lock:
+            if _rate_limiter_instance is None:
+                _rate_limiter_instance = AgnesRateLimiter()
+    return _rate_limiter_instance
+
+
+def reset_rate_limiter() -> None:
+    """重置全局限速器（仅用于测试）。"""
+    global _rate_limiter_instance
+    with _rate_limiter_lock:
+        _rate_limiter_instance = None
+
+
 
 
 def load_credentials() -> Tuple[str, str, str]:
@@ -96,6 +178,11 @@ def encode_image_data_uri(image_path: Path) -> str:
     return f"data:{mime};base64,{b64}"
 
 
+def _should_retry_http(status_code: int) -> bool:
+    """判断 HTTP 状态码是否应重试：5xx 和 429 重试，4xx 不重试。"""
+    return status_code >= 500 or status_code == 429
+
+
 def call_agnes(
     messages: List[Dict[str, Any]],
     *,
@@ -107,7 +194,7 @@ def call_agnes(
     timeout: int = 45,
     retries: int = 2,
 ) -> Dict[str, Any]:
-    """通过 New API 网关调用 Agnes 聊天模型"""
+    """通过 New API 网关调用 Agnes 聊天模型（含令牌桶限速 + 指数退避重试）。"""
     def_base, def_key, def_model = load_credentials()
     base = (base_url or def_base).rstrip("/")
     target_model = model or def_model
@@ -138,6 +225,7 @@ def call_agnes(
     last_err = None
     max_retries = max(0, int(retries))
     for attempt in range(max_retries + 1):
+        get_rate_limiter().acquire()
         t0 = time.time()
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -146,23 +234,26 @@ def call_agnes(
             if not isinstance(data, dict):
                 last_err = "响应非有效 JSON 对象"
                 if attempt < max_retries:
-                    time.sleep(0.6 * (attempt + 1))
+                    delay = _RETRY_BASE_DELAY * (attempt + 1)
+                    print(f"[Agnes] 响应异常，重试 {attempt + 1}/{max_retries}，{delay}s 后...", flush=True)
+                    time.sleep(delay)
                 continue
             if "error" in data:
                 err_val = data["error"]
                 err_msg = err_val.get("message") if isinstance(err_val, dict) else str(err_val)
                 last_err = f"API Error: {err_msg}"
                 if attempt < max_retries:
-                    time.sleep(0.6 * (attempt + 1))
+                    delay = _RETRY_BASE_DELAY * (attempt + 1)
+                    print(f"[Agnes] API 错误，重试 {attempt + 1}/{max_retries}，{delay}s 后...", flush=True)
+                    time.sleep(delay)
                 continue
-
             choices = data.get("choices")
             if not choices or not isinstance(choices, list):
                 last_err = "API 返回的 choices 列表为空"
                 if attempt < max_retries:
-                    time.sleep(0.6 * (attempt + 1))
+                    delay = _RETRY_BASE_DELAY * (attempt + 1)
+                    time.sleep(delay)
                 continue
-
             choice = choices[0] if isinstance(choices[0], dict) else {}
             msg = choice.get("message") or {}
             content = msg.get("content", "")
@@ -176,14 +267,20 @@ def call_agnes(
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", "ignore")[:300]
             last_err = f"HTTP {e.code}: {err_body}"
+            if _should_retry_http(e.code) and attempt < max_retries:
+                delay = _RETRY_BASE_DELAY * (attempt + 1)
+                print(f"[Agnes] HTTP {e.code}，重试 {attempt + 1}/{max_retries}，{delay}s 后...", flush=True)
+                time.sleep(delay)
+                continue
+            if not _should_retry_http(e.code):
+                return {"ok": False, "error": last_err, "model": target_model}
         except Exception as e:
             last_err = str(e)
-
-        if attempt < max_retries:
-            time.sleep(0.6 * (attempt + 1))
-
+            if attempt < max_retries:
+                delay = _RETRY_BASE_DELAY * (attempt + 1)
+                print(f"[Agnes] {type(e).__name__}，重试 {attempt + 1}/{max_retries}，{delay}s 后...", flush=True)
+                time.sleep(delay)
     return {"ok": False, "error": last_err, "model": target_model}
-
 
 # 向后兼容：旧代码调用 call_gemini 时自动转到 call_agnes
 def call_gemini(*args, **kwargs) -> Dict[str, Any]:

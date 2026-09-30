@@ -3011,9 +3011,11 @@ class TestGeminiEngine(unittest.TestCase):
         self.assertFalse(res["ok"])
         self.assertIn("API 返回的 choices 列表为空", res["error"])
 
+    @patch("agnes_engine.get_rate_limiter")
     @patch("time.sleep")
     @patch("urllib.request.urlopen")
-    def test_call_agnes_http_error(self, mock_urlopen, mock_sleep):
+    def test_call_agnes_http_error(self, mock_urlopen, mock_sleep, mock_limiter):
+        # 401 是客户端错误，不应重试（学习自 agnes-video-generator 最佳实践）
         mock_err = urllib.error.HTTPError(
             url="http://127.0.0.1:18045",
             code=401,
@@ -3026,6 +3028,27 @@ class TestGeminiEngine(unittest.TestCase):
         res = call_agnes([], retries=1)
         self.assertFalse(res["ok"])
         self.assertIn("HTTP 401", res["error"])
+        # 4xx 不重试，sleep 不应被调用
+        mock_sleep.assert_not_called()
+
+    @patch("agnes_engine.get_rate_limiter")
+    @patch("time.sleep")
+    @patch("urllib.request.urlopen")
+    def test_call_agnes_http_429_retries(self, mock_urlopen, mock_sleep, mock_limiter):
+        # 429 应触发指数退避重试
+        mock_err = urllib.error.HTTPError(
+            url="http://127.0.0.1:18045",
+            code=429,
+            msg="Too Many Requests",
+            hdrs={},
+            fp=io.BytesIO(b'{"message": "Rate limit"}')
+        )
+        mock_urlopen.side_effect = mock_err
+
+        res = call_agnes([], retries=1)
+        self.assertFalse(res["ok"])
+        self.assertIn("HTTP 429", res["error"])
+        # 429 应重试一次
         mock_sleep.assert_called_once()
 
     def test_generate_creative_brief_empty_topic(self):
