@@ -2922,10 +2922,9 @@ class TestGeminiEngine(unittest.TestCase):
     @patch("agnes_engine.KEY_PATH", Path("/tmp/non_existent_key_path_xyz.json"))
     def test_load_credentials_with_env(self):
         base, key, model = load_credentials()
-        # 新行为: GEMINI_*/OPENAI_* 通用回退仅在 key 文件存在时生效；
-        # 无 key 文件时忽略通用回退，使用 DEFAULT_BASE；key 为 None
-        self.assertEqual(base, DEFAULT_BASE)
-        self.assertIsNone(key)
+        # 无 key 文件时，GEMINI_*/OPENAI_* 通用回退生效
+        self.assertEqual(base, "http://127.0.0.1:9999/v1")
+        self.assertEqual(key, "sk-secret-token")
         self.assertEqual(model, "gemini-3.1-pro-high")
 
     @patch.dict("os.environ", {}, clear=True)
@@ -2944,6 +2943,51 @@ class TestGeminiEngine(unittest.TestCase):
             self.assertEqual(base, "http://example.com/api")
             self.assertEqual(key, "file-key-123")
             self.assertEqual(model, "agnes-3.0-flash")
+
+    @patch.dict("os.environ", {
+        "AGNES_BASE_URL": "http://agnes.direct:8888/v1",
+        "AGNES_API_KEY": "sk-agnes-direct",
+        "OPENAI_BASE_URL": "http://openai.fallback:9999/v1",
+        "OPENAI_API_KEY": "sk-openai-fallback",
+    }, clear=True)
+    def test_load_credentials_agnes_overrides_all(self):
+        fake_key_file = self.tmp_path / "fake_key.json"
+        fake_key_file.write_text(json.dumps({
+            "chat_base_url": "http://file.example/v1",
+            "api_key": "file-key-123",
+        }), encoding="utf-8")
+
+        with patch("agnes_engine.KEY_PATH", fake_key_file):
+            base, key, model = load_credentials()
+            self.assertEqual(base, "http://agnes.direct:8888/v1")
+            self.assertEqual(key, "sk-agnes-direct")
+
+    @patch.dict("os.environ", {
+        "OPENAI_BASE_URL": "http://192.168.1.164:8045/v1",
+        "OPENAI_API_BASE": "http://127.0.0.1:18045/v1",
+    }, clear=True)
+    @patch("agnes_engine.KEY_PATH", Path("/tmp/non_existent_key_path_xyz.json"))
+    def test_load_credentials_ignores_env_fossils(self):
+        # 2026-09-30 回归：sshd 携带的 8045 化石与 bashrc 的 18045 化石
+        # 不得劫持默认网关，必须回退到 DEFAULT_BASE
+        base, key, model = load_credentials()
+        self.assertEqual(base, DEFAULT_BASE)
+
+    @patch.dict("os.environ", {
+        "OPENAI_BASE_URL": "http://openai.fallback:9999/v1",
+        "OPENAI_API_KEY": "sk-openai-fallback",
+    }, clear=True)
+    def test_load_credentials_key_file_overrides_fallback(self):
+        fake_key_file = self.tmp_path / "fake_key.json"
+        fake_key_file.write_text(json.dumps({
+            "chat_base_url": "http://file.example/v1",
+            "api_key": "file-key-123",
+        }), encoding="utf-8")
+
+        with patch("agnes_engine.KEY_PATH", fake_key_file):
+            base, key, model = load_credentials()
+            self.assertEqual(base, "http://file.example/v1")
+            self.assertEqual(key, "file-key-123")
 
     def test_strip_markdown_codeblock(self):
         self.assertEqual(_strip_markdown_codeblock('```json\n{"k": "v"}\n```'), '{"k": "v"}')

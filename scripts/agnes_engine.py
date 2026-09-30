@@ -131,39 +131,55 @@ def reset_rate_limiter() -> None:
 
 
 
-def load_credentials() -> Tuple[str, str, str]:
-    """读取网关配置，返回 (base_url, api_key, chat_model)"""
-    # Agnes 专用变量优先级最高；OPENAI_* 仅作最低优先级回退（可能是过期残留）
+def load_credentials() -> Tuple[str, Optional[str], str]:
+    """读取网关配置，返回 (base_url, api_key, chat_model)
+    
+    优先级：
+    1. AGNES_* 专用环境变量（最高优先级）
+    2. local_key.json 本地配置文件（开发机配置，优先于通用环境变量，避免被旧环境劫持）
+    3. GEMINI_* / OPENAI_* 通用环境变量（回退）
+    4. 默认常量
+    """
+    # 1. Agnes 专用环境变量
     agnes_base = os.getenv("AGNES_BASE_URL") or os.getenv("AGNES_GATEWAY_URL")
     agnes_key = os.getenv("AGNES_API_KEY") or os.getenv("AGNES_GATEWAY_KEY")
-    env_model = os.getenv("AGNES_CHAT_MODEL") or os.getenv("AGNES_MODEL") or os.getenv("GEMINI_CHAT_MODEL") or os.getenv("GEMINI_MODEL") or os.getenv("CHAT_MODEL")
-    # 通用回退（低优先级）
-    fallback_base = os.getenv("GEMINI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
-    fallback_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY", "")
+    env_model = (
+        os.getenv("AGNES_CHAT_MODEL")
+        or os.getenv("AGNES_MODEL")
+        or os.getenv("GEMINI_CHAT_MODEL")
+        or os.getenv("GEMINI_MODEL")
+        or os.getenv("CHAT_MODEL")
+    )
 
-    base = agnes_base or DEFAULT_BASE
-    key = agnes_key
-    model = env_model or DEFAULT_CHAT_MODEL
-    # 标记是否用了明确的 Agnes 配置（vs 通用回退）
-    has_explicit_agnes = bool(agnes_base)
-
+    # 2. 本地配置文件
+    file_base = None
+    file_key = None
+    file_model = None
     if KEY_PATH.exists():
         try:
             with open(KEY_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            # 本地 New API 网关配置优先于通用 OPENAI_* 回退
-            if not has_explicit_agnes:
-                base = data.get("chat_base_url") or fallback_base or DEFAULT_BASE
-            # 使用本地 New API 密钥
-            if not key:
-                key = data.get("api_key") or fallback_key or key
+            file_base = data.get("chat_base_url")
+            file_key = data.get("api_key")
             if not env_model:
                 chat_models = (data.get("models") or {}).get("chat") or []
                 allowed_models = [item for item in chat_models if item in CHAT_MODEL_ALLOWLIST]
                 if allowed_models:
-                    model = allowed_models[0]
+                    file_model = allowed_models[0]
         except Exception:
             pass
+
+    # 3. 通用环境变量回退（过滤已知的环境化石，避免劫持默认网关）
+    _FOSSIL_BASE_MARKERS = ("192.168.1.164:8045", "127.0.0.1:18045")
+    fallback_base = os.getenv("GEMINI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+    if fallback_base and any(m in fallback_base for m in _FOSSIL_BASE_MARKERS):
+        fallback_base = None
+    fallback_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY")
+
+    base = agnes_base or file_base or fallback_base or DEFAULT_BASE
+    key = agnes_key or file_key or fallback_key or None
+    model = env_model or file_model or DEFAULT_CHAT_MODEL
+
     return base.rstrip("/"), key, model
 
 
