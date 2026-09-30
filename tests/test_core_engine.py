@@ -2023,6 +2023,22 @@ class TestAgnesGateway(unittest.TestCase):
     def tearDown(self):
         self.tmp_dir.cleanup()
 
+    def test_generate_image_route_prefers_image_base_url(self):
+        cfg = {"base_url": "http://old-base/v1", "image_base_url": "http://image-base/v1"}
+        default_base = cfg.get("image_base_url") or cfg.get("base_url") or "http://127.0.0.1:13000/v1"
+        self.assertEqual(default_base, "http://image-base/v1")
+
+    def test_generate_image_route_accepts_explicit_base_url(self):
+        cfg = {"base_url": "http://old-base/v1", "image_base_url": "http://image-base/v1"}
+        request_base = "http://override/v1"
+        default_base = cfg.get("image_base_url") or cfg.get("base_url") or "http://127.0.0.1:13000/v1"
+        self.assertEqual(request_base or default_base, "http://override/v1")
+
+    def test_generate_image_route_falls_back_to_base_url(self):
+        cfg = {"base_url": "http://legacy-base/v1"}
+        default_base = cfg.get("image_base_url") or cfg.get("base_url") or "http://127.0.0.1:13000/v1"
+        self.assertEqual(default_base, "http://legacy-base/v1")
+
     def test_gateway_constants(self):
         self.assertEqual(agnes_gateway.DEFAULT_BASE, "http://127.0.0.1:13000/v1")
         self.assertEqual(agnes_gateway.DEFAULT_MODEL, "agnes-image-2.5-flash")
@@ -2034,6 +2050,27 @@ class TestAgnesGateway(unittest.TestCase):
             self.assertEqual(base, "http://127.0.0.1:13000/v1")
             self.assertEqual(key, "")
             self.assertEqual(model, "agnes-image-2.5-flash")
+
+    def test_load_gateway_prefers_image_base_url(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg_file = Path(tmpdir) / "local_key.json"
+            cfg_file.write_text(json.dumps({
+                "base_url": "http://old.example/v1",
+                "image_base_url": "http://image.example/v1",
+                "api_key": "sk-test",
+            }), encoding="utf-8")
+            base, _, _ = load_gateway(key_path=cfg_file)
+            self.assertEqual(base, "http://image.example/v1")
+
+    def test_load_gateway_falls_back_to_base_url(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg_file = Path(tmpdir) / "local_key.json"
+            cfg_file.write_text(json.dumps({
+                "base_url": "http://legacy.example/v1",
+                "api_key": "sk-test",
+            }), encoding="utf-8")
+            base, _, _ = load_gateway(key_path=cfg_file)
+            self.assertEqual(base, "http://legacy.example/v1")
 
     def test_load_gateway_from_json(self):
         cfg_file = self.tmp_path / "local_key.json"

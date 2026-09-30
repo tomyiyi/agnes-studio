@@ -36,6 +36,41 @@ def ensure_venv():
 
 PUBLIC_DIR = DIR / "public"
 ASSETS_DIR = PUBLIC_DIR / "assets"
+
+SKILLS_71_PATH = DIR / "data" / "skills_71_index.json"
+SKILLS_DATA_PATH = DIR / "data" / "skills.json"
+
+def load_skills_catalog():
+    with SKILLS_71_PATH.open(encoding="utf-8") as handle:
+        skills = json.load(handle)
+    with SKILLS_DATA_PATH.open(encoding="utf-8") as handle:
+        categories = json.load(handle)
+    normalized = []
+    for item in skills.get("skills", []):
+        normalized.append({
+            "id": item["id"],
+            "name": item.get("display_name") or item["id"],
+            "call": item.get("declared_skill_name") or item.get("repo_name") or item["id"],
+            "group": item.get("group") or "未分类",
+            "style": item.get("style") or "",
+            "scope": item.get("scope") or "",
+            "thumb": None,
+            "hifi": False,
+        })
+    return {"success": True, "skills71": normalized, "categories": categories.get("categories", [])}
+
+def list_rendered_posters(root=ASSETS_DIR, limit=20):
+    items = []
+    root = Path(root)
+    if not root.is_dir():
+        return items
+    for path in root.glob("poster_custom_*.png"):
+        if not path.is_file():
+            continue
+        stat = path.stat()
+        items.append({"name": path.name, "poster_url": f"assets/{path.name}", "full_url": f"/assets/{path.name}", "size_bytes": stat.st_size, "mtime": stat.st_mtime})
+    items.sort(key=lambda item: item["mtime"], reverse=True)
+    return items[:limit]
 GENERATED_DIR = ASSETS_DIR / "generated"
 GENERATED_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -82,7 +117,7 @@ except Exception as e:
     vision_inspect_artwork = None
 
 LOCAL_KEY_PATH = Path.home() / ".new-api" / "local_key.json"
-IMAGE_BASE_DEFAULT = "http://127.0.0.1:13000/v1"
+IMAGE_BASE_DEFAULT = "http://192.168.1.164:3000/v1"
 CHAT_BASE_DEFAULT = "http://127.0.0.1:18045/v1"
 
 def get_local_newapi_config(key_path: Path | str | None = None) -> dict:
@@ -133,6 +168,42 @@ def get_local_newapi_config(key_path: Path | str | None = None) -> dict:
         ]
     }
 
+def resolve_image_base_url(req_body, local_cfg):
+    """Resolve the image-generation endpoint without falling back to chat routing."""
+    explicit = str(req_body.get("base_url") or "").strip()
+    if explicit:
+        return explicit.rstrip("/")
+
+    if local_cfg.get("detected"):
+        configured = local_cfg.get("image_base_url") or local_cfg.get("base_url")
+        if configured:
+            return str(configured).strip().rstrip("/")
+
+    return "http://127.0.0.1:13000/v1"
+
+
+def list_generated_images(root=GENERATED_DIR, limit=24):
+    """Return safe, newest-first generated image metadata for the Studio UI."""
+    allowed = {".png", ".jpg", ".jpeg", ".webp"}
+    root = Path(root)
+    if not root.is_dir():
+        return []
+    files = [p for p in root.iterdir() if p.is_file() and p.suffix.lower() in allowed]
+    files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    items = []
+    for path in files[:max(0, int(limit))]:
+        stat = path.stat()
+        rel = f"assets/generated/{path.name}"
+        items.append({
+            "name": path.name,
+            "file_path": rel,
+            "full_url": f"/assets/generated/{path.name}",
+            "size_bytes": stat.st_size,
+            "mtime": stat.st_mtime,
+        })
+    return items
+
+
 class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(PUBLIC_DIR), **kwargs)
@@ -157,6 +228,20 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed_path = urllib.parse.urlparse(self.path).path.rstrip("/")
+        if parsed_path == "/api/generated-images":
+            self._send_json({"success": True, "items": list_generated_images()})
+            return
+
+        if parsed_path == "/api/rendered-posters":
+            self._send_json({"success": True, "items": list_rendered_posters()})
+            return
+
+        if parsed_path == "/api/skills-catalog":
+            try:
+                self._send_json(load_skills_catalog())
+            except (OSError, KeyError, TypeError, ValueError) as exc:
+                self._send_json({"success": False, "error": f"技能目录读取失败: {exc}"}, status=500)
+            return
         if parsed_path == "/api/config":
             cfg = get_local_newapi_config()
             # 为前端提供脱敏显示的 key 和全量配置
@@ -172,7 +257,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                     "url": cfg["base_url"]
                 })
             preset_endpoints.extend([
-                {"name": "本地 Omarchy New API (127.0.0.1:13000)", "url": "http://127.0.0.1:13000/v1"},
+                {"name": "本地 New API 负载均衡 (127.0.0.1:3000)", "url": "http://127.0.0.1:3000/v1"},
                 {"name": "Agnes AI 官方端点", "url": "https://apihub.agnes-ai.com/v1"},
                 {"name": "自定义 / OneAPI 聚合网关", "url": ""}
             ])
@@ -282,8 +367,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
         # 2. 调用 Agnes 生成留白底图
         if parsed_path == "/api/generate-image":
             local_cfg = get_local_newapi_config()
-            default_base = local_cfg.get("base_url") or IMAGE_BASE_DEFAULT
-            base_url = str(req_body.get("base_url") or default_base).strip().rstrip("/")
+            base_url = resolve_image_base_url(req_body, local_cfg)
             api_key = str(req_body.get("api_key") or "").strip() or local_cfg.get("api_key", "")
             model = str(req_body.get("model") or "agnes-image-2.5-flash").strip()
             prompt = str(req_body.get("prompt") or "").strip()
@@ -325,7 +409,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                         remote_url = item.get("url")
                         b64_data = item.get("b64_json")
 
-                    timestamp = time.time_ns()
+                    timestamp = int(time.time())
                     out_filename = f"agnes_{timestamp}.png"
                     out_path = GENERATED_DIR / out_filename
 
@@ -400,7 +484,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                         bg_abs_path = ASSETS_DIR / "agnes_1789995698_9987.png"
                 bg_uri = get_base64_image(str(bg_abs_path))
 
-            timestamp = time.time_ns()
+            timestamp = int(time.time())
             out_filename = f"poster_custom_{timestamp}.png"
             out_abs_path = str(ASSETS_DIR / out_filename)
 

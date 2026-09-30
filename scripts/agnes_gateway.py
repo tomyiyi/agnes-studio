@@ -51,7 +51,7 @@ def load_gateway(key_path: Path | str | None = None) -> tuple[str, str, str]:
     if target_path.exists():
         try:
             data = json.loads(target_path.read_text(encoding="utf-8"))
-            base = data.get("base_url") or base
+            base = data.get("image_base_url") or data.get("base_url") or base
             key = data.get("api_key") or key
             models = (data.get("models") or {}).get("image_generation") or []
             if models:
