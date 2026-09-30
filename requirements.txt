@@ -1,1 +1,11 @@
+# Agnes Studio 依赖
+# 安装: pip install -r requirements.txt
+# 浏览器驱动: playwright install chromium
+
 playwright>=1.40
+Pillow>=10.0
+numpy>=1.24
+
+# macOS 特有（AppKit/Vision 框架调用），Linux 可忽略
+# pyobjc-framework-Cocoa>=10.0; sys_platform == "darwin"
+# pyobjc-framework-Vision>=10.0; sys_platform == "darwin"

@@ -136,7 +136,16 @@ def generate(
                 "via": "new-api-rotation-pool",
             }
         except urllib.error.HTTPError as e:
-            last_err = f"HTTP {e.code}: {e.read().decode('utf-8', 'ignore')[:200]}"
+            try:
+                err_body = e.read().decode("utf-8", "ignore")[:200]
+            except Exception:
+                err_body = str(e)
+            finally:
+                try:
+                    e.close()
+                except Exception:
+                    pass
+            last_err = f"HTTP {e.code}: {err_body}"
         except Exception as e:
             last_err = str(e)
         time.sleep(0.8 * (attempt + 1))

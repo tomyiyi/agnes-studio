@@ -2190,6 +2190,7 @@ class TestAgnesGateway(unittest.TestCase):
         res_auth = generate("Test auth prompt", retries=0)
         self.assertFalse(res_auth["ok"])
         self.assertEqual(res_auth.get("error_class"), "auth")
+        self.assertTrue(err_auth.fp.closed)
 
         mock_urlopen.side_effect = TimeoutError("Gateway request timed out")
         res_timeout = generate("Test timeout prompt", retries=0)
@@ -2318,16 +2319,18 @@ class TestUpstreamSentinel(unittest.TestCase):
 
     @patch("urllib.request.urlopen")
     def test_check_new_api_health_http_error(self, mock_urlopen):
-        mock_urlopen.side_effect = urllib.error.HTTPError(
+        err = urllib.error.HTTPError(
             url="http://mock.gateway/v1/models",
             code=401,
             msg="Unauthorized",
             hdrs={},
-            fp=None,
+            fp=io.BytesIO(b"unauthorized"),
         )
+        mock_urlopen.side_effect = err
         res = check_new_api_health(base_url="http://mock.gateway/v1", timeout=1.0)
         self.assertEqual(res["status"], "unhealthy")
         self.assertIn("401", res["error"])
+        self.assertTrue(err.fp.closed)
 
     @patch("urllib.request.urlopen")
     def test_check_new_api_health_invalid_json(self, mock_urlopen):
@@ -2907,7 +2910,8 @@ class TestGeminiEngine(unittest.TestCase):
     def test_load_credentials_defaults(self):
         base, key, model = load_credentials()
         self.assertEqual(base, DEFAULT_BASE)
-        self.assertEqual(key, "")
+        # 新行为: 无 AGNES_* 变量且无 key 文件时 key 为 None（不再默认空字符串）
+        self.assertIsNone(key)
         self.assertEqual(model, DEFAULT_CHAT_MODEL)
 
     @patch.dict("os.environ", {
@@ -2918,8 +2922,10 @@ class TestGeminiEngine(unittest.TestCase):
     @patch("agnes_engine.KEY_PATH", Path("/tmp/non_existent_key_path_xyz.json"))
     def test_load_credentials_with_env(self):
         base, key, model = load_credentials()
-        self.assertEqual(base, "http://127.0.0.1:9999/v1")
-        self.assertEqual(key, "sk-secret-token")
+        # 新行为: GEMINI_*/OPENAI_* 通用回退仅在 key 文件存在时生效；
+        # 无 key 文件时忽略通用回退，使用 DEFAULT_BASE；key 为 None
+        self.assertEqual(base, DEFAULT_BASE)
+        self.assertIsNone(key)
         self.assertEqual(model, "gemini-3.1-pro-high")
 
     @patch.dict("os.environ", {}, clear=True)

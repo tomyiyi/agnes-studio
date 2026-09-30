@@ -361,6 +361,11 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                         err_msg = str(err_json["error"])
                 except Exception:
                     pass
+                finally:
+                    try:
+                        e.close()
+                    except Exception:
+                        pass
                 self._send_json({"success": False, "error": err_msg, "code": e.code}, status=200)
                 return
             except Exception as e:
@@ -437,6 +442,11 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                     })
                     return
             except Exception as e:
+                if isinstance(e, urllib.error.HTTPError):
+                    try:
+                        e.close()
+                    except Exception:
+                        pass
                 self._send_json({"success": False, "error": f"生图失败: {str(e)}"}, status=500)
                 return
 

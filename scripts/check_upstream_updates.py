@@ -113,11 +113,17 @@ def check_new_api_health(
             }
     except urllib.error.HTTPError as e:
         elapsed = int((time.time() - start_t) * 1000)
-        return {
-            "status": "unhealthy",
-            "error": f"HTTPError {e.code}: {e.reason}",
-            "latency_ms": elapsed,
-        }
+        try:
+            return {
+                "status": "unhealthy",
+                "error": f"HTTPError {e.code}: {e.reason}",
+                "latency_ms": elapsed,
+            }
+        finally:
+            try:
+                e.close()
+            except Exception:
+                pass
     except Exception as e:
         elapsed = int((time.time() - start_t) * 1000)
         return {"status": "unhealthy", "error": str(e), "latency_ms": elapsed}

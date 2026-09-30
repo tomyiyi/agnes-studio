@@ -135,7 +135,12 @@ def check_and_heal_server(server_url=None, api_base=None, api_key=None, auto_hea
                         )
                     except (AttributeError, TypeError, ValueError, json.JSONDecodeError):
                         pass
-    except Exception:
+    except Exception as e:
+        if isinstance(e, urllib.error.HTTPError):
+            try:
+                e.close()
+            except Exception:
+                pass
         server_alive = False
 
     if not server_alive and auto_heal:
@@ -168,7 +173,12 @@ def check_and_heal_server(server_url=None, api_base=None, api_key=None, auto_hea
         with urllib.request.urlopen(req, timeout=4) as resp:
             if resp.status == 200:
                 new_api_alive = True
-    except Exception:
+    except Exception as e:
+        if isinstance(e, urllib.error.HTTPError):
+            try:
+                e.close()
+            except Exception:
+                pass
         new_api_alive = False
 
     return server_alive, new_api_alive
@@ -267,6 +277,11 @@ def run_creative_pipeline_cycle(cycle_id, server_base=None, timeout=None):
         post_event("pipeline_cycle_completed", cycle_result)
         return cycle_result
     except Exception as e:
+        if isinstance(e, urllib.error.HTTPError):
+            try:
+                e.close()
+            except Exception:
+                pass
         log(f"流水线执行异常: {e}", "ERROR")
         return None
 
