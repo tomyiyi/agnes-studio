@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
-import agnes_engine
+import gemini_engine
 import pro_poster_renderer
 import studio_server
 
@@ -44,17 +44,17 @@ class TestEndpointContract(unittest.TestCase):
             self.assertEqual(cfg["chat_base_url"], "http://10.0.0.3:18045/v1")
             self.assertEqual(cfg["api_key"], "sk-test-12345")
 
-    def test_chat_default_is_newapi(self):
-        self.assertEqual(agnes_engine.DEFAULT_BASE, "http://127.0.0.1:13000/v1")
+    def test_chat_default_is_dsh_tunnel(self):
+        self.assertEqual(gemini_engine.DEFAULT_BASE, "http://127.0.0.1:18045/v1")
 
     def test_chat_model_allowlist_excludes_local_image_models(self):
-        self.assertIn("agnes-3.0-flash", agnes_engine.CHAT_MODEL_ALLOWLIST)
-        self.assertNotIn("agnes-image-2.5-flash", agnes_engine.CHAT_MODEL_ALLOWLIST)
+        self.assertIn("gemini-3.8-flash-medium", gemini_engine.CHAT_MODEL_ALLOWLIST)
+        self.assertNotIn("agnes-image-2.5-flash", gemini_engine.CHAT_MODEL_ALLOWLIST)
 
-    def test_runtime_key_precedence_is_agnes_first(self):
-        self.assertTrue(hasattr(agnes_engine, "load_credentials"))
-        source = Path(agnes_engine.__file__).read_text(encoding="utf-8")
-        self.assertIn("AGNES_API_KEY", source)
+    def test_runtime_key_precedence_is_dsh_first(self):
+        self.assertTrue(hasattr(gemini_engine, "load_credentials"))
+        source = Path(gemini_engine.__file__).read_text(encoding="utf-8")
+        self.assertIn("ANTIGRAVITY_API_KEY", source)
 
     def test_studio_server_safe_import(self):
         self.assertTrue(callable(getattr(studio_server, "ensure_venv", None)))
@@ -212,17 +212,17 @@ class TestEndpointContract(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
-    def test_agnes_vision_and_inspect_default_models(self):
+    def test_gemini_vision_and_inspect_default_models(self):
         import inspect
-        sig_detect = inspect.signature(agnes_engine.detect_visual_subjects)
+        sig_detect = inspect.signature(gemini_engine.detect_visual_subjects_gemini)
         self.assertIn("model", sig_detect.parameters)
         self.assertIsNone(sig_detect.parameters["model"].default)
 
-        sig_inspect = inspect.signature(agnes_engine.vision_inspect_artwork)
+        sig_inspect = inspect.signature(gemini_engine.vision_inspect_artwork)
         self.assertIn("model", sig_inspect.parameters)
         self.assertIsNone(sig_inspect.parameters["model"].default)
 
-        source = Path(agnes_engine.__file__).read_text(encoding="utf-8")
+        source = Path(gemini_engine.__file__).read_text(encoding="utf-8")
         self.assertNotIn('model="agnes-2.5-flash"', source)
 
     def test_post_endpoints_validation_contract(self):
@@ -494,27 +494,27 @@ class TestEndpointContract(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
-    def test_agnes_engine_contract_and_image_handling(self):
+    def test_gemini_engine_contract_and_image_handling(self):
         # 1. 验证 markdown 代码块去除（含大小写兼容与去空白）
-        self.assertEqual(agnes_engine._strip_markdown_codeblock('```json\n{"a": 1}\n```'), '{"a": 1}')
-        self.assertEqual(agnes_engine._strip_markdown_codeblock('```JSON\n{"b": 2}\n```'), '{"b": 2}')
-        self.assertEqual(agnes_engine._strip_markdown_codeblock('```\n{"c": 3}\n```'), '{"c": 3}')
-        self.assertEqual(agnes_engine._strip_markdown_codeblock('{"d": 4}'), '{"d": 4}')
+        self.assertEqual(gemini_engine._strip_markdown_codeblock('```json\n{"a": 1}\n```'), '{"a": 1}')
+        self.assertEqual(gemini_engine._strip_markdown_codeblock('```JSON\n{"b": 2}\n```'), '{"b": 2}')
+        self.assertEqual(gemini_engine._strip_markdown_codeblock('```\n{"c": 3}\n```'), '{"c": 3}')
+        self.assertEqual(gemini_engine._strip_markdown_codeblock('{"d": 4}'), '{"d": 4}')
 
         # 2. 验证 call_gemini 对非 http/https scheme 的快速拦截
         bad_schemes = ["ftp://example.com/v1", "file:///etc/passwd", "gopher://bad"]
         for bad_url in bad_schemes:
             with self.subTest(bad_url=bad_url):
-                res = agnes_engine.call_gemini([], base_url=bad_url)
+                res = gemini_engine.call_gemini([], base_url=bad_url)
                 self.assertFalse(res["ok"])
                 self.assertIn("Base URL 必须以 http:// 或 https:// 开头", res.get("error", ""))
 
         # 3. 验证缺失文件时多模态函数的安全优雅退出
         missing_file = "non_existent_img_xyz.png"
-        self.assertEqual(agnes_engine.detect_visual_subjects(missing_file), [])
-        inspect_res = agnes_engine.vision_inspect_artwork(missing_file)
+        self.assertEqual(gemini_engine.detect_visual_subjects_gemini(missing_file), [])
+        inspect_res = gemini_engine.vision_inspect_artwork(missing_file)
         self.assertFalse(inspect_res["ok"])
-        self.assertIn("无可用视觉", inspect_res.get("error", ""))
+        self.assertIn("文件不存在", inspect_res.get("error", ""))
 
         # 4. 验证 WebP / PNG / JPEG base64 MIME 正确性
         with tempfile.TemporaryDirectory() as tmpdir:

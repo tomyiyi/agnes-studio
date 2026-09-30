@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from env_config import resolve_chrome_path, ASSETS_DIR, FONTS_DIR
-from agnes_engine import (
+from gemini_engine import (
     load_credentials,
     call_gemini,
     generate_creative_brief,
@@ -103,7 +103,7 @@ def test_step_1_chrome(
 
 def test_step_2_gateway(
     mock: bool = False,
-    call_agnes_fn: Callable[..., dict[str, Any]] | None = None,
+    call_gemini_fn: Callable[..., dict[str, Any]] | None = None,
     load_creds_fn: Callable[[], tuple[str, str, str]] | None = None,
 ) -> dict[str, Any]:
     """[Test 2/7] 校验 New API 凭证与网关探活。"""
@@ -124,7 +124,7 @@ def test_step_2_gateway(
                 "cost_s": round(time.time() - t0, 3),
                 "error": None,
             }
-        fn = call_agnes_fn or call_gemini
+        fn = call_gemini_fn or call_gemini
         test_res = fn([{"role": "user", "content": "ping"}], max_tokens=10)
         ok = bool(test_res.get("ok"))
         cost_s = test_res.get("cost_s", round(time.time() - t0, 3))

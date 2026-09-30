@@ -105,13 +105,13 @@ except Exception as e:
     print(f"⚠️ [Warning] 排版引擎导入提示: {e}")
 
 try:
-    from gemini_engine import (
+    from agnes_engine import (
         generate_creative_brief,
         refine_prompt_for_agnes,
         vision_inspect_artwork,
     )
 except Exception as e:
-    print(f"⚠️ [Warning] Gemini 引擎导入提示: {e}")
+    print(f"⚠️ [Warning] Agnes 引擎导入提示: {e}")
     generate_creative_brief = None
     refine_prompt_for_agnes = None
     vision_inspect_artwork = None
