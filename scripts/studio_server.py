@@ -117,8 +117,11 @@ except Exception as e:
     vision_inspect_artwork = None
 
 LOCAL_KEY_PATH = Path.home() / ".new-api" / "local_key.json"
-IMAGE_BASE_DEFAULT = "http://127.0.0.1:13000/v1"
-CHAT_BASE_DEFAULT = "http://127.0.0.1:18045/v1"
+# 网关地址：环境变量优先，默认走本机 New API
+# AGNES_IMAGE_BASE_URL: 图像生成网关
+# AGNES_CHAT_BASE_URL: 文本/视觉网关
+IMAGE_BASE_DEFAULT = os.environ.get("AGNES_IMAGE_BASE_URL", "http://127.0.0.1:13000/v1")
+CHAT_BASE_DEFAULT = os.environ.get("AGNES_CHAT_BASE_URL", "http://127.0.0.1:13000/v1")
 
 def get_local_newapi_config(key_path: Path | str | None = None) -> dict:
     """读取本地 New API 配置文件（如果存在）"""
@@ -179,7 +182,7 @@ def resolve_image_base_url(req_body, local_cfg):
         if configured:
             return str(configured).strip().rstrip("/")
 
-    return "http://127.0.0.1:13000/v1"
+    return IMAGE_BASE_DEFAULT
 
 
 def list_generated_images(root=GENERATED_DIR, limit=24):

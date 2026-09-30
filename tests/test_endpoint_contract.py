@@ -16,17 +16,17 @@ import studio_server
 
 
 class TestEndpointContract(unittest.TestCase):
-    def test_image_and_chat_defaults_are_separate(self):
+    def test_image_and_chat_defaults_are_configurable(self):
+        # 默认都走本机 New API (13000)，可通过环境变量分别覆盖
+        # AGNES_IMAGE_BASE_URL / AGNES_CHAT_BASE_URL
         self.assertEqual(studio_server.IMAGE_BASE_DEFAULT, "http://127.0.0.1:13000/v1")
-        self.assertEqual(studio_server.CHAT_BASE_DEFAULT, "http://127.0.0.1:18045/v1")
-        self.assertNotEqual(studio_server.IMAGE_BASE_DEFAULT, studio_server.CHAT_BASE_DEFAULT)
+        self.assertEqual(studio_server.CHAT_BASE_DEFAULT, "http://127.0.0.1:13000/v1")
 
-        # 确保无本地配置文件回退时，get_local_newapi_config 提供的默认值同样独立
+        # 确保无本地配置文件回退时，get_local_newapi_config 提供的默认值正确
         cfg = studio_server.get_local_newapi_config(key_path="/non_existent/path/local_key.json")
         self.assertFalse(cfg["detected"])
         self.assertEqual(cfg["image_base_url"], "http://127.0.0.1:13000/v1")
-        self.assertEqual(cfg["chat_base_url"], "http://127.0.0.1:18045/v1")
-        self.assertNotEqual(cfg["image_base_url"], cfg["chat_base_url"])
+        self.assertEqual(cfg["chat_base_url"], "http://127.0.0.1:13000/v1")
 
     def test_get_local_newapi_config_custom_key_path(self):
         with tempfile.TemporaryDirectory() as tmpdir:
