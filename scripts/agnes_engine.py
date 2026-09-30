@@ -103,7 +103,7 @@ class AgnesRateLimiter:
         return {
             "total_waits": self._total_waits,
             "total_wait_seconds": round(self._total_wait_seconds, 1),
-            "effective_rate_per_min": round(_EFFECTIVE_RATE, 1),
+            "effective_rate_per_min": round(self.refill_rate * 60.0, 1),
             "max_burst": self.max_tokens,
         }
 
@@ -265,7 +265,15 @@ def call_agnes(
                 "usage": data.get("usage", {}),
             }
         except urllib.error.HTTPError as e:
-            err_body = e.read().decode("utf-8", "ignore")[:300]
+            try:
+                err_body = e.read().decode("utf-8", "ignore")[:300]
+            except Exception:
+                err_body = str(e)
+            finally:
+                try:
+                    e.close()
+                except Exception:
+                    pass
             last_err = f"HTTP {e.code}: {err_body}"
             if _should_retry_http(e.code) and attempt < max_retries:
                 delay = _RETRY_BASE_DELAY * (attempt + 1)
@@ -463,7 +471,7 @@ def detect_visual_subjects(
             }
         ]
 
-        res = call_gemini(
+        res = call_agnes(
             messages,
             model=model,
             temperature=0.1,
@@ -553,7 +561,7 @@ def vision_inspect_artwork(
             }
         ]
 
-        res = call_gemini(
+        res = call_agnes(
             messages,
             model=model,
             temperature=0.3,

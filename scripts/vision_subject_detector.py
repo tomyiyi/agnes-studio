@@ -80,14 +80,14 @@ def detect_faces(image_path):
                 except OSError:
                     pass
 
-    # 2. Linux / 虚拟机环境：无缝调用稳定的 Gemini 2.5 Flash 多模态视觉引擎
+    # 2. Linux / 虚拟机环境：无缝调用稳定的 Agnes 多模态视觉引擎
     try:
-        from gemini_engine import detect_visual_subjects_gemini
-        gemini_faces = detect_visual_subjects_gemini(str(safe_img))
-        if gemini_faces:
-            return gemini_faces
+        from agnes_engine import detect_visual_subjects
+        agnes_faces = detect_visual_subjects(str(safe_img))
+        if agnes_faces:
+            return agnes_faces
     except Exception as e:
-        print(f"⚠️ [Vision Subject Detector] Gemini 回退探测提示: {e}")
+        print(f"⚠️ [Vision Subject Detector] Agnes 回退探测提示: {e}")
 
     return []
 

@@ -151,6 +151,10 @@ from agnes_engine import (
     DEFAULT_BASE,
     DEFAULT_CHAT_MODEL,
     CHAT_MODEL_ALLOWLIST,
+    AgnesRateLimiter,
+    get_rate_limiter,
+    reset_rate_limiter,
+    _should_retry_http,
 )
 import render_cinema_poster
 from render_cinema_poster import (
@@ -3036,14 +3040,15 @@ class TestGeminiEngine(unittest.TestCase):
     @patch("urllib.request.urlopen")
     def test_call_agnes_http_429_retries(self, mock_urlopen, mock_sleep, mock_limiter):
         # 429 应触发指数退避重试
-        mock_err = urllib.error.HTTPError(
-            url="http://127.0.0.1:18045",
-            code=429,
-            msg="Too Many Requests",
-            hdrs={},
-            fp=io.BytesIO(b'{"message": "Rate limit"}')
-        )
-        mock_urlopen.side_effect = mock_err
+        def make_429(*args, **kwargs):
+            raise urllib.error.HTTPError(
+                url="http://127.0.0.1:18045",
+                code=429,
+                msg="Too Many Requests",
+                hdrs={},
+                fp=io.BytesIO(b'{"message": "Rate limit"}')
+            )
+        mock_urlopen.side_effect = make_429
 
         res = call_agnes([], retries=1)
         self.assertFalse(res["ok"])
@@ -3205,6 +3210,79 @@ class TestGeminiEngine(unittest.TestCase):
         res_call_err = vision_inspect_artwork(str(img_f))
         self.assertFalse(res_call_err["ok"])
         self.assertEqual(res_call_err["error"], "Quota exceeded")
+
+
+class TestAgnesRateLimiter(unittest.TestCase):
+    """Agnes 全局令牌桶限速器与重试逻辑单元测试"""
+
+    def setUp(self):
+        reset_rate_limiter()
+
+    def tearDown(self):
+        reset_rate_limiter()
+
+    def test_should_retry_http(self):
+        # 429 和 5xx 应该重试
+        self.assertTrue(_should_retry_http(429))
+        self.assertTrue(_should_retry_http(500))
+        self.assertTrue(_should_retry_http(502))
+        self.assertTrue(_should_retry_http(503))
+        self.assertTrue(_should_retry_http(504))
+
+        # 4xx (非 429) 和 2xx 不重试
+        self.assertFalse(_should_retry_http(400))
+        self.assertFalse(_should_retry_http(401))
+        self.assertFalse(_should_retry_http(403))
+        self.assertFalse(_should_retry_http(404))
+        self.assertFalse(_should_retry_http(422))
+        self.assertFalse(_should_retry_http(200))
+        self.assertFalse(_should_retry_http(201))
+
+    def test_rate_limiter_init_and_stats(self):
+        limiter = AgnesRateLimiter(rate_per_minute=30, max_burst=5)
+        self.assertEqual(limiter.max_tokens, 5)
+        self.assertAlmostEqual(limiter.refill_rate, 0.5)
+        stats = limiter.stats
+        self.assertEqual(stats["effective_rate_per_min"], 30.0)
+        self.assertEqual(stats["max_burst"], 5)
+        self.assertEqual(stats["total_waits"], 0)
+        self.assertEqual(stats["total_wait_seconds"], 0.0)
+
+    def test_rate_limiter_acquire_immediate(self):
+        limiter = AgnesRateLimiter(rate_per_minute=60, max_burst=2)
+        limiter.acquire()
+        self.assertAlmostEqual(limiter.tokens, 1.0, places=1)
+        self.assertEqual(limiter.stats["total_waits"], 0)
+
+    def test_rate_limiter_acquire_blocks_when_empty(self):
+        limiter = AgnesRateLimiter(rate_per_minute=60, max_burst=1)
+        limiter.acquire()
+        self.assertAlmostEqual(limiter.tokens, 0.0, places=1)
+
+        with patch("time.sleep") as mock_sleep, patch("time.monotonic") as mock_mono:
+            mock_mono.return_value = limiter.last_refill
+            limiter.acquire()
+            mock_sleep.assert_called_once_with(1.0)
+            self.assertEqual(limiter.stats["total_waits"], 1)
+            self.assertAlmostEqual(limiter.stats["total_wait_seconds"], 1.0)
+
+    def test_rate_limiter_refills_over_time(self):
+        limiter = AgnesRateLimiter(rate_per_minute=60, max_burst=4)
+        limiter.tokens = 0.0
+        limiter.last_refill = 100.0
+
+        with patch("time.monotonic", return_value=102.5):
+            limiter.acquire()
+            self.assertAlmostEqual(limiter.tokens, 1.5, places=1)
+
+    def test_get_and_reset_rate_limiter_singleton(self):
+        limiter1 = get_rate_limiter()
+        limiter2 = get_rate_limiter()
+        self.assertIs(limiter1, limiter2)
+
+        reset_rate_limiter()
+        limiter3 = get_rate_limiter()
+        self.assertIsNot(limiter1, limiter3)
 
 class TestRenderCinemaPoster(unittest.TestCase):
     """测试电影级海报渲染器 render_cinema_poster 及其版式模板规范与鲁棒性"""
