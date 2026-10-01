@@ -89,7 +89,10 @@ def generate(
 
     base, key, default_model = load_gateway(key_path=key_path)
     base = (base_url or base).rstrip("/")
-    key = api_key or key
+    # 第 18 轮：与第 14 轮 call_agnes 统一三态语义——None=回退服务端密钥，
+    # ""=明确无密钥（不再回退、不发 Authorization 头）。旧的 `or` 会把
+    # 显式 "" 吞掉并悄悄捡回服务端密钥（与第 14 轮修复的假修复同模式）。
+    key = key if api_key is None else api_key
     model = model or default_model
 
     if dry_run:
