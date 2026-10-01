@@ -126,5 +126,48 @@ class TestGatewayHealthRoute(unittest.TestCase):
         self.assertIn("probe_gateway(image_base, api_key=image_key)", source)
 
 
+class TestGatewayHealthRouteChain(unittest.TestCase):
+    """第 10 轮：health 响应携带故障转移全链探活（chat_chain/image_chain）。"""
+
+    def _call_route(self, doctor_mock):
+        with patch.object(studio_server, "resolve_chat_credentials",
+                          return_value=("http://127.0.0.1:13000/v1", "k")), \
+             patch.object(studio_server, "get_local_newapi_config",
+                          return_value={"detected": True, "api_key": "k",
+                                        "image_base_url": "http://127.0.0.1:13000/v1"}), \
+             patch.object(studio_server, "probe_gateway",
+                          side_effect=lambda base, api_key=None: {"base_url": base, "reachable": True}), \
+             patch.object(studio_server, "gateway_doctor", doctor_mock):
+            handler = studio_server.StudioHTTPRequestHandler.__new__(
+                studio_server.StudioHTTPRequestHandler)
+            handler.path = "/api/gateway/health"
+            captured = {}
+            handler._send_json = lambda data, status=200: captured.update(data=data, status=status)
+            handler.do_GET()
+            return captured["data"]
+
+    def test_health_includes_failover_chain(self):
+        fake_chain = {"http://127.0.0.1:13000/v1": {"status": "warn", "message": "HTTP 401"}}
+        data = self._call_route(lambda kind: fake_chain)
+        self.assertIn("chat_chain", data)
+        self.assertIn("image_chain", data)
+        self.assertEqual(data["chat_chain"]["http://127.0.0.1:13000/v1"]["status"], "warn")
+        # 主端点字段保持不变
+        self.assertIn("chat", data)
+        self.assertIn("image", data)
+
+    def test_health_chain_doctor_unavailable(self):
+        data = self._call_route(None)
+        self.assertIn("_error", data["chat_chain"])
+        self.assertIn("_error", data["image_chain"])
+        self.assertTrue(data["success"])
+
+    def test_health_route_source_uses_gateway_doctor(self):
+        source = Path(studio_server.__file__).read_text(encoding="utf-8")
+        self.assertIn("gateway_doctor", source)
+        self.assertIn('"chat_chain"', source)
+        self.assertIn('"image_chain"', source)
+
+
 if __name__ == "__main__":
     unittest.main()

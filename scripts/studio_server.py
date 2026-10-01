@@ -122,11 +122,12 @@ except Exception as e:
     new_trace_id = None
 
 try:
-    from gateway_failover import post_with_failover, AllGatewaysFailed
+    from gateway_failover import post_with_failover, AllGatewaysFailed, doctor as gateway_doctor
 except Exception as e:
     print(f"⚠️ [Warning] 网关故障转移模块导入提示: {e}")
     post_with_failover = None
     AllGatewaysFailed = Exception
+    gateway_doctor = None
 
 LOCAL_KEY_PATH = Path.home() / ".new-api" / "local_key.json"
 # 网关地址：环境变量优先，默认走本机 New API
@@ -362,15 +363,23 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             # 网关健康检查：分别探活文本(chat)与图像(image)网关的 /models。
             # 轻量 GET、不触发模型推理调用；服务端解析的 key 仅注入出站请求头，
             # 绝不回显给前端；前端可定时轮询做状态灯。
+            # 职责划分收尾（第 10 轮）：主端点（chat/image，带鉴权 + 模型清单）
+            # 之外，另经 gateway_failover.doctor 探活故障转移全链（主 + fallback），
+            # 使健康展示与 post_with_failover 的实际可用能力一致；链探活不带 key
+            #（401/403 记 warn：可达但需认证），doctor 本身永不抛异常。
             chat_base, chat_key = resolve_chat_credentials({})
             local_cfg = get_local_newapi_config()
             image_base = resolve_image_base_url({}, local_cfg)
             image_key = local_cfg.get("api_key") if local_cfg.get("detected") else None
+            chat_chain = gateway_doctor("chat") if callable(gateway_doctor) else {"_error": "故障转移模块未就绪"}
+            image_chain = gateway_doctor("image") if callable(gateway_doctor) else {"_error": "故障转移模块未就绪"}
             self._send_json({
                 "success": True,
                 "checked_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
                 "chat": probe_gateway(chat_base, api_key=chat_key),
                 "image": probe_gateway(image_base, api_key=image_key),
+                "chat_chain": chat_chain,
+                "image_chain": image_chain,
             })
             return
 
