@@ -111,6 +111,7 @@ try:
         refine_prompt_for_agnes,
         vision_inspect_artwork,
         load_credentials,
+        new_trace_id,
     )
 except Exception as e:
     print(f"⚠️ [Warning] Agnes 引擎导入提示: {e}")
@@ -118,6 +119,14 @@ except Exception as e:
     refine_prompt_for_agnes = None
     vision_inspect_artwork = None
     load_credentials = None
+    new_trace_id = None
+
+try:
+    from gateway_failover import post_with_failover, AllGatewaysFailed
+except Exception as e:
+    print(f"⚠️ [Warning] 网关故障转移模块导入提示: {e}")
+    post_with_failover = None
+    AllGatewaysFailed = Exception
 
 LOCAL_KEY_PATH = Path.home() / ".new-api" / "local_key.json"
 # 网关地址：环境变量优先，默认走本机 New API
@@ -493,6 +502,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 return
 
         # 2. 调用 Agnes 生成留白底图
+        # 2. AI 生图（Agnes 图像生成网关：故障转移 + trace）
         if parsed_path == "/api/generate-image":
             local_cfg = get_local_newapi_config()
             base_url = resolve_image_base_url(req_body, local_cfg)
@@ -500,6 +510,8 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             model = str(req_body.get("model") or "agnes-image-2.5-flash").strip()
             prompt = str(req_body.get("prompt") or "").strip()
             size = str(req_body.get("size") or "1024x1024")
+            trace = new_trace_id(req_body.get("trace_id")) if new_trace_id else (
+                str(req_body.get("trace_id") or "").strip()[:64] or "agnes-noengine")
 
             if not prompt:
                 self._send_json({"success": False, "error": "提示词不能为空"}, status=400)
@@ -509,66 +521,82 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
                 return
 
-            gen_url = f"{base_url}/images/generations"
+            if post_with_failover is None:
+                self._send_json({"success": False, "error": "网关故障转移模块未就绪"}, status=500)
+                return
+
             payload = {
                 "model": model,
                 "prompt": prompt,
                 "size": size,
                 "n": 1
             }
-            body_bytes = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(gen_url, data=body_bytes, method="POST")
-            req.add_header("Content-Type", "application/json")
-            req.add_header("User-Agent", "AgnesStudio/1.0")
-            if api_key:
-                req.add_header("Authorization", f"Bearer {api_key}")
-
             start_t = time.time()
             try:
-                with urllib.request.urlopen(req, timeout=90) as response:
-                    res_raw = response.read().decode("utf-8")
-                    cost_s = round(time.time() - start_t, 2)
-                    res_data = json.loads(res_raw)
-                    
-                    remote_url = None
-                    b64_data = None
-                    if "data" in res_data and len(res_data["data"]) > 0:
-                        item = res_data["data"][0]
-                        remote_url = item.get("url")
-                        b64_data = item.get("b64_json")
+                res = post_with_failover(
+                    "/images/generations", payload, kind="image",
+                    timeout=90, api_key=api_key or None,
+                    first_endpoint=base_url,
+                )
+            except AllGatewaysFailed as e:
+                print(f"[Agnes][{trace}] 生图网关全部故障: {e}", flush=True)
+                self._send_json({"success": False, "error": f"生图网关全部故障: {e}", "trace_id": trace}, status=500)
+                return
+            except Exception as e:
+                print(f"[Agnes][{trace}] 生图异常: {type(e).__name__}: {e}", flush=True)
+                self._send_json({"success": False, "error": f"生图失败: {e}", "trace_id": trace}, status=500)
+                return
+            cost_s = round(time.time() - start_t, 2)
+            if not res.get("ok"):
+                err_detail = (res.get("data") or {}).get("error", {})
+                err_msg = err_detail.get("message") if isinstance(err_detail, dict) else err_detail
+                print(f"[Agnes][{trace}] 生图网关返回错误 HTTP {res.get('status')}: {err_msg}", flush=True)
+                self._send_json({"success": False, "error": f"生图网关错误 HTTP {res.get('status')}: {err_msg}",
+                                 "trace_id": trace, "endpoint_used": res.get("endpoint_used")}, status=500)
+                return
+            print(f"[Agnes][{trace}] 生图 OK {res.get('endpoint_used')} {cost_s}s", flush=True)
+            res_data = res.get("data") or {}
 
-                    timestamp = int(time.time())
-                    out_filename = f"agnes_{timestamp}.png"
-                    out_path = GENERATED_DIR / out_filename
+            remote_url = None
+            b64_data = None
+            if "data" in res_data and len(res_data["data"]) > 0:
+                item = res_data["data"][0]
+                remote_url = item.get("url")
+                b64_data = item.get("b64_json")
 
-                    # 保存图片到本地 assets/generated
-                    if b64_data:
-                        import base64
+            timestamp = int(time.time())
+            out_filename = f"agnes_{timestamp}.png"
+            out_path = GENERATED_DIR / out_filename
+
+            # 保存图片到本地 assets/generated（urlretrieve 已废弃，改用 urlopen）
+            try:
+                if b64_data:
+                    import base64
+                    with open(out_path, "wb") as img_f:
+                        img_f.write(base64.b64decode(b64_data))
+                elif remote_url and (remote_url.startswith("http://") or remote_url.startswith("https://")):
+                    dl_req = urllib.request.Request(remote_url, headers={"User-Agent": "AgnesStudio/1.0"})
+                    with urllib.request.urlopen(dl_req, timeout=60) as dl_resp:
                         with open(out_path, "wb") as img_f:
-                            img_f.write(base64.b64decode(b64_data))
-                    elif remote_url and (remote_url.startswith("http://") or remote_url.startswith("https://")):
-                        urllib.request.urlretrieve(remote_url, str(out_path))
-                    else:
-                        self._send_json({"success": False, "error": "未能从模型响应中提取有效的图片数据"}, status=500)
-                        return
-
-                    self._send_json({
-                        "success": True,
-                        "cost_seconds": cost_s,
-                        "file_path": f"assets/generated/{out_filename}",
-                        "full_url": f"/assets/generated/{out_filename}",
-                        "model": model,
-                        "prompt": prompt
-                    })
+                            img_f.write(dl_resp.read())
+                else:
+                    self._send_json({"success": False, "error": "未能从模型响应中提取有效的图片数据", "trace_id": trace}, status=500)
                     return
             except Exception as e:
-                if isinstance(e, urllib.error.HTTPError):
-                    try:
-                        e.close()
-                    except Exception:
-                        pass
-                self._send_json({"success": False, "error": f"生图失败: {str(e)}"}, status=500)
+                self._send_json({"success": False, "error": f"图片落盘失败: {e}", "trace_id": trace}, status=500)
                 return
+
+            self._send_json({
+                "success": True,
+                "cost_seconds": cost_s,
+                "file_path": f"assets/generated/{out_filename}",
+                "full_url": f"/assets/generated/{out_filename}",
+                "model": model,
+                "prompt": prompt,
+                "trace_id": trace,
+                "endpoint_used": res.get("endpoint_used"),
+            })
+            return
 
         # 3. 动态渲染自定义商业海报 (Render Poster)
         if parsed_path == "/api/render-poster":

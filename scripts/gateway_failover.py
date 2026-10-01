@@ -139,14 +139,19 @@ def post_with_failover(
     api_key: str | None = None,
     key_resolver: Callable[[], tuple] | None = None,
     http_post: Callable | None = None,
+    first_endpoint: str | None = None,
 ) -> dict:
     """带故障转移的 POST。
 
     返回 {"ok", "status", "data", "endpoint_used", "attempts"}；
     attempts 为 [{"endpoint", "ok", "status"|"error"}]。
     全部端点故障时抛 AllGatewaysFailed。
+    first_endpoint: 显式指定的端点排首位（请求级覆盖高于环境链）。
     """
     endpoints = resolve_endpoints(kind)
+    if first_endpoint and str(first_endpoint).strip():
+        fe = str(first_endpoint).strip().rstrip("/")
+        endpoints = [fe] + [u for u in endpoints if u != fe]
     post = http_post or _default_http_post
     if api_key is None:
         resolver = key_resolver or load_credentials

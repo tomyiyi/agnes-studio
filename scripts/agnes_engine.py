@@ -239,6 +239,10 @@ def _new_trace_id(provided: Optional[str] = None) -> str:
     return "agnes-" + uuid.uuid4().hex[:12]
 
 
+# 公开别名：供 studio_server 等调用方复用同一 trace 生成规则
+new_trace_id = _new_trace_id
+
+
 def call_agnes(
     messages: List[Dict[str, Any]],
     *,
