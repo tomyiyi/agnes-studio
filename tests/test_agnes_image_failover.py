@@ -197,6 +197,39 @@ class TestGenerateImageFailover(unittest.TestCase):
         self.assertEqual(mock.call_args.kwargs["first_endpoint"], "http://x:1/v1")
 
 
+    def test_explicit_foreign_base_without_key_sends_no_key(self):
+        """第 14 轮：显式指向非配置网关且未自带 key → api_key=""（明确无密钥，
+        阻止 post_with_failover 重新解析服务端默认 key），防 SSRF 密钥外泄。"""
+        mock = MagicMock(return_value=_ok_result(endpoint_used="http://evil:9/v1"))
+        with patch.object(studio_server, "post_with_failover", mock):
+            st, body = self.post({"prompt": "a cat", "base_url": "http://evil:9/v1"})
+            self.addCleanup(self._cleanup, body.get("file_path", ""))
+            self.assertEqual(st, 200)
+        self.assertEqual(mock.call_args.kwargs["api_key"], "")
+
+    def test_explicit_foreign_base_with_own_key_uses_it(self):
+        """指向自定义网关 + 自带 key → 使用调用方自己的 key。"""
+        mock = MagicMock(return_value=_ok_result(endpoint_used="http://x:1/v1"))
+        with patch.object(studio_server, "post_with_failover", mock):
+            st, body = self.post({"prompt": "a cat", "base_url": "http://x:1/v1",
+                                  "api_key": "sk-user-own"})
+            self.addCleanup(self._cleanup, body.get("file_path", ""))
+            self.assertEqual(st, 200)
+        self.assertEqual(mock.call_args.kwargs["api_key"], "sk-user-own")
+
+    def test_default_path_key_binding(self):
+        """无显式 base_url → 目标为服务端配置网关：注入本地 key；
+        无本地配置时传 None（下游按旧链解析，保持回退行为）。"""
+        mock = MagicMock(return_value=_ok_result())
+        with patch.object(studio_server, "post_with_failover", mock):
+            st, body = self.post({"prompt": "a cat"})
+            self.addCleanup(self._cleanup, body.get("file_path", ""))
+            self.assertEqual(st, 200)
+        local_cfg = studio_server.get_local_newapi_config()
+        expected = (local_cfg.get("api_key") or "").strip() or None
+        self.assertEqual(mock.call_args.kwargs["api_key"], expected)
+
+
 class TestPostWithFailoverFirstEndpoint(unittest.TestCase):
     """gateway_failover.first_endpoint 参数单元测试（mock http_post）。"""
 

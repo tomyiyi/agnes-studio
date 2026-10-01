@@ -198,51 +198,76 @@ def resolve_image_base_url(req_body, local_cfg):
     return IMAGE_BASE_DEFAULT
 
 
+def _server_default_chat_base(local_cfg: dict) -> str:
+    """无请求覆盖时的服务端默认文本网关地址（密钥绑定的锚点）。"""
+    if callable(load_credentials):
+        try:
+            sb, _, _ = load_credentials()
+            if sb:
+                return str(sb).strip().rstrip("/")
+        except Exception:
+            pass
+    if local_cfg.get("detected") and local_cfg.get("chat_base_url"):
+        return str(local_cfg["chat_base_url"]).strip().rstrip("/")
+    return CHAT_BASE_DEFAULT.rstrip("/")
+
+
+def _server_default_key(local_cfg: dict) -> Optional[str]:
+    """服务端密钥回退链：load_credentials > AGNES_* 环境变量 > 本地配置 > 通用环境变量。"""
+    if callable(load_credentials):
+        try:
+            _, def_key, _ = load_credentials()
+            if def_key:
+                return str(def_key).strip()
+        except Exception:
+            pass
+    env_agnes_key = os.getenv("AGNES_API_KEY") or os.getenv("AGNES_GATEWAY_KEY")
+    if env_agnes_key:
+        return env_agnes_key.strip()
+    if local_cfg.get("detected") and local_cfg.get("api_key"):
+        return str(local_cfg["api_key"]).strip()
+    fallback = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if fallback:
+        return fallback.strip()
+    return None
+
+
+def is_configured_image_gateway(target_base: str, local_cfg: dict) -> bool:
+    """目标是否为服务端配置的图像网关（无请求覆盖时的解析结果）。"""
+    if local_cfg.get("detected"):
+        configured = (local_cfg.get("image_base_url")
+                      or local_cfg.get("base_url") or "").strip().rstrip("/")
+    else:
+        configured = IMAGE_BASE_DEFAULT.rstrip("/")
+    return bool(configured) and target_base == configured
+
+
 def resolve_chat_credentials(req_body: dict | None = None) -> Tuple[str, Optional[str]]:
-    """解析用于文本/视觉调用的网关地址与密钥，遵循统一配置治理优先级：
-    1. 请求体显式指定优先
-    2. load_credentials()（AGNES_* > local_key.json > 通用环境变量回退）
-    3. 服务端默认值 (CHAT_BASE_DEFAULT)
+    """解析用于文本/视觉调用的网关地址与密钥。
+
+    密钥绑定规则（第 12/14 轮安全收紧）：
+    1. 请求体显式 api_key 优先；
+    2. 请求显式 base_url 与服务端默认网关**精确一致**时，可用服务端密钥回退链；
+    3. 请求显式指向其他地址且未自带 key 时，返回 ""（明确无密钥——下游
+       不再回退解析、不发送 Authorization 头），防止服务端密钥被 SSRF
+       带往任意地址。指向自定义网关的调用方必须自带 api_key。
     """
     req = req_body if isinstance(req_body, dict) else {}
     base_url = req.get("chat_base_url") or req.get("base_url")
     api_key = req.get("api_key")
 
-    resolved_base = str(base_url).strip().rstrip("/") if base_url else ""
-    resolved_key = str(api_key).strip() if api_key else ""
+    explicit_base = str(base_url).strip().rstrip("/") if base_url else ""
+    explicit_key = str(api_key).strip() if api_key else ""
 
-    if not resolved_base or not resolved_key:
-        if callable(load_credentials):
-            try:
-                def_base, def_key, _ = load_credentials()
-                if not resolved_base and def_base:
-                    resolved_base = str(def_base).strip().rstrip("/")
-                if not resolved_key and def_key:
-                    resolved_key = str(def_key).strip()
-            except Exception:
-                pass
+    local_cfg = get_local_newapi_config()
+    server_base = _server_default_chat_base(local_cfg)
+    final_base = explicit_base or server_base
 
-        if not resolved_base or not resolved_key:
-            local_cfg = get_local_newapi_config()
-            if not resolved_base:
-                if local_cfg.get("detected") and local_cfg.get("chat_base_url"):
-                    resolved_base = str(local_cfg["chat_base_url"]).strip().rstrip("/")
-                else:
-                    resolved_base = CHAT_BASE_DEFAULT.rstrip("/")
-            if not resolved_key:
-                env_agnes_key = os.getenv("AGNES_API_KEY") or os.getenv("AGNES_GATEWAY_KEY")
-                if env_agnes_key:
-                    resolved_key = env_agnes_key.strip()
-                elif local_cfg.get("detected") and local_cfg.get("api_key"):
-                    resolved_key = str(local_cfg["api_key"]).strip()
-                else:
-                    fallback = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY")
-                    if fallback:
-                        resolved_key = fallback.strip()
-
-    final_base = resolved_base or CHAT_BASE_DEFAULT.rstrip("/")
-    final_key = resolved_key if resolved_key else None
-    return final_base, final_key
+    if explicit_key:
+        return final_base, explicit_key
+    if explicit_base and explicit_base != server_base:
+        return final_base, ""
+    return final_base, _server_default_key(local_cfg)
 
 
 def probe_gateway(base_url: str, timeout: int = 5, api_key: str | None = None) -> dict:
@@ -517,7 +542,17 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
         if parsed_path == "/api/generate-image":
             local_cfg = get_local_newapi_config()
             base_url = resolve_image_base_url(req_body, local_cfg)
-            api_key = str(req_body.get("api_key") or "").strip() or local_cfg.get("api_key", "")
+            # 第 14 轮安全收紧：服务端密钥绑定服务端配置的图像网关。
+            # 请求显式指向其他地址且未自带 key 时传 ""（明确无密钥——阻止
+            # post_with_failover 重新解析默认 key、不发送 Authorization 头）。
+            explicit_img_base = str(req_body.get("base_url") or "").strip().rstrip("/")
+            explicit_img_key = str(req_body.get("api_key") or "").strip()
+            if explicit_img_key:
+                api_key = explicit_img_key
+            elif is_configured_image_gateway(base_url, local_cfg):
+                api_key = str(local_cfg.get("api_key") or "").strip() or None
+            else:
+                api_key = ""
             model = str(req_body.get("model") or "agnes-image-2.5-flash").strip()
             prompt = str(req_body.get("prompt") or "").strip()
             size = str(req_body.get("size") or "1024x1024")
@@ -549,7 +584,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             try:
                 res = post_with_failover(
                     "/images/generations", payload, kind="image",
-                    timeout=90, api_key=api_key or None,
+                    timeout=90, api_key=api_key,
                     first_endpoint=base_url,
                 )
             except AllGatewaysFailed as e:

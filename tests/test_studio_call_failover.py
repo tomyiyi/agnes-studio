@@ -239,8 +239,40 @@ class TestCallAgnesFailover(unittest.TestCase):
             self.assertEqual(mc.call_args.kwargs["trace_id"], "t-2")
 
 
+
+    def test_empty_string_api_key_means_no_key_no_fallback(self):
+        """第 14 轮：api_key="" 表示调用方明确"无密钥"——不再回退 def_key，
+        不发送 Authorization 头（防 SSRF 密钥外泄）。"""
+        mock_sleep = self._patch_common()
+        with failover_env():
+            with patch.object(E, "load_credentials",
+                              return_value=(EP_LIVE, "sk-should-not-leak", "m")), \
+                 patch("urllib.request.urlopen") as mu:
+                mu.return_value = _ok_resp("hi")
+                res = E.call_agnes([{"role": "user", "content": "hi"}],
+                                   base_url=EP_LIVE, api_key="", retries=0)
+        self.assertTrue(res["ok"])
+        req = mu.call_args[0][0]
+        self.assertNotIn("Authorization", req.headers)
+
+    def test_none_api_key_still_resolves_default_key(self):
+        """对照：api_key=None（缺省）仍走默认密钥解析，行为不变。"""
+        mock_sleep = self._patch_common()
+        with failover_env():
+            with patch.object(E, "load_credentials",
+                              return_value=(EP_LIVE, "sk-default-key", "m")), \
+                 patch("urllib.request.urlopen") as mu:
+                mu.return_value = _ok_resp("hi")
+                res = E.call_agnes([{"role": "user", "content": "hi"}],
+                                   base_url=EP_LIVE, retries=0)
+        self.assertTrue(res["ok"])
+        req = mu.call_args[0][0]
+        self.assertEqual(req.headers.get("Authorization"), "Bearer sk-default-key")
+
+
 if __name__ == "__main__":
     unittest.main()
+
 
 
 class TestWrapperTraceCarry(unittest.TestCase):

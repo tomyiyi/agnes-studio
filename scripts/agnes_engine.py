@@ -276,7 +276,10 @@ def call_agnes(
                 "error": f"Base URL 必须以 http:// 或 https:// 开头: {base}",
                 "model": target_model, "trace_id": trace}
 
-    key = api_key or def_key
+    # 第 14 轮安全收紧：api_key="" 表示调用方明确"无密钥"
+    # （如目标为非配置网关），此时不再回退 def_key，防止服务端密钥被 SSRF
+    # 带往任意地址；只有 None 才走默认密钥解析（保持旧调用方行为）。
+    key = def_key if api_key is None else api_key
     endpoints = _chat_endpoints(base_url) if failover else [base]
 
     payload = {

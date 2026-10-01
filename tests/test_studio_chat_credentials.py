@@ -37,11 +37,26 @@ class TestResolveChatCredentials(unittest.TestCase):
         base, key = resolve_chat_credentials({"base_url": FAKE_BASE, "api_key": FAKE_KEY})
         self.assertEqual((base, key), (FAKE_BASE, FAKE_KEY))
 
-    def test_partial_override_fills_key_from_load_credentials(self):
+    def test_explicit_base_matching_default_fills_key(self):
+        # 第 14 轮：显式地址 == 服务端默认网关 → 可用服务端密钥（前端常规流程）
+        with patch.object(studio_server, "load_credentials", return_value=("http://from-env/v1", FAKE_KEY, "m")):
+            base, key = resolve_chat_credentials({"chat_base_url": "http://from-env/v1/"})
+        self.assertEqual(base, "http://from-env/v1")  # 尾部斜杠被去除
+        self.assertEqual(key, FAKE_KEY)
+
+    def test_explicit_foreign_base_without_key_yields_empty(self):
+        # 第 14 轮安全收紧：显式指向其他地址且未自带 key → ""（明确无密钥，
+        # 下游不再回退解析、不发送 Authorization 头），防 SSRF 密钥外泄
         with patch.object(studio_server, "load_credentials", return_value=("http://from-env/v1", FAKE_KEY, "m")):
             base, key = resolve_chat_credentials({"chat_base_url": FAKE_BASE})
         self.assertEqual(base, FAKE_BASE)
-        self.assertEqual(key, FAKE_KEY)
+        self.assertEqual(key, "")
+
+    def test_explicit_foreign_base_with_own_key_honored(self):
+        # 指向自定义网关 + 自带 key → 使用调用方自己的 key
+        with patch.object(studio_server, "load_credentials", return_value=("http://from-env/v1", FAKE_KEY, "m")):
+            base, key = resolve_chat_credentials({"base_url": FAKE_BASE, "api_key": "sk-user-own"})
+        self.assertEqual((base, key), (FAKE_BASE, "sk-user-own"))
 
     def test_load_credentials_provides_both_when_body_empty(self):
         with patch.object(studio_server, "load_credentials", return_value=("http://from-env/v1", FAKE_KEY, "m")):
