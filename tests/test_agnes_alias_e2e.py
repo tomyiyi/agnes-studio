@@ -406,5 +406,93 @@ class TestConfigKeyMasking(unittest.TestCase):
         self.assertEqual(body["masked_api_key"], "***")
 
 
+
+
+class TestConnectionTraceEcho(unittest.TestCase):
+    """第 20 轮：/api/test-connection 剩余三条路径的 trace 回显。
+
+    第 15 轮只覆盖了该路由的两个参数校验 400；成功、HTTPError、
+    连接失败三条路径漏网。本类用 urlopen 分流 mock（仅拦截发往
+    /models 的探活请求，测试客户端自身的 HTTP 不受影响）。
+
+    注意：不能把 urllib.request.urlopen 存为 TestCase 类属性再经
+    self 取用——函数作为类属性会被描述符协议绑定成 bound method，
+    导致 self 被当成 url 参数传入（本轮真实踩坑）。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.httpd = HTTPServer(("127.0.0.1", 0),
+                               studio_server.StudioHTTPRequestHandler)
+        cls.port = cls.httpd.server_address[1]
+        cls.thread = threading.Thread(
+            target=cls.httpd.serve_forever,
+            kwargs={"poll_interval": 0.05}, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.thread.join()
+        cls.httpd.server_close()
+
+    def _post_with_probe(self, body, probe_handler):
+        real_urlopen = urllib.request.urlopen  # 局部变量，不经描述符绑定
+
+        def fake_urlopen(req, timeout=None):
+            url = req.full_url if hasattr(req, "full_url") else ""
+            if url.endswith("/models"):
+                return probe_handler(req)
+            return real_urlopen(req, timeout=timeout)
+
+        with patch.object(urllib.request, "urlopen",
+                          side_effect=fake_urlopen):
+            return _post(self.port, "/api/test-connection", body)
+
+    @staticmethod
+    def _ok_probe(req):
+        m = MagicMock()
+        m.read.return_value = json.dumps(
+            {"data": [{"id": "agnes-3.0-flash"}]}).encode("utf-8")
+        m.__enter__.return_value = m
+        m.__exit__.return_value = False
+        return m
+
+    @staticmethod
+    def _http401_probe(req):
+        raise urllib.error.HTTPError(
+            url=req.full_url, code=401, msg="Unauthorized", hdrs={}, fp=None)
+
+    @staticmethod
+    def _refused_probe(req):
+        raise urllib.error.URLError("Connection refused")
+
+    def test_success_echoes_trace(self):
+        st, body = self._post_with_probe(
+            {"base_url": "http://probe.invalid/v1", "trace_id": "t-tc-1"},
+            self._ok_probe)
+        self.assertEqual(st, 200)
+        self.assertTrue(body["success"])
+        self.assertEqual(body["trace_id"], "t-tc-1")
+
+    def test_http_error_echoes_trace(self):
+        st, body = self._post_with_probe(
+            {"base_url": "http://probe.invalid/v1", "trace_id": "t-tc-2"},
+            self._http401_probe)
+        self.assertEqual(st, 200)
+        self.assertFalse(body["success"])
+        self.assertEqual(body["trace_id"], "t-tc-2")
+        self.assertEqual(body["code"], 401)
+
+    def test_connection_failure_echoes_trace(self):
+        st, body = self._post_with_probe(
+            {"base_url": "http://probe.invalid/v1"},
+            self._refused_probe)
+        self.assertEqual(st, 200)
+        self.assertFalse(body["success"])
+        self.assertTrue(body["trace_id"].startswith("agnes-"))
+        self.assertIn("连接失败", body["error"])
+
+
 if __name__ == "__main__":
     unittest.main()

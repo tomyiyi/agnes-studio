@@ -520,7 +520,8 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                         "latency_ms": latency_ms,
                         "model_count": len(model_list),
                         "image_models": image_models or ["agnes-image-2.5-flash", "dall-e-3"],
-                        "all_models": model_list[:15]
+                        "all_models": model_list[:15],
+                        "trace_id": trace,
                     })
                     return
             except urllib.error.HTTPError as e:
@@ -537,10 +538,15 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                         e.close()
                     except Exception:
                         pass
-                self._send_json({"success": False, "error": err_msg, "code": e.code}, status=200)
+                self._send_json({"success": False, "error": err_msg,
+                                 "code": e.code, "trace_id": trace},
+                                status=200)
                 return
             except Exception as e:
-                self._send_json({"success": False, "error": f"连接失败: {str(e)}"}, status=200)
+                self._send_json({"success": False,
+                                 "error": f"连接失败: {str(e)}",
+                                 "trace_id": trace},
+                                status=200)
                 return
 
         # 2. 调用 Agnes 生成留白底图
