@@ -2441,7 +2441,7 @@ function renderSkills() {
     let studioConfig = {
       base_url: DEFAULT_IMAGE_BASE_URL,
       image_base_url: DEFAULT_IMAGE_BASE_URL,
-      chat_base_url: 'http://127.0.0.1:18045/v1',
+      chat_base_url: 'http://127.0.0.1:13000/v1',
       api_key: '',
       model: 'agnes-image-2.5-flash',
       image_size: '1024x1024'
@@ -2568,7 +2568,7 @@ function renderSkills() {
           } else {
             studioConfig.image_base_url = resolveFrontendImageBase(data);
             studioConfig.base_url = studioConfig.image_base_url;
-            studioConfig.chat_base_url = data.chat_base_url || 'http://127.0.0.1:18045/v1';
+            studioConfig.chat_base_url = data.chat_base_url || 'http://127.0.0.1:13000/v1';
             studioConfig.api_key = '';
             studioConfig.has_api_key = !!data.has_api_key;
             studioConfig.local_key_detected = !!data.local_key_detected;
@@ -2797,7 +2797,7 @@ function renderSkills() {
             platform: 'wechat',
             tone: 'luxury',
             goal: 'editorial',
-            chat_base_url: studioConfig.chat_base_url || 'http://127.0.0.1:18045/v1',
+            chat_base_url: studioConfig.chat_base_url || 'http://127.0.0.1:13000/v1',
             api_key: studioConfig.api_key || ''
           })
         });
@@ -2908,7 +2908,7 @@ function renderSkills() {
           body: JSON.stringify({
             image_path: latestRenderedPosterPath,
             title: title,
-            chat_base_url: studioConfig.chat_base_url || 'http://127.0.0.1:18045/v1',
+            chat_base_url: studioConfig.chat_base_url || 'http://127.0.0.1:13000/v1',
             api_key: studioConfig.api_key || ''
           })
         });
