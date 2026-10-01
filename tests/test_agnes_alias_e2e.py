@@ -356,5 +356,55 @@ class TestVisionPathTraversal(unittest.TestCase):
                 Path(studio_server.PUBLIC_DIR).resolve()))
 
 
+
+
+class TestConfigKeyMasking(unittest.TestCase):
+    """第 17 轮：/api/config 的 masked_api_key 只保留末 4 位。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.httpd = HTTPServer(("127.0.0.1", 0),
+                               studio_server.StudioHTTPRequestHandler)
+        cls.port = cls.httpd.server_address[1]
+        cls.thread = threading.Thread(
+            target=cls.httpd.serve_forever,
+            kwargs={"poll_interval": 0.05}, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.thread.join()
+        cls.httpd.server_close()
+
+    def get_config(self, fake_key):
+        fake_cfg = {"detected": True,
+                    "base_url": "http://127.0.0.1:13000",
+                    "image_base_url": "http://127.0.0.1:13000",
+                    "chat_base_url": "http://127.0.0.1:13000",
+                    "api_key": fake_key,
+                    "default_model": "agnes-3.0-flash",
+                    "models": [], "chat_models": []}
+        with patch.object(studio_server, "get_local_newapi_config",
+                          return_value=fake_cfg):
+            with urllib.request.urlopen(
+                    f"http://127.0.0.1:{self.port}/api/config",
+                    timeout=10) as resp:
+                return resp.status, json.loads(resp.read().decode("utf-8"))
+
+    def test_masked_key_last4_only(self):
+        key = "sk-testfakekey1234567890abcdef"
+        st, body = self.get_config(key)
+        self.assertEqual(st, 200)
+        self.assertEqual(body["masked_api_key"], "..." + key[-4:])
+        self.assertNotIn(key[:6], body["masked_api_key"])
+        self.assertEqual(body["api_key"], "")
+
+    def test_short_key_fully_masked(self):
+        st, body = self.get_config("short")
+        self.assertEqual(st, 200)
+        self.assertEqual(body["masked_api_key"], "***")
+
+
 if __name__ == "__main__":
     unittest.main()

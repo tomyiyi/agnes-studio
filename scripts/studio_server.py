@@ -414,7 +414,11 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             masked_key = ""
             if cfg["api_key"]:
                 key = cfg["api_key"]
-                masked_key = key[:6] + "..." + key[-4:] if len(key) > 10 else "***"
+                # 第 17 轮收紧：只保留末 4 位用于识别（业界惯例，
+                # Stripe/GitHub 均只展示末 4 位），不再暴露前 6 位——
+                # /api/config 无鉴权（局域网可达），前 6 位对识别无增益，
+                # 却扩大了密钥已知明文前缀。前端仅作输入框 placeholder。
+                masked_key = "..." + key[-4:] if len(key) > 10 else "***"
             
             preset_endpoints = []
             if cfg["detected"] and cfg.get("base_url"):
