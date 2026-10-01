@@ -471,6 +471,8 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
         if parsed_path == "/api/test-connection":
             base_url = str(req_body.get("base_url") or "").strip().rstrip("/")
             api_key = str(req_body.get("api_key") or "").strip()
+            trace = new_trace_id(req_body.get("trace_id")) if new_trace_id else (
+                str(req_body.get("trace_id") or "").strip()[:64] or "agnes-noengine")
             if not api_key:
                 local_cfg = get_local_newapi_config()
                 if local_cfg["detected"]:
@@ -484,11 +486,11 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                         api_key = local_cfg["api_key"]
 
             if not base_url:
-                self._send_json({"success": False, "error": "请提供有效的 Base URL"}, status=400)
+                self._send_json({"success": False, "error": "请提供有效的 Base URL", "trace_id": trace}, status=400)
                 return
 
             if not (base_url.startswith("http://") or base_url.startswith("https://")):
-                self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
+                self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头", "trace_id": trace}, status=400)
                 return
 
             models_url = f"{base_url}/models"
@@ -729,27 +731,29 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             platform = str(req_body.get("platform") or "wechat")
             tone = str(req_body.get("tone") or "luxury")
             goal = str(req_body.get("goal") or "editorial")
+            trace = new_trace_id(req_body.get("trace_id")) if new_trace_id else (
+                str(req_body.get("trace_id") or "").strip()[:64] or "agnes-noengine")
 
             if not topic:
-                self._send_json({"success": False, "error": "请输入创意主题"}, status=400)
+                self._send_json({"success": False, "error": "请输入创意主题", "trace_id": trace}, status=400)
                 return
 
             base_url, api_key = resolve_chat_credentials(req_body)
 
             if base_url:
                 if not (base_url.startswith("http://") or base_url.startswith("https://")):
-                    self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
+                    self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头", "trace_id": trace}, status=400)
                     return
 
             if not generate_creative_brief:
-                self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
+                self._send_json({"success": False, "error": "Gemini 引擎未就绪", "trace_id": trace}, status=500)
                 return
 
             res = generate_creative_brief(topic, platform=platform, tone=tone, goal=goal, base_url=base_url, api_key=api_key, trace_id=req_body.get("trace_id"))
             if res.get("ok"):
                 self._send_json({"success": True, "brief": res["brief"], "cost_s": res.get("cost_s"), "trace_id": res.get("trace_id")})
             else:
-                self._send_json({"success": False, "error": res.get("error")}, status=500)
+                self._send_json({"success": False, "error": res.get("error"), "trace_id": res.get("trace_id")}, status=500)
             return
 
         # 5. Gemini / Agnes 物理光学 Prompt 编译与增强
@@ -757,50 +761,54 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             raw_prompt = str(req_body.get("prompt") or "").strip()
             aspect_ratio = str(req_body.get("aspect_ratio") or "1:1")
             negative_space_zone = str(req_body.get("negative_space") or "top-left")
+            trace = new_trace_id(req_body.get("trace_id")) if new_trace_id else (
+                str(req_body.get("trace_id") or "").strip()[:64] or "agnes-noengine")
 
             if not raw_prompt:
-                self._send_json({"success": False, "error": "请输入原始提示词"}, status=400)
+                self._send_json({"success": False, "error": "请输入原始提示词", "trace_id": trace}, status=400)
                 return
 
             base_url, api_key = resolve_chat_credentials(req_body)
 
             if base_url:
                 if not (base_url.startswith("http://") or base_url.startswith("https://")):
-                    self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
+                    self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头", "trace_id": trace}, status=400)
                     return
 
             if not refine_prompt_for_agnes:
-                self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
+                self._send_json({"success": False, "error": "Gemini 引擎未就绪", "trace_id": trace}, status=500)
                 return
 
             res = refine_prompt_for_agnes(raw_prompt, aspect_ratio=aspect_ratio, negative_space_zone=negative_space_zone, base_url=base_url, api_key=api_key, trace_id=req_body.get("trace_id"))
             if res.get("ok"):
                 self._send_json({"success": True, "prompt": res["prompt"], "cost_s": res.get("cost_s"), "trace_id": res.get("trace_id")})
             else:
-                self._send_json({"success": False, "error": res.get("error")}, status=500)
+                self._send_json({"success": False, "error": res.get("error"), "trace_id": res.get("trace_id")}, status=500)
             return
 
         # 6. Gemini / Agnes 视觉多模态审美与排版审查
         if parsed_path in ("/api/gemini/vision-inspect", "/api/agnes/vision-inspect"):
             image_rel = str(req_body.get("image_path") or "").strip()
             title = str(req_body.get("title") or "")
+            trace = new_trace_id(req_body.get("trace_id")) if new_trace_id else (
+                str(req_body.get("trace_id") or "").strip()[:64] or "agnes-noengine")
 
             if not image_rel:
-                self._send_json({"success": False, "error": "请提供待质检图片路径"}, status=400)
+                self._send_json({"success": False, "error": "请提供待质检图片路径", "trace_id": trace}, status=400)
                 return
 
             ALLOWED_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
             clean_rel = image_rel.split("?")[0].split("#")[0].strip()
             ext = os.path.splitext(clean_rel)[1].lower()
             if ext not in ALLOWED_IMAGE_EXTS:
-                self._send_json({"success": False, "error": "只支持 PNG、JPG、JPEG、WEBP 格式的图片文件"}, status=400)
+                self._send_json({"success": False, "error": "只支持 PNG、JPG、JPEG、WEBP 格式的图片文件", "trace_id": trace}, status=400)
                 return
 
             base_url, api_key = resolve_chat_credentials(req_body)
 
             if base_url:
                 if not (base_url.startswith("http://") or base_url.startswith("https://")):
-                    self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
+                    self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头", "trace_id": trace}, status=400)
                     return
 
             rel_clean = clean_rel.lstrip("/")
@@ -819,18 +827,18 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 if any(str(alt_abs).startswith(str(d)) for d in allowed_dirs) and alt_abs.is_file():
                     img_abs = alt_abs
                 else:
-                    self._send_json({"success": False, "error": f"找不到图片文件: {image_rel}"}, status=404)
+                    self._send_json({"success": False, "error": f"找不到图片文件: {image_rel}", "trace_id": trace}, status=404)
                     return
 
             if not vision_inspect_artwork:
-                self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
+                self._send_json({"success": False, "error": "Gemini 引擎未就绪", "trace_id": trace}, status=500)
                 return
 
             res = vision_inspect_artwork(str(img_abs), title=title, base_url=base_url, api_key=api_key, trace_id=req_body.get("trace_id"))
             if res.get("ok"):
                 self._send_json({"success": True, "inspection": res["inspection"], "cost_s": res.get("cost_s"), "trace_id": res.get("trace_id")})
             else:
-                self._send_json({"success": False, "error": res.get("error")}, status=500)
+                self._send_json({"success": False, "error": res.get("error"), "trace_id": res.get("trace_id")}, status=500)
             return
 
         self._send_json({"success": False, "error": f"Endpoint not found: {parsed_path}"}, status=404)

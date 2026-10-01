@@ -152,5 +152,134 @@ class TestAgnesAliasE2E(unittest.TestCase):
         self.assertFalse(body["success"])
 
 
+
+
+class TestChatRoutesTraceEcho(unittest.TestCase):
+    """第 15 轮：三条 chat 路由 + /api/test-connection 的 400/404/500 路径
+    必须回显 trace_id（与第 13 轮 image 路由的统一口径一致）。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.httpd = HTTPServer(("127.0.0.1", 0),
+                               studio_server.StudioHTTPRequestHandler)
+        cls.port = cls.httpd.server_address[1]
+        cls.thread = threading.Thread(
+            target=cls.httpd.serve_forever,
+            kwargs={"poll_interval": 0.05}, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.thread.join()
+        cls.httpd.server_close()
+
+    def post(self, path, body):
+        return _post(self.port, path, body)
+
+    # ---- generate-brief ----
+
+    def test_brief_400_missing_topic_echoes_trace(self):
+        mock = MagicMock()
+        with patch.object(studio_server, "generate_creative_brief", mock):
+            st, body = self.post("/api/agnes/generate-brief",
+                                 {"topic": "  ", "trace_id": "t-br-400"})
+            self.assertEqual(st, 400)
+            self.assertEqual(body["trace_id"], "t-br-400")
+            mock.assert_not_called()
+            # 缺省 trace_id 时自动生成
+            st, body = self.post("/api/agnes/generate-brief", {"topic": ""})
+            self.assertEqual(st, 400)
+            self.assertTrue(body["trace_id"].startswith("agnes-"))
+
+    def test_brief_400_bad_base_url_echoes_trace(self):
+        mock = MagicMock()
+        with patch.object(studio_server, "generate_creative_brief", mock):
+            st, body = self.post("/api/agnes/generate-brief",
+                                 {"topic": "x", "base_url": "ftp://evil",
+                                  "trace_id": "t-br-url"})
+            self.assertEqual(st, 400)
+            self.assertEqual(body["trace_id"], "t-br-url")
+            mock.assert_not_called()
+
+    def test_brief_500_engine_not_ready_echoes_trace(self):
+        with patch.object(studio_server, "generate_creative_brief", None):
+            st, body = self.post("/api/agnes/generate-brief",
+                                 {"topic": "x", "trace_id": "t-br-500"})
+            self.assertEqual(st, 500)
+            self.assertEqual(body["trace_id"], "t-br-500")
+
+    def test_brief_500_engine_error_echoes_engine_trace(self):
+        mock = MagicMock(return_value={"ok": False, "error": "boom",
+                                       "trace_id": "t-eng-1"})
+        with patch.object(studio_server, "generate_creative_brief", mock):
+            st, body = self.post("/api/agnes/generate-brief",
+                                 {"topic": "x", "trace_id": "t-eng-1"})
+            self.assertEqual(st, 500)
+            self.assertEqual(body["trace_id"], "t-eng-1")
+
+    # ---- refine-prompt ----
+
+    def test_refine_400_and_500_echo_trace(self):
+        mock = MagicMock()
+        with patch.object(studio_server, "refine_prompt_for_agnes", mock):
+            st, body = self.post("/api/agnes/refine-prompt",
+                                 {"prompt": "", "trace_id": "t-rf-400"})
+            self.assertEqual(st, 400)
+            self.assertEqual(body["trace_id"], "t-rf-400")
+            mock.assert_not_called()
+        with patch.object(studio_server, "refine_prompt_for_agnes", None):
+            st, body = self.post("/api/agnes/refine-prompt",
+                                 {"prompt": "x", "trace_id": "t-rf-500"})
+            self.assertEqual(st, 500)
+            self.assertEqual(body["trace_id"], "t-rf-500")
+        mock_err = MagicMock(return_value={"ok": False, "error": "boom",
+                                           "trace_id": "t-eng-2"})
+        with patch.object(studio_server, "refine_prompt_for_agnes", mock_err):
+            st, body = self.post("/api/agnes/refine-prompt",
+                                 {"prompt": "x", "trace_id": "t-eng-2"})
+            self.assertEqual(st, 500)
+            self.assertEqual(body["trace_id"], "t-eng-2")
+
+    # ---- vision-inspect ----
+
+    def test_vision_400_404_500_echo_trace(self):
+        mock = MagicMock()
+        with patch.object(studio_server, "vision_inspect_artwork", mock):
+            st, body = self.post("/api/agnes/vision-inspect",
+                                 {"image_path": "", "trace_id": "t-vi-400"})
+            self.assertEqual(st, 400)
+            self.assertEqual(body["trace_id"], "t-vi-400")
+            st, body = self.post("/api/agnes/vision-inspect",
+                                 {"image_path": "x.txt", "trace_id": "t-vi-ext"})
+            self.assertEqual(st, 400)
+            self.assertEqual(body["trace_id"], "t-vi-ext")
+            st, body = self.post("/api/agnes/vision-inspect",
+                                 {"image_path": "no-such-file-xyz.png",
+                                  "trace_id": "t-vi-404"})
+            self.assertEqual(st, 404)
+            self.assertEqual(body["trace_id"], "t-vi-404")
+            mock.assert_not_called()
+        with patch.object(studio_server, "vision_inspect_artwork", None):
+            st, body = self.post("/api/agnes/vision-inspect",
+                                 {"image_path": PNG_REL,
+                                  "trace_id": "t-vi-500"})
+            # PNG_REL 真实存在 → 走到引擎未就绪 500
+            self.assertEqual(st, 500)
+            self.assertEqual(body["trace_id"], "t-vi-500")
+
+    # ---- test-connection ----
+
+    def test_test_connection_400_echoes_trace(self):
+        st, body = self.post("/api/test-connection",
+                             {"base_url": "", "trace_id": "t-tc-400"})
+        self.assertEqual(st, 400)
+        self.assertEqual(body["trace_id"], "t-tc-400")
+        st, body = self.post("/api/test-connection",
+                             {"base_url": "ftp://x", "trace_id": "t-tc-url"})
+        self.assertEqual(st, 400)
+        self.assertEqual(body["trace_id"], "t-tc-url")
+
+
 if __name__ == "__main__":
     unittest.main()
