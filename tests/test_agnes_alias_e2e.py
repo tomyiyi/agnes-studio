@@ -281,5 +281,80 @@ class TestChatRoutesTraceEcho(unittest.TestCase):
         self.assertEqual(body["trace_id"], "t-tc-url")
 
 
+
+
+class TestVisionPathTraversal(unittest.TestCase):
+    """第 16 轮：`str.startswith` 前缀碰撞穿越回归测试。
+
+    `public_backup/probe.png` 真实存在，但位于允许目录（public/、
+    experiments/、outputs/）之外；旧代码用字符串前缀判定会误放行
+    （"public_backup".startswith("public")），修复后必须 404 且引擎
+    未被调用。
+    """
+
+    COLLIDE_DIR = Path(__file__).resolve().parent.parent / "public_backup"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.httpd = HTTPServer(("127.0.0.1", 0),
+                               studio_server.StudioHTTPRequestHandler)
+        cls.port = cls.httpd.server_address[1]
+        cls.thread = threading.Thread(
+            target=cls.httpd.serve_forever,
+            kwargs={"poll_interval": 0.05}, daemon=True)
+        cls.thread.start()
+        cls.COLLIDE_DIR.mkdir(exist_ok=True)
+        import base64 as _b64
+        (cls.COLLIDE_DIR / "probe.png").write_bytes(_b64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8"
+            "BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.thread.join()
+        cls.httpd.server_close()
+        import shutil as _sh
+        _sh.rmtree(cls.COLLIDE_DIR, ignore_errors=True)
+
+    def post(self, path, body):
+        return _post(self.port, path, body)
+
+    def test_prefix_collision_blocked(self):
+        mock = MagicMock()
+        with patch.object(studio_server, "vision_inspect_artwork", mock):
+            st, body = self.post(
+                "/api/agnes/vision-inspect",
+                {"image_path": "../public_backup/probe.png",
+                 "trace_id": "t-tr-1"})
+            self.assertEqual(st, 404)
+            self.assertEqual(body["trace_id"], "t-tr-1")
+            mock.assert_not_called()
+
+    def test_prefix_collision_alt_path_blocked(self):
+        # 不带 public/ 前缀的相对穿越同样被拦
+        mock = MagicMock()
+        with patch.object(studio_server, "vision_inspect_artwork", mock):
+            st, body = self.post(
+                "/api/agnes/vision-inspect",
+                {"image_path": "public/../public_backup/probe.png",
+                 "trace_id": "t-tr-3"})
+            self.assertEqual(st, 404)
+            mock.assert_not_called()
+
+    def test_legit_subdir_still_allowed(self):
+        mock = MagicMock(return_value={"ok": True, "inspection": "I",
+                                       "cost_s": 0.1, "trace_id": "t-tr-2"})
+        with patch.object(studio_server, "vision_inspect_artwork", mock):
+            st, body = self.post("/api/agnes/vision-inspect",
+                                 {"image_path": PNG_REL,
+                                  "trace_id": "t-tr-2"})
+            self.assertEqual(st, 200)
+            self.assertTrue(body["success"])
+            called_path = mock.call_args.args[0]
+            self.assertTrue(Path(called_path).is_relative_to(
+                Path(studio_server.PUBLIC_DIR).resolve()))
+
+
 if __name__ == "__main__":
     unittest.main()

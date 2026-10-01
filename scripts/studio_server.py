@@ -821,10 +821,13 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 (DIR / "experiments").resolve(),
                 (DIR / "outputs").resolve(),
             ]
-            is_in_allowed_dir = any(str(img_abs).startswith(str(d)) for d in allowed_dirs)
+            # 第 16 轮安全修复：str.startswith 有前缀碰撞漏洞
+            # （如 public_backup 会被误判为 public 的子目录），改用
+            # Path.is_relative_to 做带分隔符边界的归属判定。
+            is_in_allowed_dir = any(img_abs.is_relative_to(d) for d in allowed_dirs)
             if not is_in_allowed_dir or not img_abs.exists() or not img_abs.is_file():
                 alt_abs = (DIR / clean_rel.lstrip("/")).resolve()
-                if any(str(alt_abs).startswith(str(d)) for d in allowed_dirs) and alt_abs.is_file():
+                if any(alt_abs.is_relative_to(d) for d in allowed_dirs) and alt_abs.is_file():
                     img_abs = alt_abs
                 else:
                     self._send_json({"success": False, "error": f"找不到图片文件: {image_rel}", "trace_id": trace}, status=404)
