@@ -235,6 +235,57 @@ def resolve_chat_credentials(req_body: dict | None = None) -> Tuple[str, Optiona
     return final_base, final_key
 
 
+def probe_gateway(base_url: str, timeout: int = 5, api_key: str | None = None) -> dict:
+    """轻量探活网关：GET <base>/models。
+
+    设计约束：
+    - 本机 New API 的 /models 需要鉴权：服务端如已解析出 key，可经 api_key 参数
+      注入到 Authorization 头（仅出站请求头，绝不进入返回结果/日志/前端）；
+    - 只做可达性与模型清单探测，不触发任何模型推理调用；
+    - 所有异常收敛为 reachable=False 的结构化结果，不抛异常。
+    """
+    base = str(base_url or "").strip().rstrip("/")
+    if not base or not (base.startswith("http://") or base.startswith("https://")):
+        return {"base_url": base, "reachable": False, "error": "base_url 非法"}
+
+    models_url = f"{base}/models"
+    req = urllib.request.Request(models_url, method="GET")
+    req.add_header("User-Agent", "AgnesStudio/1.0")
+    if api_key:
+        req.add_header("Authorization", f"Bearer {api_key}")
+    start_t = time.time()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            raw = response.read().decode("utf-8", errors="replace")
+            latency_ms = int((time.time() - start_t) * 1000)
+            res_json = json.loads(raw)
+            model_list = []
+            if isinstance(res_json, dict):
+                data = res_json.get("data")
+                if isinstance(data, list):
+                    model_list = [str(m["id"]) for m in data if isinstance(m, dict) and m.get("id")]
+            chat_models = [m for m in model_list if "agnes-3" in m.lower() or "chat" in m.lower()]
+            image_models = [m for m in model_list if "image" in m.lower() or "dall-e" in m.lower()]
+            return {
+                "base_url": base,
+                "reachable": True,
+                "latency_ms": latency_ms,
+                "http_status": getattr(response, "status", 200),
+                "model_count": len(model_list),
+                "chat_models": chat_models[:8],
+                "image_models": image_models[:8],
+            }
+    except urllib.error.HTTPError as e:
+        try:
+            e.close()
+        except Exception:
+            pass
+        return {"base_url": base, "reachable": False, "http_status": e.code,
+                "error": f"HTTP {e.code}: {e.reason}"}
+    except Exception as e:
+        return {"base_url": base, "reachable": False, "error": f"连接失败: {e}"}
+
+
 def list_generated_images(root=GENERATED_DIR, limit=24):
     """Return safe, newest-first generated image metadata for the Studio UI."""
     allowed = {".png", ".jpg", ".jpeg", ".webp"}
@@ -295,6 +346,22 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             except (OSError, KeyError, TypeError, ValueError) as exc:
                 self._send_json({"success": False, "error": f"技能目录读取失败: {exc}"}, status=500)
             return
+        if parsed_path == "/api/gateway/health":
+            # 网关健康检查：分别探活文本(chat)与图像(image)网关的 /models。
+            # 轻量 GET、不触发模型推理调用；服务端解析的 key 仅注入出站请求头，
+            # 绝不回显给前端；前端可定时轮询做状态灯。
+            chat_base, chat_key = resolve_chat_credentials({})
+            local_cfg = get_local_newapi_config()
+            image_base = resolve_image_base_url({}, local_cfg)
+            image_key = local_cfg.get("api_key") if local_cfg.get("detected") else None
+            self._send_json({
+                "success": True,
+                "checked_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "chat": probe_gateway(chat_base, api_key=chat_key),
+                "image": probe_gateway(image_base, api_key=image_key),
+            })
+            return
+
         if parsed_path == "/api/config":
             cfg = get_local_newapi_config()
             # 为前端提供脱敏显示的 key 和全量配置
