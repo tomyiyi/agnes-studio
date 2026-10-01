@@ -243,6 +243,9 @@ def probe_gateway(base_url: str, timeout: int = 5, api_key: str | None = None) -
       注入到 Authorization 头（仅出站请求头，绝不进入返回结果/日志/前端）；
     - 只做可达性与模型清单探测，不触发任何模型推理调用；
     - 所有异常收敛为 reachable=False 的结构化结果，不抛异常。
+    职责划分：本函数是被动探活（面向人/UI 的健康展示）；调用时的主动容错
+    由 agnes_engine.call_agnes 内置的网关故障转移负责（基于
+    gateway_failover.resolve_endpoints 的端点链），两者不重叠。
     """
     base = str(base_url or "").strip().rstrip("/")
     if not base or not (base.startswith("http://") or base.startswith("https://")):
@@ -657,7 +660,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
                 return
 
-            res = generate_creative_brief(topic, platform=platform, tone=tone, goal=goal, base_url=base_url, api_key=api_key)
+            res = generate_creative_brief(topic, platform=platform, tone=tone, goal=goal, base_url=base_url, api_key=api_key, trace_id=req_body.get("trace_id"))
             if res.get("ok"):
                 self._send_json({"success": True, "brief": res["brief"], "cost_s": res.get("cost_s")})
             else:
@@ -685,7 +688,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
                 return
 
-            res = refine_prompt_for_agnes(raw_prompt, aspect_ratio=aspect_ratio, negative_space_zone=negative_space_zone, base_url=base_url, api_key=api_key)
+            res = refine_prompt_for_agnes(raw_prompt, aspect_ratio=aspect_ratio, negative_space_zone=negative_space_zone, base_url=base_url, api_key=api_key, trace_id=req_body.get("trace_id"))
             if res.get("ok"):
                 self._send_json({"success": True, "prompt": res["prompt"], "cost_s": res.get("cost_s")})
             else:
@@ -738,7 +741,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
                 return
 
-            res = vision_inspect_artwork(str(img_abs), title=title, base_url=base_url, api_key=api_key)
+            res = vision_inspect_artwork(str(img_abs), title=title, base_url=base_url, api_key=api_key, trace_id=req_body.get("trace_id"))
             if res.get("ok"):
                 self._send_json({"success": True, "inspection": res["inspection"], "cost_s": res.get("cost_s")})
             else:

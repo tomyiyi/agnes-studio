@@ -26,6 +26,15 @@ gateway_failover.py -- New API 双网关故障转移
 用法：
     from gateway_failover import post_with_failover
     res = post_with_failover("/chat/completions", payload, kind="chat")
+
+职责划分（与 /api/gateway/health 的 probe_gateway）：
+  - 本模块 / agnes_engine.call_agnes：调用时的主动容错。端点级故障
+    （连不上/超时/5xx/429）自动切换端点，对调用方透明；
+    面向机器的自愈，不面向人展示。
+  - /api/gateway/health：被动探活。GET <base>/models，不触发模型推理，
+    返回 reachable/latency/model 清单；面向人/UI 的健康展示。
+  两者正交：健康检查回答"网关现在好不好"，故障转移保证"调用时坏了
+  自动换路"。本模块不替代健康检查，健康检查也不做调用时切换。
 """
 
 from __future__ import annotations

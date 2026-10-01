@@ -21,6 +21,7 @@ import re
 import sys
 import threading
 import time
+import uuid
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -205,6 +206,39 @@ def _should_retry_http(status_code: int) -> bool:
     return status_code >= 500 or status_code == 429
 
 
+def _chat_endpoints(explicit_base: Optional[str] = None) -> List[str]:
+    """解析聊天网关端点链：请求显式地址排首位，其次走 failover 环境配置。
+
+    延迟导入 gateway_failover（函数内 import）：该模块顶部有
+    ``from agnes_engine import load_credentials``，顶层互引会形成循环导入。
+    """
+    chain: List[str] = []
+    if explicit_base:
+        chain.append(explicit_base.rstrip("/"))
+    try:
+        from gateway_failover import resolve_endpoints
+        for u in resolve_endpoints("chat"):
+            if u and u not in chain:
+                chain.append(u)
+    except Exception:
+        pass
+    if not chain:
+        try:
+            base, _, _ = load_credentials()
+            if base:
+                chain.append(base.rstrip("/"))
+        except Exception:
+            pass
+    return chain or [DEFAULT_BASE]
+
+
+def _new_trace_id(provided: Optional[str] = None) -> str:
+    """调用层统一 trace id：调用方透传优先，否则生成 agnes-<12hex>。"""
+    if provided is not None and str(provided).strip():
+        return str(provided).strip()[:64]
+    return "agnes-" + uuid.uuid4().hex[:12]
+
+
 def call_agnes(
     messages: List[Dict[str, Any]],
     *,
@@ -213,18 +247,33 @@ def call_agnes(
     max_tokens: int = 1500,
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
+    trace_id: Optional[str] = None,
+    failover: bool = True,
     timeout: int = 45,
     retries: int = 2,
 ) -> Dict[str, Any]:
-    """通过 New API 网关调用 Agnes 聊天模型（含令牌桶限速 + 指数退避重试）。"""
+    """通过 New API 网关调用 Agnes 聊天模型（令牌桶限速 + 指数退避重试 + 网关故障转移）。
+
+    故障转移语义（端点链 = 请求显式 base_url 排首位 + gateway_failover 环境链去重）：
+      - 单端点时行为与旧版完全一致（同端点重试 + 退避）。
+      - 多端点时：非末端点遇到端点级故障（连接失败/超时/5xx/429）立即切换
+        到下一个端点（不 sleep）；末端点保留旧版重试 + 退避语义。
+      - 其他 4xx 视为请求本身问题，直接返回，不切换、不重试。
+    职责划分：本函数负责调用时的主动容错；/api/gateway/health（probe_gateway）
+    只做被动探活（GET /models，不触发模型推理），两者不重叠。
+    """
+    trace = _new_trace_id(trace_id)
     def_base, def_key, def_model = load_credentials()
     base = (base_url or def_base).rstrip("/")
     target_model = model or def_model
 
     if not (base.startswith("http://") or base.startswith("https://")):
-        return {"ok": False, "error": f"Base URL 必须以 http:// 或 https:// 开头: {base}", "model": target_model}
+        return {"ok": False,
+                "error": f"Base URL 必须以 http:// 或 https:// 开头: {base}",
+                "model": target_model, "trace_id": trace}
 
     key = api_key or def_key
+    endpoints = _chat_endpoints(base_url) if failover else [base]
 
     payload = {
         "model": target_model,
@@ -233,84 +282,85 @@ def call_agnes(
         "max_tokens": max_tokens,
     }
     body = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        f"{base}/chat/completions",
-        data=body,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "User-Agent": "AgnesStudio-AgnesEngine/2.0",
-            **({"Authorization": f"Bearer {key}"} if key else {}),
-        },
-    )
 
     last_err = None
     max_retries = max(0, int(retries))
-    for attempt in range(max_retries + 1):
-        get_rate_limiter().acquire()
-        t0 = time.time()
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            cost_s = round(time.time() - t0, 2)
-            if not isinstance(data, dict):
-                last_err = "响应非有效 JSON 对象"
-                if attempt < max_retries:
-                    delay = _RETRY_BASE_DELAY * (attempt + 1)
-                    print(f"[Agnes] 响应异常，重试 {attempt + 1}/{max_retries}，{delay}s 后...", flush=True)
-                    time.sleep(delay)
-                continue
-            if "error" in data:
-                err_val = data["error"]
-                err_msg = err_val.get("message") if isinstance(err_val, dict) else str(err_val)
-                last_err = f"API Error: {err_msg}"
-                if attempt < max_retries:
-                    delay = _RETRY_BASE_DELAY * (attempt + 1)
-                    print(f"[Agnes] API 错误，重试 {attempt + 1}/{max_retries}，{delay}s 后...", flush=True)
-                    time.sleep(delay)
-                continue
-            choices = data.get("choices")
-            if not choices or not isinstance(choices, list):
-                last_err = "API 返回的 choices 列表为空"
-                if attempt < max_retries:
-                    delay = _RETRY_BASE_DELAY * (attempt + 1)
-                    time.sleep(delay)
-                continue
-            choice = choices[0] if isinstance(choices[0], dict) else {}
-            msg = choice.get("message") or {}
-            content = msg.get("content", "")
-            return {
-                "ok": True,
-                "content": content,
-                "model": target_model,
-                "cost_s": cost_s,
-                "usage": data.get("usage", {}),
-            }
-        except urllib.error.HTTPError as e:
+    for ep_idx, ep in enumerate(endpoints):
+        is_last = ep_idx == len(endpoints) - 1
+        # 非末端点只试 1 次：故障立即切换；末端点保留旧版重试语义
+        tries = (max_retries + 1) if is_last else 1
+        req = urllib.request.Request(
+            f"{ep}/chat/completions",
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "AgnesStudio-AgnesEngine/2.0",
+                **({"Authorization": f"Bearer {key}"} if key else {}),
+            },
+        )
+        for t in range(tries):
+            get_rate_limiter().acquire()
+            t0 = time.time()
             try:
-                err_body = e.read().decode("utf-8", "ignore")[:300]
-            except Exception:
-                err_body = str(e)
-            finally:
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                cost_s = round(time.time() - t0, 2)
+                if not isinstance(data, dict):
+                    last_err = "响应非有效 JSON 对象"
+                else:
+                    err_val = data.get("error")
+                    if err_val is not None:
+                        err_msg = (err_val.get("message") if isinstance(err_val, dict)
+                                   else str(err_val))
+                        last_err = f"API Error: {err_msg}"
+                    elif not data.get("choices") or not isinstance(data.get("choices"), list):
+                        last_err = "API 返回的 choices 列表为空"
+                    else:
+                        choice = data["choices"][0] if isinstance(data["choices"][0], dict) else {}
+                        msg = choice.get("message") or {}
+                        content = msg.get("content", "")
+                        print(f"[Agnes][{trace}] OK {ep} {cost_s}s", flush=True)
+                        return {
+                            "ok": True,
+                            "content": content,
+                            "model": target_model,
+                            "cost_s": cost_s,
+                            "usage": data.get("usage", {}),
+                            "trace_id": trace,
+                            "endpoint_used": ep,
+                        }
+            except urllib.error.HTTPError as e:
                 try:
-                    e.close()
+                    err_body = e.read().decode("utf-8", "ignore")[:300]
                 except Exception:
-                    pass
-            last_err = f"HTTP {e.code}: {err_body}"
-            if _should_retry_http(e.code) and attempt < max_retries:
-                delay = _RETRY_BASE_DELAY * (attempt + 1)
-                print(f"[Agnes] HTTP {e.code}，重试 {attempt + 1}/{max_retries}，{delay}s 后...", flush=True)
+                    err_body = str(e)
+                finally:
+                    try:
+                        e.close()
+                    except Exception:
+                        pass
+                last_err = f"HTTP {e.code}: {err_body}"
+                if not _should_retry_http(e.code):
+                    print(f"[Agnes][{trace}] 致命错误，直接返回: {last_err}", flush=True)
+                    return {"ok": False, "error": last_err,
+                            "model": target_model, "trace_id": trace}
+            except Exception as e:
+                last_err = f"{type(e).__name__}: {e}"
+            # —— 可重试故障：非末端点立即切换；末端点按旧语义退避重试
+            if not is_last:
+                nxt = endpoints[ep_idx + 1]
+                print(f"[Agnes][{trace}] 端点故障切换 {ep} -> {nxt}: {last_err}",
+                      flush=True)
+                break
+            if t < tries - 1:
+                delay = _RETRY_BASE_DELAY * (t + 1)
+                print(f"[Agnes][{trace}] 重试 {t + 1}/{max_retries}，{delay}s 后: {last_err}",
+                      flush=True)
                 time.sleep(delay)
-                continue
-            if not _should_retry_http(e.code):
-                return {"ok": False, "error": last_err, "model": target_model}
-        except Exception as e:
-            last_err = str(e)
-            if attempt < max_retries:
-                delay = _RETRY_BASE_DELAY * (attempt + 1)
-                print(f"[Agnes] {type(e).__name__}，重试 {attempt + 1}/{max_retries}，{delay}s 后...", flush=True)
-                time.sleep(delay)
-    return {"ok": False, "error": last_err, "model": target_model}
+    return {"ok": False, "error": last_err, "model": target_model,
+            "trace_id": trace}
+
 
 # 向后兼容：旧代码调用 call_gemini 时自动转到 call_agnes
 def call_gemini(*args, **kwargs) -> Dict[str, Any]:
@@ -337,6 +387,7 @@ def generate_creative_brief(
     goal: str = "editorial",
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
+    trace_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     智能生成商业级海报简报与排版文案
@@ -379,6 +430,7 @@ def generate_creative_brief(
         temperature=0.6,
         base_url=base_url,
         api_key=api_key,
+        trace_id=trace_id,
     )
 
     if not res.get("ok"):
@@ -412,6 +464,7 @@ def refine_prompt_for_agnes(
     negative_space_zone: str = "top-left",
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
+    trace_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     将普通的自然语言提示词编译为 Agnes 物理光学级专业 Prompt
@@ -442,6 +495,7 @@ def refine_prompt_for_agnes(
         temperature=0.5,
         base_url=base_url,
         api_key=api_key,
+        trace_id=trace_id,
     )
 
     if not res.get("ok"):
@@ -457,6 +511,7 @@ def detect_visual_subjects(
     model: Optional[str] = None,
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
+    trace_id: Optional[str] = None,
 ) -> List[Dict[str, float]]:
     """
     使用 Agnes 多模态视觉能力检测图片中的人脸与高显著性主体保护区。
@@ -500,6 +555,7 @@ def detect_visual_subjects(
             max_tokens=400,
             base_url=base_url,
             api_key=api_key,
+        trace_id=trace_id,
         )
 
         if not res.get("ok"):
@@ -537,6 +593,7 @@ def vision_inspect_artwork(
     model: Optional[str] = None,
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
+    trace_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     对生成的排版海报或留白底图进行 Agnes 多模态视觉审美质检与安全区评估
@@ -590,6 +647,7 @@ def vision_inspect_artwork(
             max_tokens=600,
             base_url=base_url,
             api_key=api_key,
+        trace_id=trace_id,
         )
 
         if not res.get("ok"):
