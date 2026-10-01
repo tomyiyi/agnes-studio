@@ -449,11 +449,13 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             if not api_key:
                 local_cfg = get_local_newapi_config()
                 if local_cfg["detected"]:
+                    # 安全收紧（第 12 轮）：仅当请求地址与本地配置的网关地址
+                    # 精确一致时才注入服务端密钥。旧逻辑放行了所有
+                    # 127.0.0.1/localhost/192.168.x 前缀——攻击者可在本机或
+                    # 局域网起监听端口，诱使服务端把 Authorization: Bearer
+                    # <真实密钥> 发往任意地址/路径（SSRF 密钥外泄），故删除。
                     configured_base = local_cfg["base_url"].rstrip("/")
-                    if (base_url == configured_base 
-                        or base_url.startswith("http://127.0.0.1") 
-                        or base_url.startswith("http://localhost") 
-                        or "192.168." in base_url):
+                    if base_url == configured_base and local_cfg["api_key"]:
                         api_key = local_cfg["api_key"]
 
             if not base_url:

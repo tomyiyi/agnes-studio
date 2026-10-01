@@ -642,5 +642,104 @@ class TestEndpointContract(unittest.TestCase):
         self.assertIn('updateHeaderStatus(false, "网关离线 · 请求异常")', html_content)
 
 
+class TestConnectionKeyInjectionTightening(unittest.TestCase):
+    """第 12 轮：/api/test-connection 服务端密钥注入收紧。
+
+    用本地监听器捕获 Authorization 头，验证：
+    - base_url 精确等于配置网关 → 注入服务端密钥（合法便利流不断）；
+    - base_url 为其他 127.0.0.1 端口/路径 → 不注入；
+    - base_url 含 192.168. 前缀 → 不注入（旧逻辑会泄漏）。
+    """
+
+    def _run_case(self, base_url):
+        from http.server import BaseHTTPRequestHandler
+        from unittest.mock import patch
+
+        captured = {}
+
+        class Listener(BaseHTTPRequestHandler):
+            def do_GET(self):
+                captured["auth"] = self.headers.get("Authorization")
+                body = b'{"data": []}'
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *a):
+                pass
+
+        # 监听 0.0.0.0：既服务 127.0.0.1，也服务本机局域网 IP
+        #（模拟攻击者在局域网/回环起的收割监听器）
+        listener = HTTPServer(("0.0.0.0", 0), Listener)
+        lport = listener.server_address[1]
+        lt = threading.Thread(target=listener.serve_forever, daemon=True)
+        lt.start()
+
+        fake_cfg = {
+            "detected": True,
+            "base_url": "http://127.0.0.1:%d/v1" % lport,
+            "api_key": "sk-secret-configured-key",
+        }
+        # base_url 中的占位端口替换为真实监听端口
+        target = base_url.replace("LISTEN_PORT", str(lport))
+
+        server = HTTPServer(("127.0.0.1", 0), studio_server.StudioHTTPRequestHandler)
+        sport = server.server_port
+        st = threading.Thread(target=server.serve_forever, daemon=True)
+        st.start()
+        try:
+            with patch.object(studio_server, "get_local_newapi_config",
+                              return_value=fake_cfg):
+                req = urllib.request.Request(
+                    "http://127.0.0.1:%d/api/test-connection" % sport,
+                    data=json.dumps({"base_url": target}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=10) as r:
+                    body = json.loads(r.read().decode("utf-8"))
+                self.assertTrue(body["success"])
+        finally:
+            server.shutdown()
+            server.server_close()
+            listener.shutdown()
+            listener.server_close()
+        return captured.get("auth")
+
+    def test_key_injected_only_for_exact_configured_base(self):
+        auth = self._run_case("http://127.0.0.1:LISTEN_PORT/v1")
+        self.assertEqual(auth, "Bearer sk-secret-configured-key")
+
+    def test_no_key_for_other_localhost_port(self):
+        auth = self._run_case("http://127.0.0.1:LISTEN_PORT/evil")
+        self.assertIsNone(auth)
+
+    def test_no_key_for_lan_prefix(self):
+        # 本机真实局域网 IP（omarchy: 192.168.1.133），动态探测兜底
+        import socket
+        lan_ip = None
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("192.168.1.1", 80))
+            lan_ip = s.getsockname()[0]
+            s.close()
+        except Exception:
+            lan_ip = None
+        if not lan_ip or not lan_ip.startswith("192.168."):
+            self.skipTest("无 192.168.x 局域网地址，跳过")
+        # 注意：本机 http_proxy 指向 192.168.1.164:7897，且 no_proxy 用了
+        # CIDR 写法（192.168.1.0/24）——Python urllib 的 proxy_bypass 不认
+        # CIDR，字面 IP 会被送进代理导致超时。这里把字面 IP 追加进 no_proxy，
+        # studio_server 与测试同进程，urlopen 会实时读取环境变量。
+        from unittest.mock import patch as _patch
+        import os as _os
+        extra = ",".join(filter(None, [_os.environ.get("no_proxy"), lan_ip]))
+        with _patch.dict(_os.environ, {"no_proxy": extra, "NO_PROXY": extra}):
+            auth = self._run_case("http://%s:LISTEN_PORT/x" % lan_ip)
+        self.assertIsNone(auth)
+
+
 if __name__ == "__main__":
     unittest.main()
