@@ -662,7 +662,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
             res = generate_creative_brief(topic, platform=platform, tone=tone, goal=goal, base_url=base_url, api_key=api_key, trace_id=req_body.get("trace_id"))
             if res.get("ok"):
-                self._send_json({"success": True, "brief": res["brief"], "cost_s": res.get("cost_s")})
+                self._send_json({"success": True, "brief": res["brief"], "cost_s": res.get("cost_s"), "trace_id": res.get("trace_id")})
             else:
                 self._send_json({"success": False, "error": res.get("error")}, status=500)
             return
@@ -690,7 +690,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
             res = refine_prompt_for_agnes(raw_prompt, aspect_ratio=aspect_ratio, negative_space_zone=negative_space_zone, base_url=base_url, api_key=api_key, trace_id=req_body.get("trace_id"))
             if res.get("ok"):
-                self._send_json({"success": True, "prompt": res["prompt"], "cost_s": res.get("cost_s")})
+                self._send_json({"success": True, "prompt": res["prompt"], "cost_s": res.get("cost_s"), "trace_id": res.get("trace_id")})
             else:
                 self._send_json({"success": False, "error": res.get("error")}, status=500)
             return
@@ -743,7 +743,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
             res = vision_inspect_artwork(str(img_abs), title=title, base_url=base_url, api_key=api_key, trace_id=req_body.get("trace_id"))
             if res.get("ok"):
-                self._send_json({"success": True, "inspection": res["inspection"], "cost_s": res.get("cost_s")})
+                self._send_json({"success": True, "inspection": res["inspection"], "cost_s": res.get("cost_s"), "trace_id": res.get("trace_id")})
             else:
                 self._send_json({"success": False, "error": res.get("error")}, status=500)
             return
