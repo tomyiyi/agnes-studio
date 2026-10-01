@@ -393,8 +393,9 @@ def generate_creative_brief(
     智能生成商业级海报简报与排版文案
     遵循中文排印规范、10:1字阶、盘古之白与对角拆字美学
     """
+    trace = _new_trace_id(trace_id)
     if not topic or not str(topic).strip():
-        return {"ok": False, "error": "主题内容不能为空"}
+        return {"ok": False, "error": "主题内容不能为空", "trace_id": trace}
 
     clean_topic = str(topic).strip()
     sys_prompt = """你是一位国际顶尖视觉创意总监兼中文字体排版大师（熟谙 Muller-Brockmann 瑞士网格系统、中国古典金石碑版与现代院线电影排印）。
@@ -430,11 +431,11 @@ def generate_creative_brief(
         temperature=0.6,
         base_url=base_url,
         api_key=api_key,
-        trace_id=trace_id,
+        trace_id=trace,
     )
 
     if not res.get("ok"):
-        return {"ok": False, "error": res.get("error")}
+        return {"ok": False, "error": res.get("error"), "trace_id": res.get("trace_id")}
 
     raw_text = res.get("content", "")
     json_str = _strip_markdown_codeblock(raw_text)
@@ -442,18 +443,19 @@ def generate_creative_brief(
     try:
         data = json.loads(json_str)
         if not isinstance(data, dict):
-            return {"ok": False, "error": "简报格式非字典对象", "raw": raw_text}
+            return {"ok": False, "error": "简报格式非字典对象", "raw": raw_text, "trace_id": trace}
         # 强制执行盘古之白与标点修整
         data["title"] = apply_fix(str(data.get("title", "")))
         data["subtitle"] = str(data.get("subtitle", "")).upper()
         data["body"] = apply_fix(str(data.get("body", "")))
         data["author"] = apply_fix(str(data.get("author", "AGNES STUDIO")))
-        return {"ok": True, "brief": data, "cost_s": res.get("cost_s")}
+        return {"ok": True, "brief": data, "cost_s": res.get("cost_s"), "trace_id": res.get("trace_id")}
     except Exception as e:
         return {
             "ok": False,
             "error": f"JSON解析失败: {e}",
             "raw": raw_text,
+            "trace_id": trace,
         }
 
 
@@ -470,8 +472,9 @@ def refine_prompt_for_agnes(
     将普通的自然语言提示词编译为 Agnes 物理光学级专业 Prompt
     注入相机镜头、打光方案、粒子质感与文字预留负空间
     """
+    trace = _new_trace_id(trace_id)
     if not raw_prompt or not str(raw_prompt).strip():
-        return {"ok": False, "error": "原始提示词不能为空"}
+        return {"ok": False, "error": "原始提示词不能为空", "trace_id": trace}
 
     clean_prompt = str(raw_prompt).strip()
     sys_prompt = """你是一位专门为 Agnes 图像扩散模型撰写 Prompt 的物理光学专家与电影摄影指导。
@@ -495,14 +498,14 @@ def refine_prompt_for_agnes(
         temperature=0.5,
         base_url=base_url,
         api_key=api_key,
-        trace_id=trace_id,
+        trace_id=trace,
     )
 
     if not res.get("ok"):
-        return {"ok": False, "error": res.get("error")}
+        return {"ok": False, "error": res.get("error"), "trace_id": res.get("trace_id")}
 
     enhanced = res.get("content", "").strip().strip('"').strip("'")
-    return {"ok": True, "prompt": enhanced, "cost_s": res.get("cost_s")}
+    return {"ok": True, "prompt": enhanced, "cost_s": res.get("cost_s"), "trace_id": res.get("trace_id")}
 
 
 def detect_visual_subjects(
@@ -598,16 +601,17 @@ def vision_inspect_artwork(
     """
     对生成的排版海报或留白底图进行 Agnes 多模态视觉审美质检与安全区评估
     """
+    trace = _new_trace_id(trace_id)
     if not image_path:
-        return {"ok": False, "error": "图片路径不能为空"}
+        return {"ok": False, "error": "图片路径不能为空", "trace_id": trace}
 
     try:
         img_file = Path(image_path).resolve()
         if not img_file.is_file():
-            return {"ok": False, "error": f"文件不存在: {image_path}"}
+            return {"ok": False, "error": f"文件不存在: {image_path}", "trace_id": trace}
         data_uri = encode_image_data_uri(img_file)
     except Exception as e:
-        return {"ok": False, "error": f"读取文件异常: {e}"}
+        return {"ok": False, "error": f"读取文件异常: {e}", "trace_id": trace}
 
     try:
         prompt = f"""请作为资深平面设计审稿总监与视觉质检员，对这张商业海报作品进行多模态审美审查。
@@ -647,19 +651,19 @@ def vision_inspect_artwork(
             max_tokens=600,
             base_url=base_url,
             api_key=api_key,
-        trace_id=trace_id,
+        trace_id=trace,
         )
 
         if not res.get("ok"):
-            return {"ok": False, "error": res.get("error")}
+            return {"ok": False, "error": res.get("error"), "trace_id": res.get("trace_id")}
 
         raw = _strip_markdown_codeblock(res.get("content", ""))
         parsed = json.loads(raw)
         if not isinstance(parsed, dict):
-            return {"ok": False, "error": "质检结果格式非字典对象", "raw": raw}
-        return {"ok": True, "inspection": parsed, "cost_s": res.get("cost_s")}
+            return {"ok": False, "error": "质检结果格式非字典对象", "raw": raw, "trace_id": trace}
+        return {"ok": True, "inspection": parsed, "cost_s": res.get("cost_s"), "trace_id": res.get("trace_id")}
     except Exception as e:
-        return {"ok": False, "error": f"质检执行失败: {e}"}
+        return {"ok": False, "error": f"质检执行失败: {e}", "trace_id": trace}
 
 
 

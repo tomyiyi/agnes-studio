@@ -241,3 +241,72 @@ class TestCallAgnesFailover(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestWrapperTraceCarry(unittest.TestCase):
+    """回归: wrapper 成功/失败返回必须携带 trace_id(第5轮真实坑)."""
+
+    def _patch_common(self):
+        p1 = patch("agnes_engine.get_rate_limiter")
+        self.addCleanup(p1.stop)
+        limiter = p1.start()
+        limiter.return_value = MagicMock()
+
+    def test_generate_brief_ok_carries_trace(self):
+        self._patch_common()
+        with patch("agnes_engine.call_agnes") as mc:
+            mc.return_value = {
+                "ok": True,
+                "content": "{\"title\":\"t\",\"subtitle\":\"s\","
+                           "\"body\":\"b\",\"author\":\"a\"}",
+                "cost_s": 1.0, "trace_id": "w-1"}
+            res = E.generate_creative_brief("主题", trace_id="w-1")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["trace_id"], "w-1")
+
+    def test_generate_brief_param_error_carries_generated_trace(self):
+        self._patch_common()
+        res = E.generate_creative_brief("   ")
+        self.assertFalse(res["ok"])
+        self.assertTrue(res["trace_id"].startswith("agnes-"))
+
+    def test_refine_prompt_ok_carries_trace(self):
+        self._patch_common()
+        with patch("agnes_engine.call_agnes") as mc:
+            mc.return_value = {"ok": True, "content": "enhanced",
+                               "cost_s": 0.5, "trace_id": "w-2"}
+            res = E.refine_prompt_for_agnes("a cat", trace_id="w-2")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["trace_id"], "w-2")
+        self.assertEqual(res["prompt"], "enhanced")
+
+    def test_refine_prompt_engine_error_carries_trace(self):
+        self._patch_common()
+        with patch("agnes_engine.call_agnes") as mc:
+            mc.return_value = {"ok": False, "error": "boom",
+                               "trace_id": "w-3"}
+            res = E.refine_prompt_for_agnes("a cat")
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["trace_id"], "w-3")
+
+    def test_vision_inspect_ok_carries_trace(self):
+        self._patch_common()
+        png = (Path(__file__).resolve().parent.parent
+               / "public/assets/agnes_1789997358_1867.png")
+        self.assertTrue(png.is_file())
+        with patch("agnes_engine.call_agnes") as mc:
+            mc.return_value = {"ok": True, "content": "{\"score\": 9}",
+                               "cost_s": 2.0, "trace_id": "w-4"}
+            res = E.vision_inspect_artwork(str(png), trace_id="w-4")
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["trace_id"], "w-4")
+
+    def test_vision_inspect_missing_file_carries_generated_trace(self):
+        self._patch_common()
+        res = E.vision_inspect_artwork("/nonexistent/x.png")
+        self.assertFalse(res["ok"])
+        self.assertTrue(res["trace_id"].startswith("agnes-"))
+
+
+if __name__ == "__main__":
+    unittest.main()
