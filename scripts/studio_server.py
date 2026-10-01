@@ -525,15 +525,18 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 str(req_body.get("trace_id") or "").strip()[:64] or "agnes-noengine")
 
             if not prompt:
-                self._send_json({"success": False, "error": "提示词不能为空"}, status=400)
+                self._send_json({"success": False, "error": "提示词不能为空",
+                                 "trace_id": trace}, status=400)
                 return
 
             if not (base_url.startswith("http://") or base_url.startswith("https://")):
-                self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
+                self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头",
+                                 "trace_id": trace}, status=400)
                 return
 
             if post_with_failover is None:
-                self._send_json({"success": False, "error": "网关故障转移模块未就绪"}, status=500)
+                self._send_json({"success": False, "error": "网关故障转移模块未就绪",
+                                 "trace_id": trace}, status=500)
                 return
 
             payload = {
@@ -565,7 +568,15 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": f"生图网关错误 HTTP {res.get('status')}: {err_msg}",
                                  "trace_id": trace, "endpoint_used": res.get("endpoint_used")}, status=500)
                 return
-            print(f"[Agnes][{trace}] 生图 OK {res.get('endpoint_used')} {cost_s}s", flush=True)
+            attempts = res.get("attempts") or []
+            failover_note = ""
+            if len(attempts) > 1:
+                failed = [a for a in attempts if not a.get("ok")]
+                if failed:
+                    failover_note = " [故障转移: %s]" % ", ".join(
+                        "%s→%s" % (a.get("endpoint"), a.get("error") or a.get("status"))
+                        for a in failed)
+            print(f"[Agnes][{trace}] 生图 OK {res.get('endpoint_used')} {cost_s}s{failover_note}", flush=True)
             res_data = res.get("data") or {}
 
             remote_url = None

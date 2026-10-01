@@ -141,6 +141,52 @@ class TestGenerateImageFailover(unittest.TestCase):
             self.assertEqual(st, 500)
             self.assertIn("未能从模型响应中提取", body["error"])
 
+    def test_400_paths_echo_trace_id(self):
+        # 第 13 轮：400 校验路径与 500 路径保持 trace 回显一致
+        mock = MagicMock()
+        with patch.object(studio_server, "post_with_failover", mock):
+            st, body = self.post({"prompt": "  ", "trace_id": "img-t400a"})
+            self.assertEqual(st, 400)
+            self.assertEqual(body["trace_id"], "img-t400a")
+            st, body = self.post({"prompt": "a cat", "base_url": "ftp://x",
+                                  "trace_id": "img-t400b"})
+            self.assertEqual(st, 400)
+            self.assertEqual(body["trace_id"], "img-t400b")
+            mock.assert_not_called()
+
+    def test_success_logs_failover_attempts(self):
+        # 第 13 轮：发生切换时成功日志打印故障转移明细
+        attempts = [
+            {"endpoint": "http://127.0.0.1:59999/v1", "ok": False,
+             "error": "ConnectionRefusedError: [Errno 111]"},
+            {"endpoint": EP_IMG, "ok": True, "status": 200},
+        ]
+        mock = MagicMock(return_value=_ok_result(attempts=attempts))
+        with patch.object(studio_server, "post_with_failover", mock), \
+                patch("builtins.print") as mock_print:
+            st, body = self.post({"prompt": "a cat", "trace_id": "img-tlog"})
+            self.addCleanup(self._cleanup, body.get("file_path", ""))
+            self.assertEqual(st, 200)
+            self.assertTrue(body["success"])
+        logged = " ".join(str(c.args[0]) for c in mock_print.call_args_list)
+        self.assertIn("img-tlog", logged)
+        self.assertIn("故障转移", logged)
+        self.assertIn("59999", logged)
+        self.assertIn("ConnectionRefusedError", logged)
+
+    def test_success_log_no_failover_note_without_switch(self):
+        # 未发生切换时日志保持原样（无多余后缀）
+        mock = MagicMock(return_value=_ok_result(attempts=[
+            {"endpoint": EP_IMG, "ok": True, "status": 200}]))
+        with patch.object(studio_server, "post_with_failover", mock), \
+                patch("builtins.print") as mock_print:
+            st, body = self.post({"prompt": "a cat", "trace_id": "img-tlog2"})
+            self.addCleanup(self._cleanup, body.get("file_path", ""))
+            self.assertEqual(st, 200)
+        logged = " ".join(str(c.args[0]) for c in mock_print.call_args_list)
+        self.assertIn("img-tlog2", logged)
+        self.assertNotIn("故障转移", logged)
+
     def test_first_endpoint_prefers_explicit(self):
         mock = MagicMock(return_value=_ok_result(endpoint_used="http://x:1/v1"))
         with patch.object(studio_server, "post_with_failover", mock):
