@@ -24,6 +24,7 @@ import urllib.parse
 from html import escape
 from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+from typing import Optional, Tuple
 
 DIR = Path(__file__).resolve().parent.parent
 
@@ -109,12 +110,14 @@ try:
         generate_creative_brief,
         refine_prompt_for_agnes,
         vision_inspect_artwork,
+        load_credentials,
     )
 except Exception as e:
     print(f"⚠️ [Warning] Agnes 引擎导入提示: {e}")
     generate_creative_brief = None
     refine_prompt_for_agnes = None
     vision_inspect_artwork = None
+    load_credentials = None
 
 LOCAL_KEY_PATH = Path.home() / ".new-api" / "local_key.json"
 # 网关地址：环境变量优先，默认走本机 New API
@@ -183,6 +186,53 @@ def resolve_image_base_url(req_body, local_cfg):
             return str(configured).strip().rstrip("/")
 
     return IMAGE_BASE_DEFAULT
+
+
+def resolve_chat_credentials(req_body: dict | None = None) -> Tuple[str, Optional[str]]:
+    """解析用于文本/视觉调用的网关地址与密钥，遵循统一配置治理优先级：
+    1. 请求体显式指定优先
+    2. load_credentials()（AGNES_* > local_key.json > 通用环境变量回退）
+    3. 服务端默认值 (CHAT_BASE_DEFAULT)
+    """
+    req = req_body if isinstance(req_body, dict) else {}
+    base_url = req.get("chat_base_url") or req.get("base_url")
+    api_key = req.get("api_key")
+
+    resolved_base = str(base_url).strip().rstrip("/") if base_url else ""
+    resolved_key = str(api_key).strip() if api_key else ""
+
+    if not resolved_base or not resolved_key:
+        if callable(load_credentials):
+            try:
+                def_base, def_key, _ = load_credentials()
+                if not resolved_base and def_base:
+                    resolved_base = str(def_base).strip().rstrip("/")
+                if not resolved_key and def_key:
+                    resolved_key = str(def_key).strip()
+            except Exception:
+                pass
+
+        if not resolved_base or not resolved_key:
+            local_cfg = get_local_newapi_config()
+            if not resolved_base:
+                if local_cfg.get("detected") and local_cfg.get("chat_base_url"):
+                    resolved_base = str(local_cfg["chat_base_url"]).strip().rstrip("/")
+                else:
+                    resolved_base = CHAT_BASE_DEFAULT.rstrip("/")
+            if not resolved_key:
+                env_agnes_key = os.getenv("AGNES_API_KEY") or os.getenv("AGNES_GATEWAY_KEY")
+                if env_agnes_key:
+                    resolved_key = env_agnes_key.strip()
+                elif local_cfg.get("detected") and local_cfg.get("api_key"):
+                    resolved_key = str(local_cfg["api_key"]).strip()
+                else:
+                    fallback = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY")
+                    if fallback:
+                        resolved_key = fallback.strip()
+
+    final_base = resolved_base or CHAT_BASE_DEFAULT.rstrip("/")
+    final_key = resolved_key if resolved_key else None
+    return final_base, final_key
 
 
 def list_generated_images(root=GENERATED_DIR, limit=24):
@@ -518,21 +568,20 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": f"渲染失败: {str(e)}"}, status=500)
             return
 
-        # 4. Gemini 智能简报与文案生成
-        if parsed_path == "/api/gemini/generate-brief":
+        # 4. Gemini / Agnes 智能简报与文案生成
+        if parsed_path in ("/api/gemini/generate-brief", "/api/agnes/generate-brief"):
             topic = str(req_body.get("topic") or "").strip()
             platform = str(req_body.get("platform") or "wechat")
             tone = str(req_body.get("tone") or "luxury")
             goal = str(req_body.get("goal") or "editorial")
-            base_url = req_body.get("chat_base_url") or req_body.get("base_url")
-            api_key = req_body.get("api_key")
 
             if not topic:
                 self._send_json({"success": False, "error": "请输入创意主题"}, status=400)
                 return
 
+            base_url, api_key = resolve_chat_credentials(req_body)
+
             if base_url:
-                base_url = str(base_url).strip().rstrip("/")
                 if not (base_url.startswith("http://") or base_url.startswith("https://")):
                     self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
                     return
@@ -541,13 +590,6 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
                 return
 
-            if not api_key:
-                local_cfg = get_local_newapi_config()
-                if local_cfg["detected"]:
-                    api_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY") or local_cfg["api_key"]
-                    if not base_url:
-                        base_url = local_cfg["chat_base_url"]
-
             res = generate_creative_brief(topic, platform=platform, tone=tone, goal=goal, base_url=base_url, api_key=api_key)
             if res.get("ok"):
                 self._send_json({"success": True, "brief": res["brief"], "cost_s": res.get("cost_s")})
@@ -555,20 +597,19 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": res.get("error")}, status=500)
             return
 
-        # 5. Gemini 物理光学 Prompt 编译与增强
-        if parsed_path == "/api/gemini/refine-prompt":
+        # 5. Gemini / Agnes 物理光学 Prompt 编译与增强
+        if parsed_path in ("/api/gemini/refine-prompt", "/api/agnes/refine-prompt"):
             raw_prompt = str(req_body.get("prompt") or "").strip()
             aspect_ratio = str(req_body.get("aspect_ratio") or "1:1")
             negative_space_zone = str(req_body.get("negative_space") or "top-left")
-            base_url = req_body.get("chat_base_url") or req_body.get("base_url")
-            api_key = req_body.get("api_key")
 
             if not raw_prompt:
                 self._send_json({"success": False, "error": "请输入原始提示词"}, status=400)
                 return
 
+            base_url, api_key = resolve_chat_credentials(req_body)
+
             if base_url:
-                base_url = str(base_url).strip().rstrip("/")
                 if not (base_url.startswith("http://") or base_url.startswith("https://")):
                     self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
                     return
@@ -577,13 +618,6 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
                 return
 
-            if not api_key:
-                local_cfg = get_local_newapi_config()
-                if local_cfg["detected"]:
-                    api_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY") or local_cfg["api_key"]
-                    if not base_url:
-                        base_url = local_cfg["chat_base_url"]
-
             res = refine_prompt_for_agnes(raw_prompt, aspect_ratio=aspect_ratio, negative_space_zone=negative_space_zone, base_url=base_url, api_key=api_key)
             if res.get("ok"):
                 self._send_json({"success": True, "prompt": res["prompt"], "cost_s": res.get("cost_s")})
@@ -591,12 +625,10 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": res.get("error")}, status=500)
             return
 
-        # 6. Gemini 视觉多模态审美与排版审查
-        if parsed_path == "/api/gemini/vision-inspect":
+        # 6. Gemini / Agnes 视觉多模态审美与排版审查
+        if parsed_path in ("/api/gemini/vision-inspect", "/api/agnes/vision-inspect"):
             image_rel = str(req_body.get("image_path") or "").strip()
             title = str(req_body.get("title") or "")
-            base_url = req_body.get("chat_base_url") or req_body.get("base_url")
-            api_key = req_body.get("api_key")
 
             if not image_rel:
                 self._send_json({"success": False, "error": "请提供待质检图片路径"}, status=400)
@@ -609,8 +641,9 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "只支持 PNG、JPG、JPEG、WEBP 格式的图片文件"}, status=400)
                 return
 
+            base_url, api_key = resolve_chat_credentials(req_body)
+
             if base_url:
-                base_url = str(base_url).strip().rstrip("/")
                 if not (base_url.startswith("http://") or base_url.startswith("https://")):
                     self._send_json({"success": False, "error": "Base URL 必须以 http:// 或 https:// 开头"}, status=400)
                     return
@@ -637,13 +670,6 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             if not vision_inspect_artwork:
                 self._send_json({"success": False, "error": "Gemini 引擎未就绪"}, status=500)
                 return
-
-            if not api_key:
-                local_cfg = get_local_newapi_config()
-                if local_cfg["detected"]:
-                    api_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY") or local_cfg["api_key"]
-                    if not base_url:
-                        base_url = local_cfg["chat_base_url"]
 
             res = vision_inspect_artwork(str(img_abs), title=title, base_url=base_url, api_key=api_key)
             if res.get("ok"):
