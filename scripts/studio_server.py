@@ -427,7 +427,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                     "url": cfg["base_url"]
                 })
             preset_endpoints.extend([
-                {"name": "本地 New API 负载均衡 (127.0.0.1:3000)", "url": "http://127.0.0.1:3000/v1"},
+                {"name": "本地 New API 负载均衡 (127.0.0.1:13000)", "url": "http://127.0.0.1:13000/v1"},
                 {"name": "Agnes AI 官方端点", "url": "https://apihub.agnes-ai.com/v1"},
                 {"name": "自定义 / OneAPI 聚合网关", "url": ""}
             ])

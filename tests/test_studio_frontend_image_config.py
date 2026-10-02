@@ -44,4 +44,43 @@ class StudioFrontendChatEndpointContractTest(unittest.TestCase):
                       self.source)
 
 
+class StudioFrontendPort3000FossilContractTest(unittest.TestCase):
+    """第 23 轮：清除前端与后端预设中遗留的 3000 化石端口。
+
+    在迁移至 13000 网关后，前端快速预设按钮、输入框 placeholder、
+    生态看板与 testConnection 回退值中仍残留 127.0.0.1:3000，
+    导致前端快速预设和探活默认指向无法连通的端口。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.source = INDEX.read_text(encoding="utf-8")
+
+    def test_no_fossil_port_3000_in_frontend(self):
+        self.assertNotIn("127.0.0.1:3000", self.source)
+
+    def test_apply_preset_uses_active_13000_port(self):
+        self.assertIn("applyEndpointPreset('http://127.0.0.1:13000/v1')", self.source)
+
+    def test_test_connection_fallback_uses_13000(self):
+        self.assertIn("elBase.value.trim() : 'http://127.0.0.1:13000/v1'", self.source)
+
+    def test_setting_base_url_placeholder_uses_13000(self):
+        self.assertIn('placeholder="http://127.0.0.1:13000/v1"', self.source)
+
+    def test_ecosystem_gateway_endpoint_uses_13000(self):
+        self.assertIn('"id": "new_api_gateway"', self.source)
+        self.assertIn('"endpoint": "http://127.0.0.1:13000"', self.source)
+
+
+class StudioServerPresetEndpointsContractTest(unittest.TestCase):
+    """验证后端预设端点已对齐活跃网关端口 13000，无 3000 化石残留。"""
+
+    def test_preset_endpoints_no_fossil_port_3000(self):
+        server_py = Path(__file__).parents[1] / "scripts" / "studio_server.py"
+        source = server_py.read_text(encoding="utf-8")
+        self.assertNotIn("127.0.0.1:3000", source)
+        self.assertIn('"url": "http://127.0.0.1:13000/v1"', source)
+
+
 if __name__ == "__main__": unittest.main()
