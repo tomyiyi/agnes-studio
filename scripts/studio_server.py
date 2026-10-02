@@ -759,11 +759,11 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "Gemini 引擎未就绪", "trace_id": trace}, status=500)
                 return
 
-            res = generate_creative_brief(topic, platform=platform, tone=tone, goal=goal, base_url=base_url, api_key=api_key, trace_id=req_body.get("trace_id"))
+            res = generate_creative_brief(topic, platform=platform, tone=tone, goal=goal, base_url=base_url, api_key=api_key, trace_id=trace)
             if res.get("ok"):
-                self._send_json({"success": True, "brief": res["brief"], "cost_s": res.get("cost_s"), "trace_id": res.get("trace_id")})
+                self._send_json({"success": True, "brief": res["brief"], "cost_s": res.get("cost_s"), "trace_id": res.get("trace_id") or trace})
             else:
-                self._send_json({"success": False, "error": res.get("error"), "trace_id": res.get("trace_id")}, status=500)
+                self._send_json({"success": False, "error": res.get("error"), "trace_id": res.get("trace_id") or trace}, status=500)
             return
 
         # 5. Gemini / Agnes 物理光学 Prompt 编译与增强
@@ -789,11 +789,11 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "Gemini 引擎未就绪", "trace_id": trace}, status=500)
                 return
 
-            res = refine_prompt_for_agnes(raw_prompt, aspect_ratio=aspect_ratio, negative_space_zone=negative_space_zone, base_url=base_url, api_key=api_key, trace_id=req_body.get("trace_id"))
+            res = refine_prompt_for_agnes(raw_prompt, aspect_ratio=aspect_ratio, negative_space_zone=negative_space_zone, base_url=base_url, api_key=api_key, trace_id=trace)
             if res.get("ok"):
-                self._send_json({"success": True, "prompt": res["prompt"], "cost_s": res.get("cost_s"), "trace_id": res.get("trace_id")})
+                self._send_json({"success": True, "prompt": res["prompt"], "cost_s": res.get("cost_s"), "trace_id": res.get("trace_id") or trace})
             else:
-                self._send_json({"success": False, "error": res.get("error"), "trace_id": res.get("trace_id")}, status=500)
+                self._send_json({"success": False, "error": res.get("error"), "trace_id": res.get("trace_id") or trace}, status=500)
             return
 
         # 6. Gemini / Agnes 视觉多模态审美与排版审查
@@ -847,11 +847,11 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json({"success": False, "error": "Gemini 引擎未就绪", "trace_id": trace}, status=500)
                 return
 
-            res = vision_inspect_artwork(str(img_abs), title=title, base_url=base_url, api_key=api_key, trace_id=req_body.get("trace_id"))
+            res = vision_inspect_artwork(str(img_abs), title=title, base_url=base_url, api_key=api_key, trace_id=trace)
             if res.get("ok"):
-                self._send_json({"success": True, "inspection": res["inspection"], "cost_s": res.get("cost_s"), "trace_id": res.get("trace_id")})
+                self._send_json({"success": True, "inspection": res["inspection"], "cost_s": res.get("cost_s"), "trace_id": res.get("trace_id") or trace})
             else:
-                self._send_json({"success": False, "error": res.get("error"), "trace_id": res.get("trace_id")}, status=500)
+                self._send_json({"success": False, "error": res.get("error"), "trace_id": res.get("trace_id") or trace}, status=500)
             return
 
         self._send_json({"success": False, "error": f"Endpoint not found: {parsed_path}"}, status=404)

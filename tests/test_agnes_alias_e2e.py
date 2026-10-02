@@ -270,6 +270,49 @@ class TestChatRoutesTraceEcho(unittest.TestCase):
 
     # ---- test-connection ----
 
+    def test_brief_auto_generates_and_propagates_trace(self):
+        def side_effect(*args, **kwargs):
+            return {"ok": True, "brief": "B", "cost_s": 0.1, "trace_id": kwargs.get("trace_id")}
+        mock = MagicMock(side_effect=side_effect)
+        with patch.object(studio_server, "generate_creative_brief", mock):
+            st, body = self.post("/api/agnes/generate-brief", {"topic": "tea"})
+            self.assertEqual(st, 200)
+            self.assertTrue(body["success"])
+            passed_trace = mock.call_args.kwargs.get("trace_id")
+            self.assertTrue(passed_trace and passed_trace.startswith("agnes-"))
+            self.assertEqual(body["trace_id"], passed_trace)
+
+    def test_refine_auto_generates_and_propagates_trace(self):
+        def side_effect(*args, **kwargs):
+            return {"ok": True, "prompt": "P", "cost_s": 0.1, "trace_id": kwargs.get("trace_id")}
+        mock = MagicMock(side_effect=side_effect)
+        with patch.object(studio_server, "refine_prompt_for_agnes", mock):
+            st, body = self.post("/api/agnes/refine-prompt", {"prompt": "tea cup"})
+            self.assertEqual(st, 200)
+            self.assertTrue(body["success"])
+            passed_trace = mock.call_args.kwargs.get("trace_id")
+            self.assertTrue(passed_trace and passed_trace.startswith("agnes-"))
+            self.assertEqual(body["trace_id"], passed_trace)
+
+    def test_vision_auto_generates_and_propagates_trace(self):
+        def side_effect(*args, **kwargs):
+            return {"ok": True, "inspection": "fine", "cost_s": 0.1, "trace_id": kwargs.get("trace_id")}
+        mock = MagicMock(side_effect=side_effect)
+        with patch.object(studio_server, "vision_inspect_artwork", mock):
+            st, body = self.post("/api/agnes/vision-inspect", {"image_path": PNG_REL})
+            self.assertEqual(st, 200)
+            self.assertTrue(body["success"])
+            passed_trace = mock.call_args.kwargs.get("trace_id")
+            self.assertTrue(passed_trace and passed_trace.startswith("agnes-"))
+            self.assertEqual(body["trace_id"], passed_trace)
+
+    def test_chat_routes_fallback_trace_when_engine_omits_trace_id(self):
+        with patch.object(studio_server, "generate_creative_brief",
+                          MagicMock(return_value={"ok": True, "brief": "B", "cost_s": 0.1})):
+            st, body = self.post("/api/agnes/generate-brief", {"topic": "tea", "trace_id": "explicit-trace"})
+            self.assertEqual(st, 200)
+            self.assertEqual(body["trace_id"], "explicit-trace")
+
     def test_test_connection_400_echoes_trace(self):
         st, body = self.post("/api/test-connection",
                              {"base_url": "", "trace_id": "t-tc-400"})
