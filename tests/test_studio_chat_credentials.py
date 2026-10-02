@@ -89,10 +89,9 @@ class TestResolveChatCredentials(unittest.TestCase):
         self.assertEqual((base, key), ("http://from-env/v1", FAKE_KEY))
 
     def test_default_base_has_no_fossil_port(self):
-        self.assertNotIn(":18045", studio_server.CHAT_BASE_DEFAULT)
-        self.assertNotIn(":8045", studio_server.CHAT_BASE_DEFAULT)
-        self.assertNotIn(":3000", studio_server.CHAT_BASE_DEFAULT)
-        self.assertNotIn(":3000", studio_server.IMAGE_BASE_DEFAULT)
+        for port in (":18045", ":8045", ":3000"):
+            self.assertNotIn(port, studio_server.CHAT_BASE_DEFAULT)
+            self.assertNotIn(port, studio_server.IMAGE_BASE_DEFAULT)
 
 
 class TestConfigFossilDriftGuard(unittest.TestCase):
@@ -108,6 +107,14 @@ class TestConfigFossilDriftGuard(unittest.TestCase):
                 if self.FOSSIL_URL_RE.search(line):
                     offenders.append("%s:%d: %s" % (path.name, lineno, line.strip()[:100]))
         self.assertEqual(offenders, [], "发现环境化石网关地址硬编码")
+
+    def test_no_hardcoded_fossil_gateway_urls_in_frontend(self):
+        index_html = ROOT / "public" / "index.html"
+        offenders = []
+        for lineno, line in enumerate(index_html.read_text(encoding="utf-8").splitlines(), 1):
+            if self.FOSSIL_URL_RE.search(line):
+                offenders.append("public/index.html:%d: %s" % (lineno, line.strip()[:100]))
+        self.assertEqual(offenders, [], "前端页面发现环境化石网关地址硬编码")
 
     def test_fossil_regex_matches_all_fossil_ports(self):
         for port in ("18045", "8045", "3000"):

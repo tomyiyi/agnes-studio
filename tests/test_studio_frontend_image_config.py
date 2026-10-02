@@ -38,6 +38,7 @@ class StudioFrontendChatEndpointContractTest(unittest.TestCase):
 
     def test_no_fossil_chat_port_in_frontend(self):
         self.assertNotIn("18045", self.source)
+        self.assertNotIn("8045", self.source)
 
     def test_chat_default_matches_backend_chat_default(self):
         self.assertIn("chat_base_url: 'http://127.0.0.1:13000/v1'",

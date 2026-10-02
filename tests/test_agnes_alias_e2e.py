@@ -35,8 +35,9 @@ def _post(port, path, body):
         with urllib.request.urlopen(req, timeout=15) as r:
             return r.status, json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
-        raw = e.read().decode("utf-8") or "{}"
-        return e.code, json.loads(raw)
+        with e:
+            raw = e.read().decode("utf-8") or "{}"
+            return e.code, json.loads(raw)
 
 
 class TestAgnesAliasE2E(unittest.TestCase):
