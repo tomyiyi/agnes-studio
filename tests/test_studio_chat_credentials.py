@@ -91,12 +91,14 @@ class TestResolveChatCredentials(unittest.TestCase):
     def test_default_base_has_no_fossil_port(self):
         self.assertNotIn(":18045", studio_server.CHAT_BASE_DEFAULT)
         self.assertNotIn(":8045", studio_server.CHAT_BASE_DEFAULT)
+        self.assertNotIn(":3000", studio_server.CHAT_BASE_DEFAULT)
+        self.assertNotIn(":3000", studio_server.IMAGE_BASE_DEFAULT)
 
 
 class TestConfigFossilDriftGuard(unittest.TestCase):
-    """防止 Gemini 时代遗留网关地址（18045/8045）以硬编码形式复发。"""
+    """防止遗留时代网关地址（18045/8045/3000）以硬编码形式复发。"""
 
-    FOSSIL_URL_RE = re.compile(r"https?://[^\s\"']*:(?:18045|8045)\b")
+    FOSSIL_URL_RE = re.compile(r"https?://[^\s\"']*:(?:18045|8045|3000)\b")
 
     def test_no_hardcoded_fossil_gateway_urls_in_scripts(self):
         scripts_dir = ROOT / "scripts"
@@ -106,6 +108,11 @@ class TestConfigFossilDriftGuard(unittest.TestCase):
                 if self.FOSSIL_URL_RE.search(line):
                     offenders.append("%s:%d: %s" % (path.name, lineno, line.strip()[:100]))
         self.assertEqual(offenders, [], "发现环境化石网关地址硬编码")
+
+    def test_fossil_regex_matches_all_fossil_ports(self):
+        for port in ("18045", "8045", "3000"):
+            sample = f"http://127.0.0.1:{port}/v1"
+            self.assertTrue(self.FOSSIL_URL_RE.search(sample), f"Regex should match port {port}")
 
 
 class TestAgnesAliasRoutes(unittest.TestCase):
