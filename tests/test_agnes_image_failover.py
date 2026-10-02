@@ -208,6 +208,16 @@ class TestGenerateImageFailover(unittest.TestCase):
             self.assertEqual(st, 200)
         self.assertEqual(mock.call_args.kwargs["api_key"], "")
 
+    def test_explicit_foreign_image_base_url_field_without_key_sends_no_key(self):
+        """第 26 轮：通过 image_base_url 字段显式指定地址时，同样触发安全密钥剥离并作为 first_endpoint。"""
+        mock = MagicMock(return_value=_ok_result(endpoint_used="http://evil-img:9/v1"))
+        with patch.object(studio_server, "post_with_failover", mock):
+            st, body = self.post({"prompt": "a cat", "image_base_url": "http://evil-img:9/v1"})
+            self.addCleanup(self._cleanup, body.get("file_path", ""))
+            self.assertEqual(st, 200)
+        self.assertEqual(mock.call_args.kwargs["api_key"], "")
+        self.assertEqual(mock.call_args.kwargs["first_endpoint"], "http://evil-img:9/v1")
+
     def test_explicit_foreign_base_with_own_key_uses_it(self):
         """指向自定义网关 + 自带 key → 使用调用方自己的 key。"""
         mock = MagicMock(return_value=_ok_result(endpoint_used="http://x:1/v1"))

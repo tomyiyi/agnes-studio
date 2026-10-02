@@ -184,18 +184,20 @@ def get_local_newapi_config(key_path: Path | str | None = None) -> dict:
         ]
     }
 
-def resolve_image_base_url(req_body, local_cfg):
+def resolve_image_base_url(req_body: dict | None = None, local_cfg: dict | None = None) -> str:
     """Resolve the image-generation endpoint without falling back to chat routing."""
-    explicit = str(req_body.get("base_url") or "").strip()
+    req = req_body if isinstance(req_body, dict) else {}
+    cfg = local_cfg if isinstance(local_cfg, dict) else {}
+    explicit = str(req.get("image_base_url") or req.get("base_url") or "").strip()
     if explicit:
         return explicit.rstrip("/")
 
-    if local_cfg.get("detected"):
-        configured = local_cfg.get("image_base_url") or local_cfg.get("base_url")
+    if cfg.get("detected"):
+        configured = cfg.get("image_base_url") or cfg.get("base_url")
         if configured:
             return str(configured).strip().rstrip("/")
 
-    return IMAGE_BASE_DEFAULT
+    return IMAGE_BASE_DEFAULT.rstrip("/")
 
 
 def _server_default_chat_base(local_cfg: dict) -> str:
@@ -232,14 +234,16 @@ def _server_default_key(local_cfg: dict) -> Optional[str]:
     return None
 
 
-def is_configured_image_gateway(target_base: str, local_cfg: dict) -> bool:
+def is_configured_image_gateway(target_base: str, local_cfg: dict | None = None) -> bool:
     """目标是否为服务端配置的图像网关（无请求覆盖时的解析结果）。"""
-    if local_cfg.get("detected"):
-        configured = (local_cfg.get("image_base_url")
-                      or local_cfg.get("base_url") or "").strip().rstrip("/")
+    cfg = local_cfg if isinstance(local_cfg, dict) else {}
+    if cfg.get("detected"):
+        configured = (cfg.get("image_base_url")
+                      or cfg.get("base_url") or "").strip().rstrip("/")
     else:
         configured = IMAGE_BASE_DEFAULT.rstrip("/")
-    return bool(configured) and target_base == configured
+    target = str(target_base or "").strip().rstrip("/")
+    return bool(configured) and target == configured
 
 
 def resolve_chat_credentials(req_body: dict | None = None) -> Tuple[str, Optional[str]]:
@@ -557,7 +561,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             # 第 14 轮安全收紧：服务端密钥绑定服务端配置的图像网关。
             # 请求显式指向其他地址且未自带 key 时传 ""（明确无密钥——阻止
             # post_with_failover 重新解析默认 key、不发送 Authorization 头）。
-            explicit_img_base = str(req_body.get("base_url") or "").strip().rstrip("/")
+            explicit_img_base = str(req_body.get("image_base_url") or req_body.get("base_url") or "").strip().rstrip("/")
             explicit_img_key = str(req_body.get("api_key") or "").strip()
             if explicit_img_key:
                 api_key = explicit_img_key
