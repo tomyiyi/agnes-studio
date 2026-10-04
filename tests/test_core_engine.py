@@ -2314,11 +2314,23 @@ class TestUpstreamSentinel(unittest.TestCase):
             "AGNES_IMAGE_BASE_URL": "http://img-sentinel.example/v1",
             "AGNES_BASE_URL": "http://agnes-sentinel.example/v1",
             "NEW_API_BASE_URL": "http://newapi-sentinel.example/v1",
+            "AGNES_API_BASE": "http://agnes-legacy.example/v1",
+            "NEW_API_BASE": "http://newapi-legacy.example/v1",
         }
         with patch.dict("os.environ", env_vars, clear=True):
             self.assertEqual(get_local_base_url(), "http://img-sentinel.example/v1")
         with patch.dict("os.environ", {"AGNES_BASE_URL": "http://agnes-sentinel.example/v1"}, clear=True):
             self.assertEqual(get_local_base_url(), "http://agnes-sentinel.example/v1")
+        with patch.dict("os.environ", {"AGNES_API_BASE": "http://agnes-legacy.example/v1"}, clear=True):
+            self.assertEqual(get_local_base_url(), "http://agnes-legacy.example/v1")
+        with patch.dict("os.environ", {"NEW_API_BASE": "http://newapi-legacy.example/v1"}, clear=True):
+            self.assertEqual(get_local_base_url(), "http://newapi-legacy.example/v1")
+
+    def test_get_local_base_url_from_file(self):
+        key_file = self.tmp_path / "custom_base.json"
+        key_file.write_text(json.dumps({"image_base_url": "http://file-img.example/v1"}), encoding="utf-8")
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertEqual(get_local_base_url(key_path=key_file), "http://file-img.example/v1")
 
     def test_get_local_auth_key_from_file(self):
         key_file = self.tmp_path / "test_key.json"
@@ -2390,6 +2402,39 @@ class TestUpstreamSentinel(unittest.TestCase):
         res = check_new_api_health(base_url="http://mock.gateway/v1", timeout=1.0)
         self.assertEqual(res["status"], "unhealthy")
         self.assertIn("Invalid JSON", res["error"])
+
+    @patch("urllib.request.urlopen")
+    def test_check_new_api_health_forwards_key_path(self, mock_urlopen):
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = b'{"data": [{"id": "agnes-image-2.5-flash"}]}'
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        key_file = self.tmp_path / "custom_forward.json"
+        key_file.write_text(json.dumps({
+            "image_base_url": "http://10.99.0.1:13000/v1",
+            "api_key": "sk-forward-key",
+        }), encoding="utf-8")
+
+        with patch.dict("os.environ", {}, clear=True):
+            res = check_new_api_health(key_path=key_file, timeout=1.0)
+
+        self.assertEqual(res["status"], "healthy")
+        req = mock_urlopen.call_args[0][0]
+        self.assertEqual(req.full_url, "http://10.99.0.1:13000/v1/models")
+        self.assertEqual(req.headers.get("Authorization"), "Bearer sk-forward-key")
+
+    @patch("urllib.request.urlopen")
+    def test_check_new_api_health_base_url_with_models(self, mock_urlopen):
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = b'{"data": [{"id": "agnes-image-2.5-flash"}]}'
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        res = check_new_api_health(base_url="http://explicit.gateway/v1/models", api_key="sk-test", timeout=1.0)
+        self.assertEqual(res["status"], "healthy")
+        req = mock_urlopen.call_args[0][0]
+        self.assertEqual(req.full_url, "http://explicit.gateway/v1/models")
 
     @patch("urllib.request.urlopen")
     def test_check_github_repo_success(self, mock_urlopen):
@@ -2468,6 +2513,23 @@ class TestUpstreamSentinel(unittest.TestCase):
         )
         self.assertFalse(out_file.exists())
         self.assertEqual(summary["gateway"]["status"], "unhealthy")
+
+    @patch("check_upstream_updates.check_new_api_health")
+    def test_run_lifecycle_monitor_forwards_key_path(self, mock_gateway):
+        mock_gateway.return_value = {"status": "healthy", "latency_ms": 10}
+        custom_key = self.tmp_path / "custom_key.json"
+        summary = run_lifecycle_monitor(
+            repos=[],
+            save=False,
+            key_path=custom_key,
+        )
+        self.assertEqual(summary["gateway"]["status"], "healthy")
+        mock_gateway.assert_called_once_with(
+            base_url=None,
+            api_key=None,
+            timeout=5.0,
+            key_path=custom_key,
+        )
 
 
 class TestAutonomousFollowup(unittest.TestCase):

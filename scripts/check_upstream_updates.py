@@ -49,6 +49,8 @@ def get_local_base_url(key_path: Path | str | None = None) -> str:
         os.environ.get("AGNES_IMAGE_BASE_URL")
         or os.environ.get("AGNES_BASE_URL")
         or os.environ.get("NEW_API_BASE_URL")
+        or os.environ.get("AGNES_API_BASE")
+        or os.environ.get("NEW_API_BASE")
     )
     if env_base and env_base.strip():
         return env_base.strip().rstrip("/")
@@ -70,16 +72,18 @@ def check_new_api_health(
     base_url: str | None = None,
     api_key: str | None = None,
     timeout: float = 5.0,
+    key_path: Path | str | None = None,
 ) -> dict:
     """检测 New API 聚合网关探活状态并获取可用模型清单"""
-    raw_base = base_url or get_local_base_url()
-    raw_base = raw_base.rstrip("/")
-    if raw_base.endswith("/v1"):
+    raw_base = (base_url or get_local_base_url(key_path=key_path)).strip().rstrip("/")
+    if raw_base.endswith("/models"):
+        url = raw_base
+    elif raw_base.endswith("/v1"):
         url = f"{raw_base}/models"
     else:
         url = f"{raw_base}/v1/models"
 
-    key = api_key if api_key is not None else get_local_auth_key()
+    key = api_key if api_key is not None else get_local_auth_key(key_path=key_path)
     headers = {"User-Agent": "Agnes-Studio-Sentinel/1.0"}
     if key:
         headers["Authorization"] = f"Bearer {key}"
@@ -198,12 +202,18 @@ def run_lifecycle_monitor(
     repos: list[str] | None = None,
     timeout: float = 5.0,
     save: bool = True,
+    key_path: Path | str | None = None,
 ) -> dict:
     """执行完整的生命周期与上游依赖巡检，组织并写盘更新结构"""
     print("🛰️ [Agnes Studio Sentinel] 正在启动生命周期与上游依赖巡检...")
 
     # 1. 检测本地网关
-    gateway_status = check_new_api_health(base_url=base_url, api_key=api_key, timeout=timeout)
+    gateway_status = check_new_api_health(
+        base_url=base_url,
+        api_key=api_key,
+        timeout=timeout,
+        key_path=key_path,
+    )
     print(
         f"  * 本地网关状态: {gateway_status.get('status')} (耗时: {gateway_status.get('latency_ms', 0)}ms)"
     )
@@ -244,6 +254,7 @@ def main():
     parser.add_argument("--out", type=str, default=UPDATES_PATH, help="Output JSON path")
     parser.add_argument("--base-url", type=str, default=None, help="New API base URL")
     parser.add_argument("--api-key", type=str, default=None, help="New API auth key")
+    parser.add_argument("--key-path", type=str, default=None, help="Custom key JSON path")
     parser.add_argument("--timeout", type=float, default=5.0, help="Request timeout in seconds")
     parser.add_argument("--no-save", action="store_true", help="Do not write output to file")
     args = parser.parse_args()
@@ -254,6 +265,7 @@ def main():
         api_key=args.api_key,
         timeout=args.timeout,
         save=not args.no_save,
+        key_path=args.key_path,
     )
 
 
