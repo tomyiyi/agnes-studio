@@ -85,6 +85,7 @@ from expert_poster_designer import (
     analyze_safe_zone,
     render_expert_steampunk_poster,
     render_expert_neochinese_poster,
+    main as expert_designer_main,
 )
 from poster_composer import (
     compose_commercial_poster,
@@ -2121,6 +2122,83 @@ class TestExpertPosterDesigner(unittest.TestCase):
             render_expert_steampunk_poster(self.tmp_path / "missing.png", out_file)
         with self.assertRaises(FileNotFoundError):
             render_expert_neochinese_poster(self.tmp_path / "missing.png", out_file)
+
+    def test_render_steampunk_and_neochinese_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout
+        out_steam = self.tmp_path / "quiet_steam.png"
+        out_neo = self.tmp_path / "quiet_neo.png"
+
+        buf = io.StringIO()
+        with patch("expert_poster_designer.detect_faces", return_value=[]), \
+             redirect_stdout(buf):
+            render_expert_steampunk_poster(self.dummy_bg, out_steam, quiet=True)
+            render_expert_neochinese_poster(self.dummy_bg, out_neo, quiet=True)
+
+        self.assertTrue(out_steam.exists())
+        self.assertTrue(out_neo.exists())
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_cli_main_steampunk_mode(self):
+        out_file = self.tmp_path / "cli_steampunk.png"
+        code = expert_designer_main([
+            "--mode", "steampunk",
+            "--src", str(self.dummy_bg),
+            "--out", str(out_file),
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertTrue(out_file.exists())
+
+    def test_cli_main_neochinese_mode(self):
+        out_file = self.tmp_path / "cli_neochinese.png"
+        code = expert_designer_main([
+            "--mode", "neochinese",
+            "--src", str(self.dummy_bg),
+            "--out", str(out_file),
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertTrue(out_file.exists())
+
+    def test_cli_main_all_mode(self):
+        out_base = self.tmp_path / "bundle.png"
+        code = expert_designer_main([
+            "--mode", "all",
+            "--src", str(self.dummy_bg),
+            "--out", str(out_base),
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        steam_path = self.tmp_path / "bundle_steampunk.png"
+        neo_path = self.tmp_path / "bundle_neochinese.png"
+        self.assertTrue(steam_path.exists())
+        self.assertTrue(neo_path.exists())
+
+    def test_cli_main_missing_src_returns_error_code(self):
+        missing_src = self.tmp_path / "missing_source.png"
+        code = expert_designer_main([
+            "--mode", "steampunk",
+            "--src", str(missing_src),
+            "--quiet",
+            "--strict",
+        ])
+        self.assertEqual(code, 1)
+
+    def test_cli_main_quiet_mode_suppresses_stdout(self):
+        import io
+        from contextlib import redirect_stdout
+        out_file = self.tmp_path / "quiet_cli_steam.png"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = expert_designer_main([
+                "--mode", "steampunk",
+                "--src", str(self.dummy_bg),
+                "--out", str(out_file),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
 
 
 class TestPosterVisualLearner(unittest.TestCase):

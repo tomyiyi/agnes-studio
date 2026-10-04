@@ -83,7 +83,7 @@ def analyze_safe_zone(img_path):
             "safe_y": int(h * 0.06) if best_r == 0 else int(h * 0.65)
         }
 
-def render_expert_steampunk_poster(src_img=None, out_img=None):
+def render_expert_steampunk_poster(src_img=None, out_img=None, quiet=False):
     """
     实战案例 1：《铜钟与蒸汽城》日漫概念 Key Visual
     基于左上角平整负空间 (方差 0.4) 打造【非对称左上悬挂 + 对角视线穿透】
@@ -98,7 +98,8 @@ def render_expert_steampunk_poster(src_img=None, out_img=None):
         raise FileNotFoundError(f"Source image not found: {src_img}")
     os.makedirs(os.path.dirname(os.path.abspath(out_img)), exist_ok=True)
 
-    print("🎨 [Expert Designer] 开始执行《铜钟与蒸汽城》动态专家级排版 (瑞士网格与黄金字阶)...")
+    if not quiet:
+        print("🎨 [Expert Designer] 开始执行《铜钟与蒸汽城》动态专家级排版 (瑞士网格与黄金字阶)...")
     
     analysis = analyze_safe_zone(src_img)
     w, h = analysis["width"], analysis["height"]
@@ -170,12 +171,13 @@ def render_expert_steampunk_poster(src_img=None, out_img=None):
     
     final_img = Image.alpha_composite(base, overlay).convert("RGB")
     final_img.save(str(out_img), quality=95)
-    print(f"✨ 案例 1 完成: {out_img}")
+    if not quiet:
+        print(f"✨ 案例 1 完成: {out_img}")
     return str(out_img)
 
 from vision_subject_detector import detect_faces, check_occlusion
 
-def render_expert_neochinese_poster(src_img=None, out_img=None):
+def render_expert_neochinese_poster(src_img=None, out_img=None, quiet=False):
     """
     实战案例 2：《苏园惊鸿》新中式马面裙立像
     采用【智能主体避障 + 两边拆字错位夹击】：
@@ -191,11 +193,13 @@ def render_expert_neochinese_poster(src_img=None, out_img=None):
         raise FileNotFoundError(f"Source image not found: {src_img}")
     os.makedirs(os.path.dirname(os.path.abspath(out_img)), exist_ok=True)
 
-    print("🎨 [Expert Designer] 开始执行《苏园惊鸿》智能避障动态排版...")
+    if not quiet:
+        print("🎨 [Expert Designer] 开始执行《苏园惊鸿》智能避障动态排版...")
     
     # 1. 真实人脸与主体保护区检测
     faces = detect_faces(src_img)
-    print(f"  🔍 实时检测到底部主体面部保护区: {faces}")
+    if not quiet:
+        print(f"  🔍 实时检测到底部主体面部保护区: {faces}")
 
     base = Image.open(src_img).convert("RGBA")
     w, h = base.size
@@ -275,15 +279,90 @@ def render_expert_neochinese_poster(src_img=None, out_img=None):
     
     final_img = Image.alpha_composite(base, overlay).convert("RGB")
     final_img.save(str(out_img), quality=95)
-    print(f"✨ 案例 2 完成: {out_img}")
+    if not quiet:
+        print(f"✨ 案例 2 完成: {out_img}")
     return str(out_img)
 
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Agnes Studio · 专家级动态海报排版引擎 (Expert Dynamic Poster Designer)")
+    parser.add_argument(
+        "--mode",
+        "-m",
+        default="all",
+        choices=["steampunk", "neochinese", "all"],
+        help="排版模式: steampunk (日漫概念) | neochinese (新中式避障) | all (全量案例)",
+    )
+    parser.add_argument(
+        "--src",
+        "--image",
+        "-i",
+        default=None,
+        help="输入背景底图路径（未指定时使用各模式默认底图）",
+    )
+    parser.add_argument(
+        "--out",
+        "-o",
+        default=None,
+        help="输出海报图片路径（在 mode=all 且指定 out 时自动附加模式后缀）",
+    )
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="静默模式，抑制常规控制台日志",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格模式：底图缺失或渲染异常时返回非零退出码 1",
+    )
+    args = parser.parse_args(argv)
+
+    default_steampunk_src = os.path.join(ASSETS_DIR, "agnes_1790006749_b2b755da.png")
+    default_neochinese_src = os.path.join(ASSETS_DIR, "agnes_1789998061_5508.png")
+
+    tasks = []
+    if args.mode in ("steampunk", "all"):
+        src = args.src or default_steampunk_src
+        if args.mode == "all" and args.out:
+            p = Path(args.out)
+            out = str(p.parent / f"{p.stem}_steampunk{p.suffix or '.png'}")
+        else:
+            out = args.out or os.path.join(ASSETS_DIR, "poster_expert_dynamic_steampunk.png")
+        tasks.append(("steampunk", render_expert_steampunk_poster, src, out))
+
+    if args.mode in ("neochinese", "all"):
+        src = args.src or default_neochinese_src
+        if args.mode == "all" and args.out:
+            p = Path(args.out)
+            out = str(p.parent / f"{p.stem}_neochinese{p.suffix or '.png'}")
+        else:
+            out = args.out or os.path.join(ASSETS_DIR, "poster_expert_dynamic_neochinese.png")
+        tasks.append(("neochinese", render_expert_neochinese_poster, src, out))
+
+    success = True
+    for mode_name, render_fn, src, out in tasks:
+        if not os.path.isfile(src):
+            if not args.quiet:
+                print(f"❌ 找不到可用背景底图: {src}")
+            if args.strict or args.src:
+                return 1
+            success = False
+            continue
+        try:
+            render_fn(src, out, quiet=args.quiet)
+        except Exception as e:
+            if not args.quiet:
+                print(f"❌ 专家级排版渲染异常 ({mode_name}): {e}")
+            if args.strict:
+                return 1
+            success = False
+
+    return 0 if (success or not args.strict) else 1
+
+
 if __name__ == "__main__":
-    print("🚀 [Expert Engine] 启动专家级多模态动态排版流水线...")
-    src_steampunk = os.path.join(ASSETS_DIR, "agnes_1790006749_b2b755da.png")
-    if os.path.exists(src_steampunk):
-        render_expert_steampunk_poster(src_steampunk)
-    src_neochinese = os.path.join(ASSETS_DIR, "agnes_1789998061_5508.png")
-    if os.path.exists(src_neochinese):
-        render_expert_neochinese_poster(src_neochinese)
-    print("🎉 专家级动态海报排版实操测试圆满完成！")
+    raise SystemExit(main())
