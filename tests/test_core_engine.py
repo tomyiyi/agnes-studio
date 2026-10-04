@@ -1644,6 +1644,32 @@ class TestVisionSubjectDetector(unittest.TestCase):
         self.assertTrue(hit)
         self.assertEqual(zone, self.sample_zone)
 
+    def test_check_occlusion_inverted_box_coordinates(self):
+        # 颠倒的左/右或上/下坐标自动规整
+        inverted_box = (0.55, 0.55, 0.35, 0.38)
+        hit, zone = check_occlusion(inverted_box, [self.sample_zone])
+        self.assertTrue(hit)
+        self.assertEqual(zone, self.sample_zone)
+
+    def test_check_occlusion_sequence_zone(self):
+        # 支持元组或列表格式的保护区
+        tuple_zone = (0.40, 0.40, 0.60, 0.60)
+        text_box = (0.35, 0.38, 0.55, 0.55)
+        hit, zone = check_occlusion(text_box, [tuple_zone])
+        self.assertTrue(hit)
+        self.assertEqual(zone, tuple_zone)
+
+    def test_check_occlusion_custom_padding(self):
+        # 原本在默认缓冲区内 (y_min 0.40 - 0.05 = 0.35, 文字框底部 0.37)
+        buffered_box = (0.42, 0.20, 0.58, 0.37)
+        # 零 padding 时不触发碰撞
+        hit_zero, _ = check_occlusion(buffered_box, [self.sample_zone], padding=0.0)
+        self.assertFalse(hit_zero)
+        # 字典自定义 top padding 扩大保护范围
+        hit_custom, zone_custom = check_occlusion(buffered_box, [self.sample_zone], padding={"top": 0.08})
+        self.assertTrue(hit_custom)
+        self.assertEqual(zone_custom, self.sample_zone)
+
     def test_detect_faces_input_guards(self):
         # 非法或不存在输入安全返回空列表
         self.assertEqual(detect_faces(None), [])

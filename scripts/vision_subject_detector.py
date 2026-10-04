@@ -97,10 +97,12 @@ def detect_faces(image_path, base_url=None, api_key=None, trace_id=None, key_pat
 
     return []
 
-def check_occlusion(text_box, exclusion_zones):
+def check_occlusion(text_box, exclusion_zones, padding=None):
     """
     检查文本框 (tx1, ty1, tx2, ty2) 与保护区是否存在遮挡交叠
     坐标统一为 0.0 ~ 1.0 百分比
+    支持 dict {"x_min", "x_max", "y_min", "y_max"} 或 (x1, y1, x2, y2) 格式的保护区
+    支持自定义 padding: float, dict(top, bottom, side) 或 tuple(pad_x, pad_y)
     """
     if not text_box or len(text_box) != 4:
         return False, None
@@ -108,19 +110,57 @@ def check_occlusion(text_box, exclusion_zones):
         return False, None
 
     try:
-        tx1, ty1, tx2, ty2 = (float(text_box[0]), float(text_box[1]), float(text_box[2]), float(text_box[3]))
+        t0, t1, t2, t3 = (float(text_box[0]), float(text_box[1]), float(text_box[2]), float(text_box[3]))
+        tx1, tx2 = min(t0, t2), max(t0, t2)
+        ty1, ty2 = min(t1, t3), max(t1, t3)
     except (TypeError, ValueError):
         return False, None
 
-    for zone in exclusion_zones:
-        if not isinstance(zone, dict):
-            continue
+    # 默认外扩头部上方 5% 和两侧各 3% 作为发饰与眼神呼吸缓冲区
+    pad_left = pad_right = 0.03
+    pad_top = 0.05
+    pad_bottom = 0.03
+    if padding is not None:
         try:
-            # 外扩头部上方 5% 和两侧各 3% 作为发饰与眼神呼吸缓冲区
-            zx1 = float(zone["x_min"]) - 0.03
-            zx2 = float(zone["x_max"]) + 0.03
-            zy1 = float(zone["y_min"]) - 0.05
-            zy2 = float(zone["y_max"]) + 0.03
+            if isinstance(padding, (int, float)):
+                p = float(padding)
+                pad_left = pad_right = pad_top = pad_bottom = p
+            elif isinstance(padding, dict):
+                pad_top = float(padding.get("top", 0.05))
+                pad_bottom = float(padding.get("bottom", 0.03))
+                side = float(padding.get("side", padding.get("x", 0.03)))
+                pad_left = float(padding.get("left", side))
+                pad_right = float(padding.get("right", side))
+            elif isinstance(padding, (list, tuple)):
+                if len(padding) == 2:
+                    pad_left = pad_right = float(padding[0])
+                    pad_top = pad_bottom = float(padding[1])
+                elif len(padding) == 4:
+                    pad_left, pad_top, pad_right, pad_bottom = (
+                        float(padding[0]), float(padding[1]), float(padding[2]), float(padding[3])
+                    )
+        except (TypeError, ValueError):
+            pass
+
+    for zone in exclusion_zones:
+        try:
+            if isinstance(zone, dict):
+                z_x1 = float(zone["x_min"])
+                z_x2 = float(zone["x_max"])
+                z_y1 = float(zone["y_min"])
+                z_y2 = float(zone["y_max"])
+            elif isinstance(zone, (list, tuple)) and len(zone) == 4:
+                z_x1, z_y1, z_x2, z_y2 = (float(zone[0]), float(zone[1]), float(zone[2]), float(zone[3]))
+            else:
+                continue
+
+            zx_min, zx_max = min(z_x1, z_x2), max(z_x1, z_x2)
+            zy_min, zy_max = min(z_y1, z_y2), max(z_y1, z_y2)
+
+            zx1 = zx_min - pad_left
+            zx2 = zx_max + pad_right
+            zy1 = zy_min - pad_top
+            zy2 = zy_max + pad_bottom
         except (KeyError, TypeError, ValueError):
             continue
 
