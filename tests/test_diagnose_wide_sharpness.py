@@ -84,5 +84,36 @@ class TestDiagnoseWideSharpness(unittest.TestCase):
             self.assertEqual(row["roi_fraction"], [0.0, 0.0, 1.0, 1.0])
             self.assertEqual(row["size"], [500, 400])
 
+    def test_cli_main_without_out_prints_to_stdout(self):
+        import io
+        import contextlib
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "stdout_diag.png"
+            Image.new("RGB", (1000, 500), "white").save(image)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = main([str(image)])
+            self.assertEqual(code, 0)
+            payload = json.loads(buf.getvalue())
+            self.assertEqual(payload["schema"], "agnes.wide-sharpness-diagnostic.v1")
+            self.assertEqual(payload["count"], 1)
+
+    def test_cli_main_with_quiet_flag(self):
+        import io
+        import contextlib
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            image = root / "quiet_diag.png"
+            report = root / "quiet_report.json"
+            Image.new("RGB", (1000, 500), "white").save(image)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = main([str(image), "--out", str(report), "-q"])
+            self.assertEqual(code, 0)
+            self.assertEqual(buf.getvalue(), "")
+            self.assertTrue(report.exists())
+            payload = json.loads(report.read_text())
+            self.assertEqual(payload["count"], 1)
+
 
 if __name__ == "__main__": unittest.main()

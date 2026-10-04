@@ -46,7 +46,7 @@ def diagnose(path: Path | str, roi=(0.20, 0.15, 0.80, 0.90)) -> dict:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("images", nargs="+", type=Path)
-    parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--out", type=Path, default=None, help="Optional output JSON report path")
     parser.add_argument(
         "--roi",
         nargs=4,
@@ -55,15 +55,18 @@ def main(argv=None) -> int:
         metavar=("LEFT", "TOP", "RIGHT", "BOTTOM"),
         help="Candidate ROI coordinates: left top right bottom (0.0 to 1.0)",
     )
+    parser.add_argument("--quiet", "-q", action="store_true", help="Suppress JSON output to stdout")
     args = parser.parse_args(argv)
     roi_tuple = tuple(args.roi)
     rows = [diagnose(path, roi=roi_tuple) for path in args.images]
     report = {"schema": "agnes.wide-sharpness-diagnostic.v1", "scope": "read-only existing images",
               "count": len(rows), "rows": rows,
               "interpretation": "candidate ROI is diagnostic evidence only; it does not alter acceptance thresholds"}
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
-    print(json.dumps(report, ensure_ascii=False, indent=2))
+    if args.out is not None:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+    if not args.quiet:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0
 
 if __name__ == "__main__":
