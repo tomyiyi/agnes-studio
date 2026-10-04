@@ -315,9 +315,51 @@ class CliTest(unittest.TestCase):
         buf = io.StringIO()
         with redirect_stdout(buf):
             with patch("gateway_failover.doctor", return_value={EP1: {"status": "ok"}}) as mock_doctor:
-                G.main(["--kind", "chat", "--doctor", "--key-path", "/path/to/custom_key.json"])
+                rc = G.main(["--kind", "chat", "--doctor", "--key-path", "/path/to/custom_key.json"])
                 mock_doctor.assert_called_once_with("chat", key_path="/path/to/custom_key.json")
         self.assertIn("ok", buf.getvalue())
+        self.assertEqual(rc, 0)
+
+    def test_cli_main_doctor_with_custom_timeout(self):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            with patch("gateway_failover.doctor", return_value={EP1: {"status": "ok"}}) as mock_doctor:
+                rc = G.main(["--doctor", "--timeout", "8"])
+                mock_doctor.assert_called_once_with("chat", key_path=None, timeout=8)
+        self.assertEqual(rc, 0)
+
+    def test_cli_main_doctor_strict_failure(self):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            with patch("gateway_failover.doctor", return_value={EP1: {"status": "error", "message": "fail"}}):
+                rc = G.main(["--doctor", "--strict"])
+        self.assertEqual(rc, 1)
+
+    def test_cli_main_doctor_strict_success(self):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            with patch("gateway_failover.doctor", return_value={EP1: {"status": "ok"}, EP2: {"status": "warn"}}):
+                rc = G.main(["--doctor", "--strict"])
+        self.assertEqual(rc, 0)
+
+    def test_cli_main_default_return_code(self):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            with patch("gateway_failover.resolve_endpoints", return_value=[EP1]):
+                rc = G.main([])
+        self.assertEqual(rc, 0)
 
 
 if __name__ == "__main__":

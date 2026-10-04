@@ -249,20 +249,35 @@ def doctor(
     return results
 
 
-def main(argv: list[str] | None = None) -> None:
+def main(argv: list[str] | None = None) -> int:
     import argparse
 
     ap = argparse.ArgumentParser(description="New API 网关故障转移探活")
     ap.add_argument("--kind", default="chat", choices=["chat", "image"])
     ap.add_argument("--key-path", default=None, help="自定义 key JSON 路径")
     ap.add_argument("--doctor", action="store_true", help="探活所有端点")
+    ap.add_argument("--timeout", type=int, default=5, help="探活超时时间（秒）")
+    ap.add_argument(
+        "--strict",
+        action="store_true",
+        help="doctor 探活存在 error 端点时返回退出码 1",
+    )
     a = ap.parse_args(argv)
     if a.doctor:
-        print(json.dumps(doctor(a.kind, key_path=a.key_path), ensure_ascii=False, indent=2))
-        return
+        doc_kwargs = {"key_path": a.key_path}
+        if a.timeout != 5:
+            doc_kwargs["timeout"] = a.timeout
+        results = doctor(a.kind, **doc_kwargs)
+        print(json.dumps(results, ensure_ascii=False, indent=2))
+        if a.strict:
+            for info in results.values():
+                if isinstance(info, dict) and info.get("status") == "error":
+                    return 1
+        return 0
     print(json.dumps({"endpoints": resolve_endpoints(a.kind, key_path=a.key_path)},
                      ensure_ascii=False, indent=2))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
