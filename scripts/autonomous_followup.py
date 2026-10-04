@@ -113,10 +113,22 @@ def check_and_sync_git(cwd=None, proxy=None, timeout=30):
 def check_and_heal_server(server_url=None, api_base=None, api_key=None, auto_heal=True):
     """检查 8088 端口服务与 New API 健康度，异常时自动拉起自愈"""
     srv_url = server_url or os.environ.get("AGNES_STUDIO_SERVER_URL") or "http://127.0.0.1:8088/api/config"
-    explicit_api_base = api_base or os.environ.get("AGNES_API_BASE") or os.environ.get("NEW_API_BASE")
+    explicit_api_base = (
+        api_base
+        or os.environ.get("AGNES_BASE_URL")
+        or os.environ.get("NEW_API_BASE_URL")
+        or os.environ.get("AGNES_IMAGE_BASE_URL")
+        or os.environ.get("AGNES_CHAT_BASE_URL")
+        or os.environ.get("AGNES_API_BASE")
+        or os.environ.get("NEW_API_BASE")
+    )
     target_api_base = explicit_api_base or "http://127.0.0.1:13000/v1"
     target_key = api_key if api_key is not None else (
-        os.environ.get("AGNES_API_KEY") or os.environ.get("NEW_API_KEY") or get_local_auth_key() or ""
+        os.environ.get("AGNES_API_KEY")
+        or os.environ.get("AGNES_GATEWAY_KEY")
+        or os.environ.get("NEW_API_KEY")
+        or get_local_auth_key()
+        or ""
     )
 
     server_alive = False

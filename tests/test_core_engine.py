@@ -2585,7 +2585,7 @@ class TestAutonomousFollowup(unittest.TestCase):
         mock_resp.__enter__.return_value = mock_resp
         mock_urlopen.return_value = mock_resp
 
-        with patch.dict("os.environ", {"AGNES_API_KEY": "", "NEW_API_KEY": ""}, clear=False):
+        with patch.dict("os.environ", {"AGNES_API_KEY": "", "AGNES_GATEWAY_KEY": "", "NEW_API_KEY": ""}, clear=False):
             check_and_heal_server(
                 server_url="http://127.0.0.1:8088/api/config",
                 api_base="http://127.0.0.1:13000/v1",
@@ -2594,6 +2594,61 @@ class TestAutonomousFollowup(unittest.TestCase):
 
         models_request = mock_urlopen.call_args_list[1].args[0]
         self.assertNotIn("Authorization", models_request.headers)
+
+    @patch("autonomous_followup.get_local_auth_key", return_value="")
+    @patch("urllib.request.urlopen")
+    def test_check_and_heal_server_uses_agnes_gateway_key_from_env(self, mock_urlopen, _mock_local_auth):
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = b"{}"
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        with patch.dict("os.environ", {"AGNES_API_KEY": "", "AGNES_GATEWAY_KEY": "gw_key_123", "NEW_API_KEY": ""}, clear=False):
+            check_and_heal_server(
+                server_url="http://127.0.0.1:8088/api/config",
+                api_base="http://127.0.0.1:13000/v1",
+                auto_heal=False,
+            )
+
+        models_request = mock_urlopen.call_args_list[1].args[0]
+        self.assertEqual(models_request.headers.get("Authorization"), "Bearer gw_key_123")
+
+    @patch("autonomous_followup.get_local_auth_key", return_value="")
+    @patch("urllib.request.urlopen")
+    def test_check_and_heal_server_uses_agnes_base_url_from_env(self, mock_urlopen, _mock_local_auth):
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = b"{}"
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        with patch.dict("os.environ", {"AGNES_BASE_URL": "http://10.0.0.1:13000/v1", "NEW_API_BASE_URL": "", "AGNES_API_BASE": ""}, clear=False):
+            check_and_heal_server(
+                server_url="http://127.0.0.1:8088/api/config",
+                auto_heal=False,
+            )
+
+        models_request = mock_urlopen.call_args_list[1].args[0]
+        self.assertEqual(models_request.full_url, "http://10.0.0.1:13000/v1/models")
+
+    @patch("autonomous_followup.get_local_auth_key", return_value="")
+    @patch("urllib.request.urlopen")
+    def test_check_and_heal_server_uses_new_api_base_url_from_env(self, mock_urlopen, _mock_local_auth):
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = b"{}"
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        with patch.dict("os.environ", {"AGNES_BASE_URL": "", "NEW_API_BASE_URL": "http://10.0.0.2:13000/v1", "AGNES_API_BASE": ""}, clear=False):
+            check_and_heal_server(
+                server_url="http://127.0.0.1:8088/api/config",
+                auto_heal=False,
+            )
+
+        models_request = mock_urlopen.call_args_list[1].args[0]
+        self.assertEqual(models_request.full_url, "http://10.0.0.2:13000/v1/models")
 
     @patch("urllib.request.urlopen")
     def test_check_and_heal_server_healthy(self, mock_urlopen):
