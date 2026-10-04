@@ -11,7 +11,7 @@ import sys
 import unittest
 import urllib.error
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
@@ -45,7 +45,7 @@ class ResolveEndpointsTest(unittest.TestCase):
 
     def _clean_gateway_env(self):
         for k in list(os.environ):
-            if k.startswith("AGNES_"):
+            if k.startswith("AGNES_") or k.startswith("NEW_API_") or k.startswith("OPENAI_"):
                 del os.environ[k]
 
     def test_full_override_urls(self):
@@ -60,6 +60,25 @@ class ResolveEndpointsTest(unittest.TestCase):
         os.environ["AGNES_CHAT_FALLBACK_URLS"] = EP2 + "," + EP1
         eps = G.resolve_endpoints("chat")
         self.assertEqual(eps, [EP1, EP2])
+
+    def test_generic_agnes_base_url_fallback(self):
+        self._clean_gateway_env()
+        os.environ["AGNES_BASE_URL"] = "http://general.api:13000/v1"
+        self.assertEqual(G.resolve_endpoints("chat"), ["http://general.api:13000/v1"])
+        self.assertEqual(G.resolve_endpoints("image"), ["http://general.api:13000/v1"])
+
+    def test_generic_new_api_base_url_fallback(self):
+        self._clean_gateway_env()
+        os.environ["NEW_API_BASE_URL"] = "http://newapi.base:13000/v1"
+        self.assertEqual(G.resolve_endpoints("chat"), ["http://newapi.base:13000/v1"])
+        self.assertEqual(G.resolve_endpoints("image"), ["http://newapi.base:13000/v1"])
+
+    def test_chat_and_image_endpoint_isolation(self):
+        self._clean_gateway_env()
+        os.environ["AGNES_CHAT_BASE_URL"] = "http://chat.only:13000/v1"
+        # image 不应受 AGNES_CHAT_BASE_URL 污染
+        img_eps = G.resolve_endpoints("image")
+        self.assertNotIn("http://chat.only:13000/v1", img_eps)
 
     def test_image_uses_own_prefix(self):
         self._clean_gateway_env()
@@ -173,6 +192,18 @@ class FailoverTest(unittest.TestCase):
                              key_resolver=resolver)
         self.assertEqual(calls[0]["key"], "EXPLICIT")
         resolver.assert_not_called()
+
+    def test_image_key_resolved_via_load_gateway(self):
+        post, calls = fake_post_factory([("ok", 200, {})])
+        with patch("gateway_failover.load_gateway", return_value=("http://base", "IMAGE_KEY", "model")):
+            G.post_with_failover("/images/generations", {}, kind="image", http_post=post)
+        self.assertEqual(calls[0]["key"], "IMAGE_KEY")
+
+    def test_chat_key_resolved_via_load_credentials(self):
+        post, calls = fake_post_factory([("ok", 200, {})])
+        with patch("gateway_failover.load_credentials", return_value=("http://base", "CHAT_KEY")):
+            G.post_with_failover("/chat/completions", {}, kind="chat", http_post=post)
+        self.assertEqual(calls[0]["key"], "CHAT_KEY")
 
 
 class DoctorTest(unittest.TestCase):

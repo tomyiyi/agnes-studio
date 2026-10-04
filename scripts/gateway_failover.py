@@ -55,6 +55,11 @@ try:
 except ImportError:  # pragma: no cover -- 单独使用时降级
     load_credentials = None  # type: ignore
 
+try:
+    from agnes_gateway import load_gateway
+except ImportError:  # pragma: no cover -- 单独使用时降级
+    load_gateway = None  # type: ignore
+
 DEFAULT_BASE = "http://127.0.0.1:13000/v1"
 
 #: 触发故障转移的 HTTP 状态码：网关坏了 / 被限流了
@@ -91,12 +96,19 @@ def resolve_endpoints(kind: str = "chat") -> list[str]:
         return _dedup(urls)
 
     # 2. 主 + 备选拼接
-    primary = (os.environ.get(prefix + "_BASE_URL") or "").strip().rstrip("/")
-    if not primary and callable(load_credentials):
-        try:
-            primary = (load_credentials()[0] or "").strip().rstrip("/")
-        except Exception:
-            primary = ""
+    primary = (
+        os.environ.get(prefix + "_BASE_URL")
+        or os.environ.get("AGNES_BASE_URL")
+        or os.environ.get("NEW_API_BASE_URL")
+        or ""
+    ).strip().rstrip("/")
+    if not primary:
+        resolver = load_credentials if kind == "chat" else (load_gateway or load_credentials)
+        if callable(resolver):
+            try:
+                primary = (resolver()[0] or "").strip().rstrip("/")
+            except Exception:
+                primary = ""
     fallbacks = _split_urls(os.environ.get(prefix + "_FALLBACK_URLS"))
     urls = _dedup([u for u in [primary] + fallbacks if u])
     return urls or [DEFAULT_BASE]
@@ -154,7 +166,9 @@ def post_with_failover(
         endpoints = [fe] + [u for u in endpoints if u != fe]
     post = http_post or _default_http_post
     if api_key is None:
-        resolver = key_resolver or load_credentials
+        resolver = key_resolver
+        if resolver is None:
+            resolver = load_credentials if kind == "chat" else (load_gateway or load_credentials)
         if callable(resolver):
             try:
                 api_key = resolver()[1]
