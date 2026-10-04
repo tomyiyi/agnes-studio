@@ -100,6 +100,7 @@ from poster_visual_learner import (
     analyze_poster_visual,
     DEFAULT_TARGET_FILES,
     DEFAULT_OUTPUT_PATH,
+    main as poster_learner_main,
 )
 import autonomous_followup
 from autonomous_followup import (
@@ -2005,6 +2006,61 @@ class TestPosterVisualLearner(unittest.TestCase):
         self.assertEqual(loaded[1]["filename"], "square_red.png")
         self.assertEqual(loaded[1]["dominant_palette"][0]["hex"], "#ff0000")
         self.assertEqual(loaded[2]["filename"], "wide_blue.png")
+
+    def test_analyze_poster_visual_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout
+
+        out_json = self.tmp_path / "quiet_rules.json"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            results = analyze_poster_visual(
+                target_files=[self.square_img],
+                output_path=out_json,
+                quiet=True,
+            )
+        self.assertEqual(len(results), 1)
+        self.assertEqual(buf.getvalue(), "")
+
+    def test_cli_main_with_files_out_and_quiet(self):
+        import io
+        from contextlib import redirect_stdout
+
+        out_json = self.tmp_path / "cli_rules.json"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = poster_learner_main([
+                "--files", str(self.square_img), str(self.wide_img),
+                "--out", str(out_json),
+                "--quiet",
+            ])
+        self.assertEqual(rc, 0)
+        self.assertEqual(buf.getvalue(), "")
+        self.assertTrue(out_json.is_file())
+        loaded = json.loads(out_json.read_text(encoding="utf-8"))
+        self.assertEqual(len(loaded), 2)
+
+    def test_cli_main_strict_success(self):
+        out_json = self.tmp_path / "strict_success.json"
+        rc = poster_learner_main([
+            "--files", str(self.square_img),
+            "--out", str(out_json),
+            "--strict",
+            "--quiet",
+        ])
+        self.assertEqual(rc, 0)
+        self.assertTrue(out_json.is_file())
+
+    def test_cli_main_strict_failure_on_missing_file(self):
+        missing = self.tmp_path / "not_there.png"
+        out_json = self.tmp_path / "strict_fail.json"
+        rc = poster_learner_main([
+            "--files", str(self.square_img), str(missing),
+            "--out", str(out_json),
+            "--strict",
+            "--quiet",
+        ])
+        self.assertEqual(rc, 1)
 
 
 class TestWechatCoverAB(unittest.TestCase):

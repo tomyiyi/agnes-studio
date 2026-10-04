@@ -75,9 +75,11 @@ def extract_poster_features(filepath: str | Path) -> dict[str, Any] | None:
 def analyze_poster_visual(
     target_files: list[str | Path] | None = None,
     output_path: str | Path | None = None,
+    quiet: bool = False,
 ) -> list[dict[str, Any]]:
     """分析海报视觉特征并持久化学习结果，非破坏性保留知识库扩展规则"""
-    print("🚀 启动海报视觉多模态特征解构与学习引擎...")
+    if not quiet:
+        print("🚀 启动海报视觉多模态特征解构与学习引擎...")
 
     files_to_process = DEFAULT_TARGET_FILES if target_files is None else target_files
     results: list[dict[str, Any]] = []
@@ -86,7 +88,8 @@ def analyze_poster_visual(
         feat = extract_poster_features(item)
         if feat is not None:
             results.append(feat)
-            print(f"  ✓ 解构成功: {feat['filename']} -> {feat['layout_category']}")
+            if not quiet:
+                print(f"  ✓ 解构成功: {feat['filename']} -> {feat['layout_category']}")
 
     out_file = Path(output_path).resolve() if output_path else DEFAULT_OUTPUT_PATH.resolve()
     out_file.parent.mkdir(parents=True, exist_ok=True)
@@ -120,9 +123,52 @@ def analyze_poster_visual(
         final_list = results
 
     out_file.write_text(json.dumps(final_list, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"✨ 海报设计学习报告与知识沉淀已保存至: {out_file}")
+    if not quiet:
+        print(f"✨ 海报设计学习报告与知识沉淀已保存至: {out_file}")
     return results
 
 
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="海报多模态视觉解构与设计自学习引擎")
+    parser.add_argument(
+        "--files",
+        "-f",
+        nargs="*",
+        default=None,
+        help="目标海报图片文件列表",
+    )
+    parser.add_argument(
+        "--out",
+        "-o",
+        default=None,
+        help="学习规则 JSON 输出文件路径",
+    )
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="静默模式，抑制控制台日志输出",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格模式：当指定的文件存在缺失或解构失败时返回非零退出码 1",
+    )
+    args = parser.parse_args(argv)
+
+    target_files = [Path(p) for p in args.files] if args.files is not None else None
+    results = analyze_poster_visual(
+        target_files=target_files,
+        output_path=args.out,
+        quiet=args.quiet,
+    )
+    if args.strict and target_files is not None:
+        if len(results) != len(target_files):
+            return 1
+    return 0
+
+
 if __name__ == "__main__":
-    analyze_poster_visual()
+    raise SystemExit(main())
