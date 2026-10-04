@@ -60,8 +60,18 @@ def load_gateway(key_path: Path | str | None = None) -> tuple[str, str, str]:
             pass
 
     # 环境变量具备最高优先级或用于兜底补全
-    base = os.environ.get("NEW_API_BASE_URL") or os.environ.get("AGNES_BASE_URL") or base
-    key = os.environ.get("NEW_API_KEY") or key
+    base = (
+        os.environ.get("AGNES_IMAGE_BASE_URL")
+        or os.environ.get("AGNES_BASE_URL")
+        or os.environ.get("NEW_API_BASE_URL")
+        or base
+    )
+    key = (
+        os.environ.get("AGNES_API_KEY")
+        or os.environ.get("AGNES_GATEWAY_KEY")
+        or os.environ.get("NEW_API_KEY")
+        or key
+    )
     model = os.environ.get("AGNES_IMAGE_MODEL") or model
     return base, key, model
 

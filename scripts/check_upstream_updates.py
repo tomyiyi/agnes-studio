@@ -22,7 +22,11 @@ UPDATES_PATH = str(STUDIO_ROOT / "data" / "updates.json")
 
 def get_local_auth_key(key_path: Path | str | None = None) -> str:
     """获取本地或环境变量中的 New API 鉴权密钥"""
-    env_key = os.environ.get("NEW_API_KEY") or os.environ.get("AGNES_API_KEY")
+    env_key = (
+        os.environ.get("AGNES_API_KEY")
+        or os.environ.get("AGNES_GATEWAY_KEY")
+        or os.environ.get("NEW_API_KEY")
+    )
     if env_key and env_key.strip():
         return env_key.strip()
 
@@ -41,7 +45,11 @@ def get_local_auth_key(key_path: Path | str | None = None) -> str:
 
 def get_local_base_url(key_path: Path | str | None = None) -> str:
     "Resolve the active image gateway from the same local source as Studio."
-    env_base = os.environ.get("NEW_API_BASE_URL") or os.environ.get("AGNES_BASE_URL")
+    env_base = (
+        os.environ.get("AGNES_IMAGE_BASE_URL")
+        or os.environ.get("AGNES_BASE_URL")
+        or os.environ.get("NEW_API_BASE_URL")
+    )
     if env_base and env_base.strip():
         return env_base.strip().rstrip("/")
 

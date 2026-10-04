@@ -72,6 +72,7 @@ from cover_pipeline import (
 import check_upstream_updates
 from check_upstream_updates import (
     get_local_auth_key,
+    get_local_base_url,
     check_new_api_health,
     check_github_repo,
     run_lifecycle_monitor,
@@ -2108,6 +2109,40 @@ class TestAgnesGateway(unittest.TestCase):
             self.assertEqual(key, "env-secret-key-999")
             self.assertEqual(model, "agnes-ultra-hd")
 
+    def test_load_gateway_with_agnes_image_base_url(self):
+        cfg_file = self.tmp_path / "local_key.json"
+        cfg_file.write_text(json.dumps({"base_url": "http://10.0.0.1/v1"}), encoding="utf-8")
+        env_vars = {
+            "AGNES_IMAGE_BASE_URL": "http://image-priority.example/v1",
+            "AGNES_BASE_URL": "http://agnes-base.example/v1",
+            "NEW_API_BASE_URL": "http://new-api-base.example/v1",
+        }
+        with patch.dict("os.environ", env_vars, clear=True):
+            base, _, _ = load_gateway(key_path=cfg_file)
+            self.assertEqual(base, "http://image-priority.example/v1")
+
+    def test_load_gateway_with_agnes_gateway_key(self):
+        cfg_file = self.tmp_path / "local_key.json"
+        cfg_file.write_text(json.dumps({"api_key": "file-key"}), encoding="utf-8")
+        # 1. 验证 AGNES_GATEWAY_KEY 优先于 NEW_API_KEY
+        env_vars = {
+            "AGNES_GATEWAY_KEY": "sk-gateway-key-priority",
+            "NEW_API_KEY": "sk-new-api-key-lower",
+        }
+        with patch.dict("os.environ", env_vars, clear=True):
+            _, key, _ = load_gateway(key_path=cfg_file)
+            self.assertEqual(key, "sk-gateway-key-priority")
+
+        # 2. 验证 AGNES_API_KEY 具备最高优先级
+        env_vars_top = {
+            "AGNES_API_KEY": "sk-agnes-api-key-top",
+            "AGNES_GATEWAY_KEY": "sk-gateway-key-priority",
+            "NEW_API_KEY": "sk-new-api-key-lower",
+        }
+        with patch.dict("os.environ", env_vars_top, clear=True):
+            _, key, _ = load_gateway(key_path=cfg_file)
+            self.assertEqual(key, "sk-agnes-api-key-top")
+
     def test_classify_generation_error(self):
         self.assertEqual(gateway_classify_error("HTTP 502: Bad Gateway"), "gateway_502")
         self.assertEqual(gateway_classify_error("HTTP 401: Unauthorized"), "auth")
@@ -2271,6 +2306,19 @@ class TestUpstreamSentinel(unittest.TestCase):
             self.assertEqual(get_local_auth_key(), "sk-env-secret-123")
         with patch.dict("os.environ", {"NEW_API_KEY": "", "AGNES_API_KEY": "sk-agnes-key-456"}):
             self.assertEqual(get_local_auth_key(), "sk-agnes-key-456")
+        with patch.dict("os.environ", {"NEW_API_KEY": "", "AGNES_API_KEY": "", "AGNES_GATEWAY_KEY": "sk-gateway-789"}):
+            self.assertEqual(get_local_auth_key(), "sk-gateway-789")
+
+    def test_get_local_base_url_env_priority(self):
+        env_vars = {
+            "AGNES_IMAGE_BASE_URL": "http://img-sentinel.example/v1",
+            "AGNES_BASE_URL": "http://agnes-sentinel.example/v1",
+            "NEW_API_BASE_URL": "http://newapi-sentinel.example/v1",
+        }
+        with patch.dict("os.environ", env_vars, clear=True):
+            self.assertEqual(get_local_base_url(), "http://img-sentinel.example/v1")
+        with patch.dict("os.environ", {"AGNES_BASE_URL": "http://agnes-sentinel.example/v1"}, clear=True):
+            self.assertEqual(get_local_base_url(), "http://agnes-sentinel.example/v1")
 
     def test_get_local_auth_key_from_file(self):
         key_file = self.tmp_path / "test_key.json"
