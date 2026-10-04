@@ -50,5 +50,39 @@ class TestDiagnoseWideSharpness(unittest.TestCase):
             with self.assertRaises(ValueError):
                 diagnose(image, roi=(-0.1, 0.1, 0.5, 0.5))
 
+    def test_cli_writes_report_with_custom_roi(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); image = root / "wide_roi.png"; report = root / "report.json"
+            Image.new("RGB", (2000, 1000), "white").save(image)
+            self.assertEqual(main([str(image), "--out", str(report), "--roi", "0.1", "0.2", "0.7", "0.8"]), 0)
+            payload = json.loads(report.read_text())
+            self.assertEqual(payload["count"], 1)
+            self.assertEqual(payload["rows"][0]["roi_fraction"], [0.1, 0.2, 0.7, 0.8])
+
+    def test_diagnose_non_numeric_roi_raises_value_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "non_num_roi.png"
+            Image.new("RGB", (200, 200), "white").save(image)
+            with self.assertRaises(ValueError) as ctx:
+                diagnose(image, roi=("invalid", 0.1, 0.8, 0.9))
+            self.assertIn("roi coordinates must be numeric", str(ctx.exception))
+
+    def test_diagnose_tiny_crop_raises_value_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "tiny.png"
+            # 5x5 图片，若 ROI 比例极小，像素截取区间跨度小于 2
+            Image.new("RGB", (5, 5), "white").save(image)
+            with self.assertRaises(ValueError) as ctx:
+                diagnose(image, roi=(0.1, 0.1, 0.15, 0.15))
+            self.assertIn("must have width and height >= 2 pixels", str(ctx.exception))
+
+    def test_diagnose_integer_roi_normalized(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "int_roi.png"
+            Image.new("RGB", (500, 400), "white").save(image)
+            row = diagnose(image, roi=[0, 0, 1, 1])
+            self.assertEqual(row["roi_fraction"], [0.0, 0.0, 1.0, 1.0])
+            self.assertEqual(row["size"], [500, 400])
+
 
 if __name__ == "__main__": unittest.main()
