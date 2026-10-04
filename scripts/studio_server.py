@@ -131,14 +131,44 @@ except Exception as e:
 
 LOCAL_KEY_PATH = Path.home() / ".new-api" / "local_key.json"
 # 网关地址：环境变量优先，默认走本机 New API
-# AGNES_IMAGE_BASE_URL: 图像生成网关
-# AGNES_CHAT_BASE_URL: 文本/视觉网关
-IMAGE_BASE_DEFAULT = os.environ.get("AGNES_IMAGE_BASE_URL", "http://127.0.0.1:13000/v1")
-CHAT_BASE_DEFAULT = os.environ.get("AGNES_CHAT_BASE_URL", "http://127.0.0.1:13000/v1")
+# AGNES_IMAGE_BASE_URL: 图像生成网关；AGNES_CHAT_BASE_URL: 文本/视觉网关
+# AGNES_BASE_URL / NEW_API_BASE_URL: 通用网关基地址回退
+IMAGE_BASE_DEFAULT = (
+    os.environ.get("AGNES_IMAGE_BASE_URL")
+    or os.environ.get("AGNES_BASE_URL")
+    or os.environ.get("NEW_API_BASE_URL")
+    or "http://127.0.0.1:13000/v1"
+)
+CHAT_BASE_DEFAULT = (
+    os.environ.get("AGNES_CHAT_BASE_URL")
+    or os.environ.get("AGNES_BASE_URL")
+    or os.environ.get("NEW_API_BASE_URL")
+    or "http://127.0.0.1:13000/v1"
+)
+
+def get_default_image_base() -> str:
+    """动态获取当前图像生成网关默认地址，支持环境变量优先覆盖。"""
+    return (
+        os.environ.get("AGNES_IMAGE_BASE_URL")
+        or os.environ.get("AGNES_BASE_URL")
+        or os.environ.get("NEW_API_BASE_URL")
+        or IMAGE_BASE_DEFAULT
+    )
+
+def get_default_chat_base() -> str:
+    """动态获取当前文本/视觉网关默认地址，支持环境变量优先覆盖。"""
+    return (
+        os.environ.get("AGNES_CHAT_BASE_URL")
+        or os.environ.get("AGNES_BASE_URL")
+        or os.environ.get("NEW_API_BASE_URL")
+        or CHAT_BASE_DEFAULT
+    )
 
 def get_local_newapi_config(key_path: Path | str | None = None) -> dict:
     """读取本地 New API 配置文件（如果存在）"""
     target_path = Path(key_path) if key_path is not None else LOCAL_KEY_PATH
+    default_img = get_default_image_base()
+    default_chat = get_default_chat_base()
     if target_path.exists():
         try:
             with open(target_path, "r", encoding="utf-8") as f:
@@ -146,9 +176,9 @@ def get_local_newapi_config(key_path: Path | str | None = None) -> dict:
             return {
                 "detected": True,
                 "type": "local_new_api",
-                "base_url": data.get("base_url", IMAGE_BASE_DEFAULT),
-                "image_base_url": data.get("image_base_url", data.get("base_url", IMAGE_BASE_DEFAULT)),
-                "chat_base_url": data.get("chat_base_url", CHAT_BASE_DEFAULT),
+                "base_url": data.get("base_url", default_img),
+                "image_base_url": data.get("image_base_url", data.get("base_url", default_img)),
+                "chat_base_url": data.get("chat_base_url", default_chat),
                 "api_key": data.get("api_key", ""),
                 "default_model": "agnes-image-2.5-flash",
                 "models": data.get("models", {}).get("image_generation", [
@@ -167,9 +197,9 @@ def get_local_newapi_config(key_path: Path | str | None = None) -> dict:
     return {
         "detected": False,
         "type": "none",
-        "base_url": IMAGE_BASE_DEFAULT,
-        "image_base_url": IMAGE_BASE_DEFAULT,
-        "chat_base_url": CHAT_BASE_DEFAULT,
+        "base_url": default_img,
+        "image_base_url": default_img,
+        "chat_base_url": default_chat,
         "api_key": "",
         "default_model": "agnes-image-2.5-flash",
         "models": [
@@ -197,7 +227,7 @@ def resolve_image_base_url(req_body: dict | None = None, local_cfg: dict | None 
         if configured:
             return str(configured).strip().rstrip("/")
 
-    return IMAGE_BASE_DEFAULT.rstrip("/")
+    return get_default_image_base().rstrip("/")
 
 
 def _server_default_chat_base(local_cfg: dict) -> str:
@@ -211,7 +241,7 @@ def _server_default_chat_base(local_cfg: dict) -> str:
             pass
     if local_cfg.get("detected") and local_cfg.get("chat_base_url"):
         return str(local_cfg["chat_base_url"]).strip().rstrip("/")
-    return CHAT_BASE_DEFAULT.rstrip("/")
+    return get_default_chat_base().rstrip("/")
 
 
 def _server_default_key(local_cfg: dict) -> Optional[str]:
@@ -223,7 +253,11 @@ def _server_default_key(local_cfg: dict) -> Optional[str]:
                 return str(def_key).strip()
         except Exception:
             pass
-    env_agnes_key = os.getenv("AGNES_API_KEY") or os.getenv("AGNES_GATEWAY_KEY")
+    env_agnes_key = (
+        os.getenv("AGNES_API_KEY")
+        or os.getenv("AGNES_GATEWAY_KEY")
+        or os.getenv("NEW_API_KEY")
+    )
     if env_agnes_key:
         return env_agnes_key.strip()
     if local_cfg.get("detected") and local_cfg.get("api_key"):
@@ -241,7 +275,7 @@ def is_configured_image_gateway(target_base: str, local_cfg: dict | None = None)
         configured = (cfg.get("image_base_url")
                       or cfg.get("base_url") or "").strip().rstrip("/")
     else:
-        configured = IMAGE_BASE_DEFAULT.rstrip("/")
+        configured = get_default_image_base().rstrip("/")
     target = str(target_base or "").strip().rstrip("/")
     return bool(configured) and target == configured
 
@@ -259,8 +293,8 @@ def is_configured_gateway(target_base: str, local_cfg: dict | None = None) -> bo
         }
     else:
         configured_urls = {
-            IMAGE_BASE_DEFAULT.rstrip("/"),
-            CHAT_BASE_DEFAULT.rstrip("/"),
+            get_default_image_base().rstrip("/"),
+            get_default_chat_base().rstrip("/"),
         }
     configured_urls.discard("")
     return target in configured_urls
@@ -434,15 +468,15 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         if parsed_path == "/api/config":
             cfg = get_local_newapi_config()
-            # 为前端提供脱敏显示的 key 和全量配置
+            # 为前端提供脱敏显示的 key 和全量配置（本地配置优先，环境变量密钥回退）
+            effective_key = str(cfg.get("api_key") or _server_default_key(cfg) or "").strip()
             masked_key = ""
-            if cfg["api_key"]:
-                key = cfg["api_key"]
+            if effective_key:
                 # 第 17 轮收紧：只保留末 4 位用于识别（业界惯例，
                 # Stripe/GitHub 均只展示末 4 位），不再暴露前 6 位——
                 # /api/config 无鉴权（局域网可达），前 6 位对识别无增益，
                 # 却扩大了密钥已知明文前缀。前端仅作输入框 placeholder。
-                masked_key = "..." + key[-4:] if len(key) > 10 else "***"
+                masked_key = "..." + effective_key[-4:] if len(effective_key) > 10 else "***"
             
             preset_endpoints = []
             if cfg["detected"] and cfg.get("base_url"):
@@ -464,7 +498,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                 "image_base_url": cfg["image_base_url"],
                 "chat_base_url": cfg["chat_base_url"],
                 "masked_api_key": masked_key,
-                "has_api_key": bool(cfg["api_key"]),
+                "has_api_key": bool(effective_key),
                 # 不向前端回传明文密钥；调用时由服务端按需注入本地密钥
                 "api_key": "",
                 "default_model": cfg["default_model"],

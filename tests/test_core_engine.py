@@ -3068,6 +3068,26 @@ class TestGeminiEngine(unittest.TestCase):
         base, key, model = load_credentials()
         self.assertEqual(base, DEFAULT_BASE)
 
+    @patch.dict("os.environ", {
+        "AGNES_CHAT_BASE_URL": "http://chat.agnes.internal:14000/v1",
+        "NEW_API_KEY": "sk-new-api-credentials-key",
+    }, clear=True)
+    @patch("agnes_engine.KEY_PATH", Path("/tmp/non_existent_key_path_xyz.json"))
+    def test_load_credentials_with_agnes_chat_base_and_new_api_key(self):
+        base, key, model = load_credentials()
+        self.assertEqual(base, "http://chat.agnes.internal:14000/v1")
+        self.assertEqual(key, "sk-new-api-credentials-key")
+
+    @patch.dict("os.environ", {
+        "NEW_API_BASE_URL": "http://new-api.fallback:15000/v1",
+        "NEW_API_KEY": "sk-new-api-fallback-key",
+    }, clear=True)
+    @patch("agnes_engine.KEY_PATH", Path("/tmp/non_existent_key_path_xyz.json"))
+    def test_load_credentials_with_new_api_base_fallback(self):
+        base, key, model = load_credentials()
+        self.assertEqual(base, "http://new-api.fallback:15000/v1")
+        self.assertEqual(key, "sk-new-api-fallback-key")
+
     def test_strip_markdown_codeblock(self):
         self.assertEqual(_strip_markdown_codeblock('```json\n{"k": "v"}\n```'), '{"k": "v"}')
         self.assertEqual(_strip_markdown_codeblock('```JSON\n{"k": "v"}\n```'), '{"k": "v"}')

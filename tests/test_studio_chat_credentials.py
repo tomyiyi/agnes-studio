@@ -67,13 +67,33 @@ class TestResolveChatCredentials(unittest.TestCase):
         def boom():
             raise RuntimeError("boom")
         clean_env = {k: v for k, v in __import__("os").environ.items()
-                     if k not in ("AGNES_API_KEY", "AGNES_GATEWAY_KEY", "ANTIGRAVITY_API_KEY", "OPENAI_API_KEY")}
+                     if k not in ("AGNES_API_KEY", "AGNES_GATEWAY_KEY", "NEW_API_KEY", "ANTIGRAVITY_API_KEY", "OPENAI_API_KEY")}
         with patch.object(studio_server, "load_credentials", boom), \
              patch.object(studio_server, "get_local_newapi_config", return_value={"detected": False}), \
              patch.dict("os.environ", clean_env, clear=True):
             base, key = resolve_chat_credentials({})
         self.assertEqual(base, studio_server.CHAT_BASE_DEFAULT.rstrip("/"))
         self.assertIsNone(key)
+
+    def test_server_default_key_supports_new_api_key(self):
+        clean_env = {k: v for k, v in __import__("os").environ.items()
+                     if k not in ("AGNES_API_KEY", "AGNES_GATEWAY_KEY", "NEW_API_KEY", "ANTIGRAVITY_API_KEY", "OPENAI_API_KEY")}
+        clean_env["NEW_API_KEY"] = "sk-new-api-env-key-9988"
+        with patch.object(studio_server, "load_credentials", None), \
+             patch.dict("os.environ", clean_env, clear=True):
+            key = studio_server._server_default_key({"detected": False})
+            self.assertEqual(key, "sk-new-api-env-key-9988")
+            base, resolved_key = resolve_chat_credentials({})
+            self.assertEqual(resolved_key, "sk-new-api-env-key-9988")
+
+    def test_server_default_bases_support_env_overrides(self):
+        with patch.dict("os.environ", {"AGNES_BASE_URL": "http://10.9.8.7:13000/v1"}, clear=False):
+            self.assertEqual(studio_server.get_default_image_base(), "http://10.9.8.7:13000/v1")
+            self.assertEqual(studio_server.get_default_chat_base(), "http://10.9.8.7:13000/v1")
+
+        with patch.dict("os.environ", {"AGNES_IMAGE_BASE_URL": "http://image-gw.local/v1", "AGNES_CHAT_BASE_URL": "http://chat-gw.local/v1"}, clear=False):
+            self.assertEqual(studio_server.get_default_image_base(), "http://image-gw.local/v1")
+            self.assertEqual(studio_server.get_default_chat_base(), "http://chat-gw.local/v1")
 
     def test_engine_missing_falls_back_to_local_config(self):
         local_cfg = {"detected": True, "chat_base_url": "http://local-cfg/v1", "api_key": "sk-local-cfg"}

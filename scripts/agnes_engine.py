@@ -142,8 +142,16 @@ def load_credentials() -> Tuple[str, Optional[str], str]:
     4. 默认常量
     """
     # 1. Agnes 专用环境变量
-    agnes_base = os.getenv("AGNES_BASE_URL") or os.getenv("AGNES_GATEWAY_URL")
-    agnes_key = os.getenv("AGNES_API_KEY") or os.getenv("AGNES_GATEWAY_KEY")
+    agnes_base = (
+        os.getenv("AGNES_CHAT_BASE_URL")
+        or os.getenv("AGNES_BASE_URL")
+        or os.getenv("AGNES_GATEWAY_URL")
+    )
+    agnes_key = (
+        os.getenv("AGNES_API_KEY")
+        or os.getenv("AGNES_GATEWAY_KEY")
+        or os.getenv("NEW_API_KEY")
+    )
     env_model = (
         os.getenv("AGNES_CHAT_MODEL")
         or os.getenv("AGNES_MODEL")
@@ -173,13 +181,18 @@ def load_credentials() -> Tuple[str, Optional[str], str]:
     # 3. 通用环境变量回退（过滤已知的环境化石，避免劫持默认网关）
     _FOSSIL_BASE_MARKERS = (":18045", ":8045", ":3000")
     fallback_base = (
-        os.getenv("GEMINI_BASE_URL")
+        os.getenv("NEW_API_BASE_URL")
+        or os.getenv("GEMINI_BASE_URL")
         or os.getenv("OPENAI_BASE_URL")
         or os.getenv("OPENAI_API_BASE")
     )
     if fallback_base and any(m in fallback_base for m in _FOSSIL_BASE_MARKERS):
         fallback_base = None
-    fallback_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY")
+    fallback_key = (
+        os.getenv("NEW_API_KEY")
+        or os.getenv("ANTIGRAVITY_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
+    )
 
     base = agnes_base or file_base or fallback_base or DEFAULT_BASE
     key = agnes_key or file_key or fallback_key or None

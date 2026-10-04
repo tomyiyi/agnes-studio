@@ -741,5 +741,39 @@ class TestConnectionKeyInjectionTightening(unittest.TestCase):
         self.assertIsNone(auth)
 
 
+class TestStudioConfigEnvFallbackContract(unittest.TestCase):
+    """第 31 轮：/api/config 服务端托管密钥回退与通用网关环境变量对齐。"""
+
+    def test_config_endpoint_recognizes_env_key_when_no_local_file(self):
+        from unittest.mock import patch
+        clean_env = {k: v for k, v in os.environ.items()
+                     if k not in ("AGNES_API_KEY", "AGNES_GATEWAY_KEY", "NEW_API_KEY", "ANTIGRAVITY_API_KEY", "OPENAI_API_KEY")}
+        clean_env["NEW_API_KEY"] = "sk-new-api-token-abcdef123456"
+
+        server = HTTPServer(("127.0.0.1", 0), studio_server.StudioHTTPRequestHandler)
+        sport = server.server_port
+        st = threading.Thread(target=server.serve_forever, daemon=True)
+        st.start()
+        try:
+            with patch.dict(os.environ, clean_env, clear=True), \
+                 patch.object(studio_server, "load_credentials", return_value=(None, None, None)), \
+                 patch.object(studio_server, "get_local_newapi_config",
+                              return_value={"detected": False, "api_key": "", "base_url": "http://127.0.0.1:13000/v1",
+                                            "image_base_url": "http://127.0.0.1:13000/v1",
+                                            "chat_base_url": "http://127.0.0.1:13000/v1",
+                                            "default_model": "agnes-image-2.5-flash", "models": []}):
+                req = urllib.request.Request(f"http://127.0.0.1:{sport}/api/config")
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+
+            self.assertTrue(data["success"])
+            self.assertTrue(data["has_api_key"])
+            self.assertEqual(data["masked_api_key"], "...3456")
+            self.assertEqual(data["api_key"], "")  # 明文密钥绝不回传前端
+        finally:
+            server.shutdown()
+            server.server_close()
+
+
 if __name__ == "__main__":
     unittest.main()
