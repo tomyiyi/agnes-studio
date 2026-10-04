@@ -86,7 +86,10 @@ from expert_poster_designer import (
     render_expert_steampunk_poster,
     render_expert_neochinese_poster,
 )
-from poster_composer import compose_commercial_poster
+from poster_composer import (
+    compose_commercial_poster,
+    main as poster_composer_main,
+)
 from vision_subject_detector import (
     detect_faces,
     check_occlusion,
@@ -2004,6 +2007,82 @@ class TestPosterComposer(unittest.TestCase):
             theme_color=None,
         )
         self.assertTrue(Path(ret).exists())
+
+    def test_compose_commercial_poster_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout
+        out_file = self.tmp_path / "quiet_poster.png"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = compose_commercial_poster(self.dummy_bg, out_file, quiet=True)
+        self.assertEqual(ret, str(out_file))
+        self.assertTrue(out_file.exists())
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_cli_main_default_execution(self):
+        out_file = self.tmp_path / "default_cli_poster.png"
+        code = poster_composer_main([
+            "--bg", str(self.dummy_bg),
+            "--out", str(out_file),
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertTrue(out_file.exists())
+
+    def test_cli_main_custom_arguments(self):
+        out_file = self.tmp_path / "custom_cli_poster.png"
+        code = poster_composer_main([
+            "--bg", str(self.dummy_bg),
+            "--out", str(out_file),
+            "--font-style", "smiley",
+            "--title", "极速测试",
+            "--sub", "SPEED TEST",
+            "--tagline", "「 追求极致性能与优雅美学 」",
+            "--metadata", "ID-9999",
+            "--theme-color", "cyber_cyan",
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertTrue(out_file.exists())
+        with Image.open(out_file) as im:
+            self.assertEqual(im.size, (512, 512))
+
+    def test_cli_main_missing_bg_returns_error_code(self):
+        missing_bg = self.tmp_path / "not_there.png"
+        code = poster_composer_main([
+            "--bg", str(missing_bg),
+            "--out", str(self.tmp_path / "out.png"),
+            "--quiet",
+            "--strict",
+        ])
+        self.assertEqual(code, 1)
+
+    def test_cli_main_all_styles_mode(self):
+        out_base = self.tmp_path / "suite.png"
+        code = poster_composer_main([
+            "--bg", str(self.dummy_bg),
+            "--out", str(out_base),
+            "--all-styles",
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        for s in ["wenkai", "smiley", "songti"]:
+            expected_file = self.tmp_path / f"suite_{s}.png"
+            self.assertTrue(expected_file.exists(), f"Expected {expected_file} to exist")
+
+    def test_cli_main_quiet_mode_suppresses_stdout(self):
+        import io
+        from contextlib import redirect_stdout
+        out_file = self.tmp_path / "quiet_cli.png"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = poster_composer_main([
+                "--bg", str(self.dummy_bg),
+                "--out", str(out_file),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
 
 
 class TestExpertPosterDesigner(unittest.TestCase):

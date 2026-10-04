@@ -51,7 +51,8 @@ def compose_commercial_poster(
     sub_title="STEAM & CHIME",
     tagline="「 她修理时间，也修理人心 」",
     metadata_no="ARCHIVE NO. 2026-X89 // DIRECTED BY AGNES STUDIO",
-    theme_color="amber_gold"   # "amber_gold" | "cyber_cyan" | "pure_white"
+    theme_color="amber_gold",   # "amber_gold" | "cyber_cyan" | "pure_white"
+    quiet=False,
 ):
     bg_p, out_p = _prepare_io(bg_image_path, output_path)
     font_style = str(font_style or "wenkai").strip().lower()
@@ -61,7 +62,8 @@ def compose_commercial_poster(
     metadata_no = str(metadata_no or "")
     theme_color = str(theme_color or "amber_gold").strip().lower()
 
-    print(f"🎨 [Poster Composer] 正在使用【{font_style}】字体合成商业级海报...")
+    if not quiet:
+        print(f"🎨 [Poster Composer] 正在使用【{font_style}】字体合成商业级海报...")
 
     base_img = Image.open(bg_p).convert("RGBA")
     w, h = base_img.size
@@ -150,42 +152,130 @@ def compose_commercial_poster(
     final_poster = Image.alpha_composite(base_img, text_layer)
     final_poster = final_poster.convert("RGB")
     final_poster.save(str(out_p), quality=95)
-    print(f"✅ 商业海报渲染完成: {out_p}")
+    if not quiet:
+        print(f"✅ 商业海报渲染完成: {out_p}")
     return str(out_p)
 
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Agnes Studio · 商业海报排版与中文字体合成引擎 (Poster Composer)")
+    parser.add_argument(
+        "--bg",
+        "-b",
+        default=None,
+        help="背景底图路径（未指定时将查找 public/assets 样张底图）",
+    )
+    parser.add_argument(
+        "--out",
+        "-o",
+        default=None,
+        help="输出海报图片路径（默认 outputs/posters/poster_<style>.png）",
+    )
+    parser.add_argument(
+        "--font-style",
+        "-f",
+        default="wenkai",
+        choices=["wenkai", "smiley", "songti"],
+        help="排版字体风格: wenkai (霞鹜文楷) | smiley (得意黑) | songti (经典宋体)",
+    )
+    parser.add_argument(
+        "--title",
+        "-t",
+        default="铜钟与蒸汽城",
+        help="海报主标题文本",
+    )
+    parser.add_argument(
+        "--sub",
+        "-s",
+        default="STEAM & CHIME",
+        help="英文/拼音副标题文本",
+    )
+    parser.add_argument(
+        "--tagline",
+        default="「 她修理时间，也修理人心 」",
+        help="海报叙事 Slogan / 金句文本",
+    )
+    parser.add_argument(
+        "--metadata",
+        default="ARCHIVE NO. 2026-X89 // DIRECTED BY AGNES STUDIO",
+        help="底部商业档案元数据编号",
+    )
+    parser.add_argument(
+        "--theme-color",
+        "-c",
+        default="amber_gold",
+        choices=["amber_gold", "cyber_cyan", "pure_white"],
+        help="配色主题: amber_gold | cyber_cyan | pure_white",
+    )
+    parser.add_argument(
+        "--all-styles",
+        action="store_true",
+        help="一键渲染输出全部 3 款开源字体风格版本",
+    )
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="静默模式，抑制常规控制台日志",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格模式：底图缺失或渲染异常时返回退出码 1",
+    )
+    args = parser.parse_args(argv)
+
+    # 确定输入背景底图
+    target_bg = None
+    if args.bg:
+        p = Path(args.bg).resolve()
+        if p.is_file():
+            target_bg = p
+    else:
+        default_candidate = Path(ASSETS_DIR) / "agnes_1790006749_b2b755da.png"
+        if default_candidate.is_file():
+            target_bg = default_candidate
+        else:
+            candidates = sorted(list(Path(ASSETS_DIR).glob("*.png")))
+            if candidates:
+                target_bg = candidates[0]
+
+    if not target_bg or not target_bg.is_file():
+        if not args.quiet:
+            print(f"❌ 找不到可用背景底图: {args.bg or ASSETS_DIR}")
+        return 1
+
+    styles_to_render = ["wenkai", "smiley", "songti"] if args.all_styles else [args.font_style]
+
+    try:
+        for style in styles_to_render:
+            if args.out:
+                out_path = Path(args.out)
+                if args.all_styles:
+                    out_path = out_path.parent / f"{out_path.stem}_{style}{out_path.suffix or '.png'}"
+            else:
+                default_dir = SCRIPTS_DIR.parent / "outputs" / "posters"
+                out_path = default_dir / f"poster_{style}.png"
+
+            compose_commercial_poster(
+                target_bg,
+                out_path,
+                font_style=style,
+                main_title=args.title,
+                sub_title=args.sub,
+                tagline=args.tagline,
+                metadata_no=args.metadata,
+                theme_color=args.theme_color,
+                quiet=args.quiet,
+            )
+        return 0
+    except Exception as e:
+        if not args.quiet:
+            print(f"❌ 商业海报渲染失败: {e}")
+        return 1
+
+
 if __name__ == "__main__":
-    # 使用纯净底图分别生成三种顶级开源字体版本
-    src_img = os.path.join(ASSETS_DIR, "agnes_1790006749_b2b755da.png")
-    if os.path.exists(src_img):
-        # 1. 霞鹜文楷版 (日漫温润诗意)
-        compose_commercial_poster(
-            src_img,
-            os.path.join(ASSETS_DIR, "poster_style_wenkai.png"),
-            font_style="wenkai",
-            main_title="铜 钟 与 蒸 汽 城",
-            sub_title="STEAM & CHIME",
-            tagline="「 她修理时间，也修理人心 」",
-            theme_color="amber_gold"
-        )
-
-        # 2. 得意黑版 (现代先锋窄斜体)
-        compose_commercial_poster(
-            src_img,
-            os.path.join(ASSETS_DIR, "poster_style_smiley.png"),
-            font_style="smiley",
-            main_title="铜钟与蒸汽城",
-            sub_title="STEAM & CHIME",
-            tagline="「 她修理时间，也修理人心 」",
-            theme_color="cyber_cyan"
-        )
-
-        # 3. 经典宋体版 (严肃大片衬线)
-        compose_commercial_poster(
-            src_img,
-            os.path.join(ASSETS_DIR, "poster_style_songti.png"),
-            font_style="songti",
-            main_title="铜 钟 与 蒸 汽 城",
-            sub_title="STEAM & CHIME",
-            tagline="「 她修理时间，也修理人心 」",
-            theme_color="amber_gold"
-        )
+    raise SystemExit(main())
