@@ -2644,6 +2644,92 @@ class TestUpstreamSentinel(unittest.TestCase):
             key_path=custom_key,
         )
 
+    @patch("urllib.request.urlopen")
+    def test_check_github_repo_custom_branch_syntax(self, mock_urlopen):
+        mock_resp = unittest.mock.MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = json.dumps({
+            "sha": "fedcba987654321",
+            "commit": {
+                "message": "chore: branch commit",
+                "author": {"date": "2026-10-04T18:00:00Z"},
+            }
+        }).encode("utf-8")
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        # 测试 @ 分支解析
+        res_at = check_github_repo("owner/custom-repo@dev")
+        self.assertEqual(res_at["status"], "synchronized")
+        self.assertEqual(res_at["repo"], "owner/custom-repo")
+        self.assertEqual(res_at["branch"], "dev")
+        req_at = mock_urlopen.call_args[0][0]
+        self.assertIn("/repos/owner/custom-repo/commits/dev", req_at.full_url)
+
+        # 测试 # 分支解析
+        res_hash = check_github_repo("owner/custom-repo#feature-x")
+        self.assertEqual(res_hash["status"], "synchronized")
+        self.assertEqual(res_hash["repo"], "owner/custom-repo")
+        self.assertEqual(res_hash["branch"], "feature-x")
+        req_hash = mock_urlopen.call_args[0][0]
+        self.assertIn("/repos/owner/custom-repo/commits/feature-x", req_hash.full_url)
+
+    @patch("check_upstream_updates.check_new_api_health")
+    def test_run_lifecycle_monitor_quiet_mode(self, mock_gateway):
+        mock_gateway.return_value = {"status": "healthy", "latency_ms": 5}
+        import io
+        import contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            summary = run_lifecycle_monitor(
+                repos=[],
+                save=False,
+                quiet=True,
+            )
+        self.assertEqual(summary["gateway"]["status"], "healthy")
+        self.assertEqual(buf.getvalue(), "")
+
+    @patch("check_upstream_updates.run_lifecycle_monitor")
+    def test_cli_main_strict_mode(self, mock_run):
+        # 1. 严格模式：网关与仓库健康 -> 退出码 0
+        mock_run.return_value = {
+            "gateway": {"status": "healthy"},
+            "upstream_repositories": [{"repo": "owner/repo", "status": "synchronized"}],
+        }
+        self.assertEqual(monitor_main(["--strict", "--no-save"]), 0)
+
+        # 2. 严格模式：网关不健康 -> 退出码 1
+        mock_run.return_value = {
+            "gateway": {"status": "unhealthy"},
+            "upstream_repositories": [{"repo": "owner/repo", "status": "synchronized"}],
+        }
+        self.assertEqual(monitor_main(["--strict", "--no-save"]), 1)
+
+        # 3. 严格模式：网关健康但存在 invalid_repo -> 退出码 1
+        mock_run.return_value = {
+            "gateway": {"status": "healthy"},
+            "upstream_repositories": [
+                {"repo": "owner/repo", "status": "synchronized"},
+                {"repo": "bad_repo_spec", "status": "invalid_repo"},
+            ],
+        }
+        self.assertEqual(monitor_main(["--strict", "--no-save"]), 1)
+
+    @patch("check_upstream_updates.run_lifecycle_monitor")
+    def test_cli_main_quiet_flag_forwarding(self, mock_run):
+        mock_run.return_value = {"gateway": {"status": "healthy"}}
+        exit_code = monitor_main(["-q", "--no-save"])
+        self.assertEqual(exit_code, 0)
+        mock_run.assert_called_once_with(
+            output_path=check_upstream_updates.UPDATES_PATH,
+            base_url=None,
+            api_key=None,
+            repos=None,
+            timeout=5.0,
+            save=False,
+            key_path=None,
+            quiet=True,
+        )
+
 
 class TestAutonomousFollowup(unittest.TestCase):
     """测试 24/7 自主跟进守护与晨报生成引擎"""

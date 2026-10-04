@@ -147,14 +147,33 @@ def check_github_repo(
     branch: str = "main",
 ) -> dict:
     """检测上游 GitHub 仓库最新提交与同步状态"""
-    if not owner_repo or not isinstance(owner_repo, str) or "/" not in owner_repo:
+    if not owner_repo or not isinstance(owner_repo, str):
         return {
             "repo": str(owner_repo),
             "status": "invalid_repo",
             "note": "Invalid repository specification, expected owner/repo",
         }
 
-    api_url = f"https://api.github.com/repos/{owner_repo}/commits/{branch}"
+    raw_spec = owner_repo.strip()
+    target_branch = branch
+    if "@" in raw_spec:
+        raw_repo, target_branch = raw_spec.split("@", 1)
+    elif "#" in raw_spec:
+        raw_repo, target_branch = raw_spec.split("#", 1)
+    else:
+        raw_repo = raw_spec
+
+    raw_repo = raw_repo.strip()
+    target_branch = target_branch.strip()
+
+    if not raw_repo or "/" not in raw_repo or not target_branch:
+        return {
+            "repo": str(owner_repo),
+            "status": "invalid_repo",
+            "note": "Invalid repository specification, expected owner/repo",
+        }
+
+    api_url = f"https://api.github.com/repos/{raw_repo}/commits/{target_branch}"
     req = urllib.request.Request(
         api_url,
         headers={
@@ -175,21 +194,24 @@ def check_github_repo(
                     author_obj = commit_obj.get("author") or {}
                     commit_date = str(author_obj.get("date", ""))
                     return {
-                        "repo": owner_repo,
+                        "repo": raw_repo,
+                        "branch": target_branch,
                         "latest_commit": sha,
                         "date": commit_date,
                         "message": msg,
                         "status": "synchronized",
                     }
             return {
-                "repo": owner_repo,
+                "repo": raw_repo,
+                "branch": target_branch,
                 "status": "cached",
                 "note": f"HTTP {status_code}",
             }
     except Exception as e:
         # 无网络或触发 GitHub API 频率限制时的静默兜底
         return {
-            "repo": owner_repo,
+            "repo": raw_repo,
+            "branch": target_branch,
             "status": "cached",
             "note": f"Local cached or rate-limited: {e}",
         }
@@ -203,9 +225,11 @@ def run_lifecycle_monitor(
     timeout: float = 5.0,
     save: bool = True,
     key_path: Path | str | None = None,
+    quiet: bool = False,
 ) -> dict:
     """执行完整的生命周期与上游依赖巡检，组织并写盘更新结构"""
-    print("🛰️ [Agnes Studio Sentinel] 正在启动生命周期与上游依赖巡检...")
+    if not quiet:
+        print("🛰️ [Agnes Studio Sentinel] 正在启动生命周期与上游依赖巡检...")
 
     # 1. 检测本地网关
     gateway_status = check_new_api_health(
@@ -214,16 +238,18 @@ def run_lifecycle_monitor(
         timeout=timeout,
         key_path=key_path,
     )
-    print(
-        f"  * 本地网关状态: {gateway_status.get('status')} (耗时: {gateway_status.get('latency_ms', 0)}ms)"
-    )
+    if not quiet:
+        print(
+            f"  * 本地网关状态: {gateway_status.get('status')} (耗时: {gateway_status.get('latency_ms', 0)}ms)"
+        )
 
     # 2. 检测上游仓库
     target_repos = repos if repos is not None else ["ConardLi/garden-skills"]
     upstream_list = []
     for r in target_repos:
         repo_info = check_github_repo(r, timeout=timeout)
-        print(f"  * 上游 {r} 仓库状态: {repo_info.get('status')}")
+        if not quiet:
+            print(f"  * 上游 {r} 仓库状态: {repo_info.get('status')}")
         upstream_list.append(repo_info)
 
     upstream_list.append({"repo": "QuantumNous/new-api", "status": "stable_v1.0.0-rc.24"})
@@ -244,7 +270,8 @@ def run_lifecycle_monitor(
         target_path = Path(output_path) if output_path else Path(UPDATES_PATH)
         target_path.parent.mkdir(parents=True, exist_ok=True)
         target_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"✅ 监控报告已成功同步写盘至: {target_path}")
+        if not quiet:
+            print(f"✅ 监控报告已成功同步写盘至: {target_path}")
 
     return summary
 
@@ -265,17 +292,34 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--timeout", type=float, default=5.0, help="Request timeout in seconds")
     parser.add_argument("--no-save", action="store_true", help="Do not write output to file")
+    parser.add_argument("--quiet", "-q", action="store_true", help="Suppress console logging output")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit with code 1 if gateway is unhealthy or any upstream repo check fails",
+    )
     args = parser.parse_args(argv)
 
-    run_lifecycle_monitor(
-        output_path=args.out,
-        base_url=args.base_url,
-        api_key=args.api_key,
-        repos=args.repos,
-        timeout=args.timeout,
-        save=not args.no_save,
-        key_path=args.key_path,
-    )
+    monitor_kwargs = {
+        "output_path": args.out,
+        "base_url": args.base_url,
+        "api_key": args.api_key,
+        "repos": args.repos,
+        "timeout": args.timeout,
+        "save": not args.no_save,
+        "key_path": args.key_path,
+    }
+    if args.quiet:
+        monitor_kwargs["quiet"] = True
+
+    summary = run_lifecycle_monitor(**monitor_kwargs)
+    if args.strict:
+        gw_status = (summary.get("gateway") or {}).get("status")
+        if gw_status != "healthy":
+            return 1
+        for r in summary.get("upstream_repositories") or []:
+            if isinstance(r, dict) and r.get("status") in ("invalid_repo", "error"):
+                return 1
     return 0
 
 
