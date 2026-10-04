@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import studio_server
-from studio_server import probe_gateway
+from studio_server import probe_gateway, is_configured_gateway
 
 
 class FakeHTTPResponse:
@@ -167,6 +167,139 @@ class TestGatewayHealthRouteChain(unittest.TestCase):
         self.assertIn("gateway_doctor", source)
         self.assertIn('"chat_chain"', source)
         self.assertIn('"image_chain"', source)
+
+
+class TestIsConfiguredGateway(unittest.TestCase):
+    """第 27 轮：多网关地址合法性判定（is_configured_gateway）。"""
+
+    def test_configured_detected_matches_all_keys(self):
+        cfg = {
+            "detected": True,
+            "base_url": "http://127.0.0.1:13000/v1",
+            "chat_base_url": "http://127.0.0.1:13000/chat/v1",
+            "image_base_url": "http://127.0.0.1:13000/img/v1",
+        }
+        self.assertTrue(is_configured_gateway("http://127.0.0.1:13000/v1", cfg))
+        self.assertTrue(is_configured_gateway("http://127.0.0.1:13000/chat/v1", cfg))
+        self.assertTrue(is_configured_gateway("http://127.0.0.1:13000/img/v1", cfg))
+
+    def test_trailing_slash_normalized(self):
+        cfg = {
+            "detected": True,
+            "base_url": "http://127.0.0.1:13000/v1/",
+        }
+        self.assertTrue(is_configured_gateway("http://127.0.0.1:13000/v1", cfg))
+        self.assertTrue(is_configured_gateway("http://127.0.0.1:13000/v1/", cfg))
+
+    def test_fallback_when_not_detected(self):
+        cfg = {"detected": False}
+        self.assertTrue(is_configured_gateway(studio_server.IMAGE_BASE_DEFAULT, cfg))
+        self.assertTrue(is_configured_gateway(studio_server.CHAT_BASE_DEFAULT, cfg))
+        self.assertFalse(is_configured_gateway("http://127.0.0.1:19999/v1", cfg))
+
+    def test_safe_on_empty_and_non_dict(self):
+        self.assertFalse(is_configured_gateway("", None))
+        self.assertFalse(is_configured_gateway(None, None))
+        self.assertFalse(is_configured_gateway("http://foreign.com", "not_a_dict"))
+        self.assertFalse(is_configured_gateway("http://foreign.com", {}))
+
+
+class TestTestConnectionRoute(unittest.TestCase):
+    """第 27 轮：/api/test-connection 支持 chat_base_url / image_base_url 与 chat_models 回显。"""
+
+    def _call_test_connection(self, body, fake_cfg=None, urlopen_resp=None):
+        handler = studio_server.StudioHTTPRequestHandler.__new__(
+            studio_server.StudioHTTPRequestHandler
+        )
+        handler.path = "/api/test-connection"
+        payload = json.dumps(body).encode("utf-8")
+        handler.headers = {"Content-Length": str(len(payload))}
+        handler.rfile = io.BytesIO(payload)
+        captured = {}
+        handler._send_json = lambda data, status=200: captured.update(data=data, status=status)
+
+        urlopen_mock = urlopen_resp or FakeHTTPResponse({
+            "data": [
+                {"id": "agnes-3.0-flash"},
+                {"id": "agnes-image-2.5-flash"},
+                {"id": "chat-custom-model"},
+            ]
+        })
+
+        with patch.object(studio_server, "get_local_newapi_config",
+                          return_value=fake_cfg or {"detected": False}), \
+             patch.object(studio_server.urllib.request, "urlopen", return_value=urlopen_mock):
+            handler.do_POST()
+        return captured
+
+    def test_fallback_to_chat_base_url_and_image_base_url(self):
+        captured = self._call_test_connection({"chat_base_url": "http://127.0.0.1:13000/v1"})
+        self.assertTrue(captured["data"]["success"])
+        self.assertIn("chat_models", captured["data"])
+        self.assertIn("agnes-3.0-flash", captured["data"]["chat_models"])
+        self.assertIn("chat-custom-model", captured["data"]["chat_models"])
+
+        captured_img = self._call_test_connection({"image_base_url": "http://127.0.0.1:13000/v1"})
+        self.assertTrue(captured_img["data"]["success"])
+        self.assertIn("image_models", captured_img["data"])
+
+    def test_injects_key_for_configured_gateway(self):
+        captured_headers = {}
+
+        def fake_urlopen(req, timeout=None):
+            captured_headers.update({k.lower(): v for k, v in req.header_items()})
+            return FakeHTTPResponse({"data": []})
+
+        handler = studio_server.StudioHTTPRequestHandler.__new__(
+            studio_server.StudioHTTPRequestHandler
+        )
+        handler.path = "/api/test-connection"
+        payload = json.dumps({"chat_base_url": "http://127.0.0.1:13000/v1"}).encode("utf-8")
+        handler.headers = {"Content-Length": str(len(payload))}
+        handler.rfile = io.BytesIO(payload)
+        captured_res = {}
+        handler._send_json = lambda data, status=200: captured_res.update(data=data, status=status)
+
+        fake_cfg = {
+            "detected": True,
+            "chat_base_url": "http://127.0.0.1:13000/v1",
+            "api_key": "sk-configured-secret",
+        }
+        with patch.object(studio_server, "get_local_newapi_config", return_value=fake_cfg), \
+             patch.object(studio_server.urllib.request, "urlopen", side_effect=fake_urlopen):
+            handler.do_POST()
+
+        self.assertEqual(captured_headers.get("authorization"), "Bearer sk-configured-secret")
+        self.assertTrue(captured_res["data"]["success"])
+
+    def test_does_not_inject_key_for_foreign_gateway(self):
+        captured_headers = {}
+
+        def fake_urlopen(req, timeout=None):
+            captured_headers.update({k.lower(): v for k, v in req.header_items()})
+            return FakeHTTPResponse({"data": []})
+
+        handler = studio_server.StudioHTTPRequestHandler.__new__(
+            studio_server.StudioHTTPRequestHandler
+        )
+        handler.path = "/api/test-connection"
+        payload = json.dumps({"base_url": "http://127.0.0.1:19999/v1"}).encode("utf-8")
+        handler.headers = {"Content-Length": str(len(payload))}
+        handler.rfile = io.BytesIO(payload)
+        captured_res = {}
+        handler._send_json = lambda data, status=200: captured_res.update(data=data, status=status)
+
+        fake_cfg = {
+            "detected": True,
+            "chat_base_url": "http://127.0.0.1:13000/v1",
+            "api_key": "sk-configured-secret",
+        }
+        with patch.object(studio_server, "get_local_newapi_config", return_value=fake_cfg), \
+             patch.object(studio_server.urllib.request, "urlopen", side_effect=fake_urlopen):
+            handler.do_POST()
+
+        self.assertNotIn("authorization", captured_headers)
+        self.assertTrue(captured_res["data"]["success"])
 
 
 if __name__ == "__main__":

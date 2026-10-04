@@ -246,6 +246,26 @@ def is_configured_image_gateway(target_base: str, local_cfg: dict | None = None)
     return bool(configured) and target == configured
 
 
+def is_configured_gateway(target_base: str, local_cfg: dict | None = None) -> bool:
+    """目标是否属于服务端配置的合法网关地址（base_url / chat_base_url / image_base_url）。"""
+    cfg = local_cfg if isinstance(local_cfg, dict) else {}
+    target = str(target_base or "").strip().rstrip("/")
+    if not target:
+        return False
+    if cfg.get("detected"):
+        configured_urls = {
+            str(cfg.get(k) or "").strip().rstrip("/")
+            for k in ("base_url", "chat_base_url", "image_base_url")
+        }
+    else:
+        configured_urls = {
+            IMAGE_BASE_DEFAULT.rstrip("/"),
+            CHAT_BASE_DEFAULT.rstrip("/"),
+        }
+    configured_urls.discard("")
+    return target in configured_urls
+
+
 def resolve_chat_credentials(req_body: dict | None = None) -> Tuple[str, Optional[str]]:
     """解析用于文本/视觉调用的网关地址与密钥。
 
@@ -477,21 +497,22 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         # 1. 连通性测试 API
         if parsed_path == "/api/test-connection":
-            base_url = str(req_body.get("base_url") or "").strip().rstrip("/")
+            base_url = str(
+                req_body.get("base_url")
+                or req_body.get("chat_base_url")
+                or req_body.get("image_base_url")
+                or ""
+            ).strip().rstrip("/")
             api_key = str(req_body.get("api_key") or "").strip()
             trace = new_trace_id(req_body.get("trace_id")) if new_trace_id else (
                 str(req_body.get("trace_id") or "").strip()[:64] or "agnes-noengine")
             if not api_key:
                 local_cfg = get_local_newapi_config()
-                if local_cfg["detected"]:
-                    # 安全收紧（第 12 轮）：仅当请求地址与本地配置的网关地址
-                    # 精确一致时才注入服务端密钥。旧逻辑放行了所有
-                    # 127.0.0.1/localhost/192.168.x 前缀——攻击者可在本机或
-                    # 局域网起监听端口，诱使服务端把 Authorization: Bearer
-                    # <真实密钥> 发往任意地址/路径（SSRF 密钥外泄），故删除。
-                    configured_base = local_cfg["base_url"].rstrip("/")
-                    if base_url == configured_base and local_cfg["api_key"]:
-                        api_key = local_cfg["api_key"]
+                if local_cfg.get("detected") and is_configured_gateway(base_url, local_cfg):
+                    # 安全收紧（第 12/27 轮）：仅当请求地址与本地配置的网关地址之一
+                    # 精确一致时才注入服务端密钥。防止 SSRF 密钥外泄。
+                    if local_cfg.get("api_key"):
+                        api_key = str(local_cfg["api_key"]).strip()
 
             if not base_url:
                 self._send_json({"success": False, "error": "请提供有效的 Base URL", "trace_id": trace}, status=400)
@@ -510,20 +531,22 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
             start_t = time.time()
             try:
                 with urllib.request.urlopen(req, timeout=10) as response:
-                    raw = response.read().decode("utf-8")
+                    raw = response.read().decode("utf-8", errors="replace")
                     latency_ms = int((time.time() - start_t) * 1000)
                     res_json = json.loads(raw)
                     model_list = []
-                    if "data" in res_json and isinstance(res_json["data"], list):
+                    if isinstance(res_json, dict) and isinstance(res_json.get("data"), list):
                         model_list = [str(m["id"]) for m in res_json["data"] if isinstance(m, dict) and m.get("id")]
                     
-                    # 过滤生图相关模型
+                    # 过滤生图与对话相关模型
                     image_models = [m for m in model_list if "image" in m.lower() or "dall-e" in m.lower()]
+                    chat_models = [m for m in model_list if "agnes-3" in m.lower() or "chat" in m.lower()]
                     self._send_json({
                         "success": True,
                         "latency_ms": latency_ms,
                         "model_count": len(model_list),
                         "image_models": image_models or ["agnes-image-2.5-flash", "dall-e-3"],
+                        "chat_models": chat_models or ["agnes-2.5-flash", "agnes-3.0-flash"],
                         "all_models": model_list[:15],
                         "trace_id": trace,
                     })
@@ -701,13 +724,10 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
                     (DIR / "experiments").resolve(),
                     (DIR / "outputs").resolve(),
                 ]
-                def is_under_allowed_dir(candidate):
+                def is_under_allowed_dir(candidate: Path) -> bool:
                     if not candidate.is_file():
                         return False
-                    return any(
-                        candidate == allowed_dir or allowed_dir in candidate.parents
-                        for allowed_dir in allowed_dirs
-                    )
+                    return any(candidate.is_relative_to(allowed_dir) for allowed_dir in allowed_dirs)
 
                 is_valid = is_under_allowed_dir(bg_abs_path)
                 if not is_valid:
