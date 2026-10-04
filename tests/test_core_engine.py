@@ -1647,6 +1647,40 @@ class TestVisionSubjectDetector(unittest.TestCase):
                 detected = detect_faces(str(tmp_img))
                 self.assertEqual(detected, mock_boxes)
 
+    def test_detect_faces_fallback_forwards_options(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_img = Path(tmpdir) / "face_opts.png"
+            Image.new("RGB", (100, 100), color=(50, 50, 50)).save(tmp_img, "PNG")
+
+            with patch("shutil.which", return_value=None), \
+                 patch("agnes_engine.detect_visual_subjects", return_value=[{"x_min": 0.1}]) as mock_detect:
+                res = detect_faces(
+                    str(tmp_img),
+                    base_url="http://custom.example.com/v1",
+                    api_key="sk-test-vis",
+                    trace_id="vis-trace-123",
+                    key_path="/path/to/key.json",
+                )
+                self.assertEqual(len(res), 1)
+                mock_detect.assert_called_once_with(
+                    str(tmp_img.resolve()),
+                    base_url="http://custom.example.com/v1",
+                    api_key="sk-test-vis",
+                    trace_id="vis-trace-123",
+                    key_path="/path/to/key.json",
+                )
+
+    def test_detect_faces_fallback_handles_exception_gracefully(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_img = Path(tmpdir) / "face_err.png"
+            Image.new("RGB", (100, 100), color=(50, 50, 50)).save(tmp_img, "PNG")
+
+            with patch("shutil.which", return_value=None), \
+                 patch("agnes_engine.detect_visual_subjects", side_effect=RuntimeError("gateway unavailable")):
+                res = detect_faces(str(tmp_img))
+                self.assertEqual(res, [])
+
+
 
 class TestFilmCoverEngine(unittest.TestCase):
     """测试电影感封面排版引擎 (Cinematic Cover Engine)"""

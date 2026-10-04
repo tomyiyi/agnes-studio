@@ -48,7 +48,7 @@ if let data = try? JSONSerialization.data(withJSONObject: faces, options: []) {
 }
 """
 
-def detect_faces(image_path):
+def detect_faces(image_path, base_url=None, api_key=None, trace_id=None, key_path=None):
     if not image_path:
         return []
     try:
@@ -83,7 +83,13 @@ def detect_faces(image_path):
     # 2. Linux / 虚拟机环境：无缝调用稳定的 Agnes 多模态视觉引擎
     try:
         from agnes_engine import detect_visual_subjects
-        agnes_faces = detect_visual_subjects(str(safe_img))
+        agnes_faces = detect_visual_subjects(
+            str(safe_img),
+            base_url=base_url,
+            api_key=api_key,
+            trace_id=trace_id,
+            key_path=key_path,
+        )
         if agnes_faces:
             return agnes_faces
     except Exception as e:
