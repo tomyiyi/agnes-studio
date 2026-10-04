@@ -249,26 +249,36 @@ def run_lifecycle_monitor(
     return summary
 
 
-def main():
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Agnes Studio Sentinel & Upstream Monitor")
     parser.add_argument("--out", type=str, default=UPDATES_PATH, help="Output JSON path")
     parser.add_argument("--base-url", type=str, default=None, help="New API base URL")
     parser.add_argument("--api-key", type=str, default=None, help="New API auth key")
     parser.add_argument("--key-path", type=str, default=None, help="Custom key JSON path")
+    parser.add_argument(
+        "--repo",
+        "--repos",
+        dest="repos",
+        nargs="+",
+        default=None,
+        help="Custom upstream repository or repositories to check (owner/repo)",
+    )
     parser.add_argument("--timeout", type=float, default=5.0, help="Request timeout in seconds")
     parser.add_argument("--no-save", action="store_true", help="Do not write output to file")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     run_lifecycle_monitor(
         output_path=args.out,
         base_url=args.base_url,
         api_key=args.api_key,
+        repos=args.repos,
         timeout=args.timeout,
         save=not args.no_save,
         key_path=args.key_path,
     )
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
 

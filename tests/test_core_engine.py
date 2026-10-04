@@ -76,6 +76,7 @@ from check_upstream_updates import (
     check_new_api_health,
     check_github_repo,
     run_lifecycle_monitor,
+    main as monitor_main,
 )
 import wechat_cover_ab
 import agnes_gateway
@@ -2603,6 +2604,43 @@ class TestUpstreamSentinel(unittest.TestCase):
             base_url=None,
             api_key=None,
             timeout=5.0,
+            key_path=custom_key,
+        )
+
+    @patch("check_upstream_updates.run_lifecycle_monitor")
+    def test_cli_main_with_argv_and_repos(self, mock_run):
+        mock_run.return_value = {"status": "ok"}
+        exit_code = monitor_main(["--no-save", "--repo", "custom/repo-a", "custom/repo-b"])
+        self.assertEqual(exit_code, 0)
+        mock_run.assert_called_once_with(
+            output_path=check_upstream_updates.UPDATES_PATH,
+            base_url=None,
+            api_key=None,
+            repos=["custom/repo-a", "custom/repo-b"],
+            timeout=5.0,
+            save=False,
+            key_path=None,
+        )
+
+    @patch("check_upstream_updates.run_lifecycle_monitor")
+    def test_cli_main_forwards_key_path_and_options(self, mock_run):
+        mock_run.return_value = {"status": "ok"}
+        custom_key = str(self.tmp_path / "key.json")
+        exit_code = monitor_main([
+            "--no-save",
+            "--key-path", custom_key,
+            "--base-url", "http://127.0.0.1:9999/v1",
+            "--api-key", "sk-custom-test",
+            "--timeout", "10.0",
+        ])
+        self.assertEqual(exit_code, 0)
+        mock_run.assert_called_once_with(
+            output_path=check_upstream_updates.UPDATES_PATH,
+            base_url="http://127.0.0.1:9999/v1",
+            api_key="sk-custom-test",
+            repos=None,
+            timeout=10.0,
+            save=False,
             key_path=custom_key,
         )
 
