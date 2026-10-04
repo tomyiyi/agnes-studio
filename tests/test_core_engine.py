@@ -421,13 +421,13 @@ import test_gemini_integration
 from test_gemini_integration import (
     DEFAULT_TEST_STEPS as GEMINI_DEFAULT_TEST_STEPS,
     parse_steps as gemini_parse_steps,
-    test_step_1_chrome,
-    test_step_2_gateway,
-    test_step_3_brief,
-    test_step_4_prompt,
-    test_step_5_detector,
-    test_step_6_rasterizer,
-    test_step_7_inspect,
+    test_step_1_chrome as gemini_step_1_chrome,
+    test_step_2_gateway as gemini_step_2_gateway,
+    test_step_3_brief as gemini_step_3_brief,
+    test_step_4_prompt as gemini_step_4_prompt,
+    test_step_5_detector as gemini_step_5_detector,
+    test_step_6_rasterizer as gemini_step_6_rasterizer,
+    test_step_7_inspect as gemini_step_7_inspect,
     run_integration_suite as gemini_run_integration_suite,
     run_tests as gemini_run_tests,
     build_arg_parser as gemini_build_arg_parser,
@@ -8114,31 +8114,31 @@ class TestGeminiIntegrationSuite(unittest.TestCase):
 
     def test_step_1_chrome(self):
         # 1. 成功探测
-        r_ok = test_step_1_chrome(resolve_fn=lambda: sys.executable)
+        r_ok = gemini_step_1_chrome(resolve_fn=lambda: sys.executable)
         self.assertTrue(r_ok["ok"])
         self.assertEqual(r_ok["path"], sys.executable)
 
         # 2. 失败路径不存在
-        r_not_found = test_step_1_chrome(chrome_path_override=str(self.tmp_path / "no_chrome"))
+        r_not_found = gemini_step_1_chrome(chrome_path_override=str(self.tmp_path / "no_chrome"))
         self.assertFalse(r_not_found["ok"])
         self.assertIn("不存在", r_not_found["error"])
 
         # 3. 异常处理
         def faulty_resolve():
             raise RuntimeError("Chromium resolution failure")
-        r_err = test_step_1_chrome(resolve_fn=faulty_resolve)
+        r_err = gemini_step_1_chrome(resolve_fn=faulty_resolve)
         self.assertFalse(r_err["ok"])
         self.assertIn("Chromium resolution failure", r_err["error"])
 
     def test_step_2_gateway(self):
         # 1. Mock 模式
-        r_mock = test_step_2_gateway(mock=True, load_creds_fn=lambda: ("http://mock-base", "mock-key-12345", "mock-model"))
+        r_mock = gemini_step_2_gateway(mock=True, load_creds_fn=lambda: ("http://mock-base", "mock-key-12345", "mock-model"))
         self.assertTrue(r_mock["ok"])
         self.assertTrue(r_mock["mock"])
         self.assertEqual(r_mock["chat_model"], "mock-model")
 
         # 2. 正常调用
-        r_ok = test_step_2_gateway(
+        r_ok = gemini_step_2_gateway(
             mock=False,
             call_agnes_fn=lambda msgs, max_tokens: {"ok": True, "cost_s": 0.05},
             load_creds_fn=lambda: ("http://base", "key", "model"),
@@ -8147,7 +8147,7 @@ class TestGeminiIntegrationSuite(unittest.TestCase):
         self.assertEqual(r_ok["cost_s"], 0.05)
 
         # 3. 调用失败
-        r_fail = test_step_2_gateway(
+        r_fail = gemini_step_2_gateway(
             mock=False,
             call_agnes_fn=lambda msgs, max_tokens: {"ok": False, "error": "Gateway timeout"},
             load_creds_fn=lambda: ("http://base", "key", "model"),
@@ -8157,52 +8157,52 @@ class TestGeminiIntegrationSuite(unittest.TestCase):
 
     def test_step_3_brief(self):
         # 1. Mock 模式
-        r_mock = test_step_3_brief(mock=True)
+        r_mock = gemini_step_3_brief(mock=True)
         self.assertTrue(r_mock["ok"])
         self.assertIn("title", r_mock["brief"])
 
         # 2. 正常生成
         mock_brief = {"title": "宋韵", "subtitle": "SONG", "body": "文案", "author": "Agnes"}
-        r_ok = test_step_3_brief(gen_brief_fn=lambda t, platform, tone: {"ok": True, "brief": mock_brief})
+        r_ok = gemini_step_3_brief(gen_brief_fn=lambda t, platform, tone: {"ok": True, "brief": mock_brief})
         self.assertTrue(r_ok["ok"])
         self.assertEqual(r_ok["brief"]["title"], "宋韵")
 
         # 3. 生成失败
-        r_fail = test_step_3_brief(gen_brief_fn=lambda t, platform, tone: {"ok": False, "error": "Quota limit"})
+        r_fail = gemini_step_3_brief(gen_brief_fn=lambda t, platform, tone: {"ok": False, "error": "Quota limit"})
         self.assertFalse(r_fail["ok"])
         self.assertIn("Quota limit", r_fail["error"])
 
     def test_step_4_prompt(self):
         # 1. Mock 模式
-        r_mock = test_step_4_prompt(prompt="minimalist vase", mock=True)
+        r_mock = gemini_step_4_prompt(prompt="minimalist vase", mock=True)
         self.assertTrue(r_mock["ok"])
         self.assertIn("minimalist vase", r_mock["prompt"])
 
         # 2. 正常生成
-        r_ok = test_step_4_prompt(refine_fn=lambda p, aspect_ratio, negative_space_zone: {"ok": True, "prompt": "refined prompt"})
+        r_ok = gemini_step_4_prompt(refine_fn=lambda p, aspect_ratio, negative_space_zone: {"ok": True, "prompt": "refined prompt"})
         self.assertTrue(r_ok["ok"])
         self.assertEqual(r_ok["prompt"], "refined prompt")
 
         # 3. 失败
-        r_fail = test_step_4_prompt(refine_fn=lambda p, aspect_ratio, negative_space_zone: {"ok": False, "error": "Prompt error"})
+        r_fail = gemini_step_4_prompt(refine_fn=lambda p, aspect_ratio, negative_space_zone: {"ok": False, "error": "Prompt error"})
         self.assertFalse(r_fail["ok"])
         self.assertEqual(r_fail["error"], "Prompt error")
 
     def test_step_5_detector(self):
         # 1. 图片不存在且未找到候补图片
-        r_skip = test_step_5_detector(image_path=self.tmp_path / "not_there.png")
+        r_skip = gemini_step_5_detector(image_path=self.tmp_path / "not_there.png")
         self.assertTrue(r_skip["ok"])
 
         # 2. Mock 模式
         dummy_img = self.tmp_path / "dummy.png"
         dummy_img.write_bytes(b"test")
-        r_mock = test_step_5_detector(image_path=dummy_img, mock=True)
+        r_mock = gemini_step_5_detector(image_path=dummy_img, mock=True)
         self.assertTrue(r_mock["ok"])
         self.assertTrue(r_mock["mock"])
         self.assertEqual(len(r_mock["faces"]), 1)
 
         # 3. 自定义检测函数
-        r_custom = test_step_5_detector(
+        r_custom = gemini_step_5_detector(
             image_path=dummy_img,
             detect_fn=lambda path: [[0.1, 0.1, 0.2, 0.2]],
             occlusion_fn=lambda box, faces: (True, "top-left"),
@@ -8216,7 +8216,7 @@ class TestGeminiIntegrationSuite(unittest.TestCase):
         target_out = self.tmp_path / "rendered.png"
 
         # 1. Dry run 模式
-        r_dry = test_step_6_rasterizer(out_path=target_out, dry_run=True)
+        r_dry = gemini_step_6_rasterizer(out_path=target_out, dry_run=True)
         self.assertTrue(r_dry["ok"])
         self.assertTrue(r_dry["dry_run"])
         self.assertFalse(target_out.exists())
@@ -8225,13 +8225,13 @@ class TestGeminiIntegrationSuite(unittest.TestCase):
         def mock_render(html, out_file):
             Path(out_file).write_bytes(b"png_data" * 200)
 
-        r_render = test_step_6_rasterizer(out_path=target_out, render_fn=mock_render, dry_run=False)
+        r_render = gemini_step_6_rasterizer(out_path=target_out, render_fn=mock_render, dry_run=False)
         self.assertTrue(r_render["ok"])
         self.assertTrue(target_out.exists())
         self.assertGreater(r_render["size_kb"], 0)
 
         # 3. 渲染未生成文件
-        r_fail = test_step_6_rasterizer(
+        r_fail = gemini_step_6_rasterizer(
             out_path=self.tmp_path / "failed.png",
             render_fn=lambda html, out_file: None,
             dry_run=False,
@@ -8244,14 +8244,14 @@ class TestGeminiIntegrationSuite(unittest.TestCase):
         target_poster.write_bytes(b"poster_bytes")
 
         # 1. Mock 模式
-        r_mock = test_step_7_inspect(poster_path=target_poster, mock=True)
+        r_mock = gemini_step_7_inspect(poster_path=target_poster, mock=True)
         self.assertTrue(r_mock["ok"])
         self.assertTrue(r_mock["mock"])
         self.assertGreaterEqual(r_mock["inspection"]["aesthetic_score"], 90)
 
         # 2. 正常审查
         mock_insp = {"aesthetic_score": 95, "critique": "Excellent"}
-        r_ok = test_step_7_inspect(
+        r_ok = gemini_step_7_inspect(
             poster_path=target_poster,
             inspect_fn=lambda path, title: {"ok": True, "inspection": mock_insp},
             mock=False,
@@ -8260,7 +8260,7 @@ class TestGeminiIntegrationSuite(unittest.TestCase):
         self.assertEqual(r_ok["inspection"]["aesthetic_score"], 95)
 
         # 3. 海报文件不存在
-        r_missing = test_step_7_inspect(poster_path=self.tmp_path / "missing.png", mock=False)
+        r_missing = gemini_step_7_inspect(poster_path=self.tmp_path / "missing.png", mock=False)
         self.assertFalse(r_missing["ok"])
         self.assertIn("不存在", r_missing["error"])
 
