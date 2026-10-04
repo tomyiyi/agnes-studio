@@ -99,6 +99,20 @@ class ResolveEndpointsTest(unittest.TestCase):
         self.assertTrue(len(eps) >= 1)
         self.assertTrue(eps[0].startswith("http"))
 
+    def test_resolve_endpoints_chat_with_custom_key_path(self):
+        self._clean_gateway_env()
+        with patch("gateway_failover.load_credentials", return_value=("http://custom-chat:13000/v1", "KEY")) as mock_load:
+            eps = G.resolve_endpoints("chat", key_path="/path/to/custom_key.json")
+            mock_load.assert_called_once_with(key_path="/path/to/custom_key.json")
+            self.assertEqual(eps[0], "http://custom-chat:13000/v1")
+
+    def test_resolve_endpoints_image_with_custom_key_path(self):
+        self._clean_gateway_env()
+        with patch("gateway_failover.load_gateway", return_value=("http://custom-img:13000/v1", "KEY", "m")) as mock_load:
+            eps = G.resolve_endpoints("image", key_path="/path/to/custom_key.json")
+            mock_load.assert_called_once_with(key_path="/path/to/custom_key.json")
+            self.assertEqual(eps[0], "http://custom-img:13000/v1")
+
 
 class FailoverTest(unittest.TestCase):
     def setUp(self):
@@ -205,6 +219,22 @@ class FailoverTest(unittest.TestCase):
             G.post_with_failover("/chat/completions", {}, kind="chat", http_post=post)
         self.assertEqual(calls[0]["key"], "CHAT_KEY")
 
+    def test_key_path_forwarded_to_resolver(self):
+        post, calls = fake_post_factory([("ok", 200, {})])
+        mock_resolver = MagicMock(return_value=("base", "CUSTOM_KEY"))
+        G.post_with_failover("/x", {}, http_post=post,
+                             key_resolver=mock_resolver,
+                             key_path="/path/to/key.json")
+        mock_resolver.assert_called_once_with(key_path="/path/to/key.json")
+        self.assertEqual(calls[0]["key"], "CUSTOM_KEY")
+
+    def test_key_path_forwarded_to_resolve_endpoints(self):
+        post, calls = fake_post_factory([("ok", 200, {})])
+        with patch("gateway_failover.resolve_endpoints", return_value=[EP1]) as mock_resolve:
+            G.post_with_failover("/x", {}, http_post=post, api_key="K",
+                                 key_path="/path/to/key.json")
+            mock_resolve.assert_called_once_with("chat", key_path="/path/to/key.json")
+
 
 class DoctorTest(unittest.TestCase):
     def test_doctor_401_is_warn_not_error(self):
@@ -218,7 +248,7 @@ class DoctorTest(unittest.TestCase):
                 req.full_url, 401, "Unauthorized", {}, None)
 
         urllib.request.urlopen = fake_urlopen
-        G.resolve_endpoints = lambda kind="chat": [EP1]
+        G.resolve_endpoints = lambda kind="chat", key_path=None: [EP1]
         try:
             rep = G.doctor("chat")
         finally:
@@ -245,7 +275,7 @@ class DoctorTest(unittest.TestCase):
             return m
 
         urllib.request.urlopen = fake_urlopen
-        G.resolve_endpoints = lambda kind="chat": ["http://badhost:1/v1", EP1]
+        G.resolve_endpoints = lambda kind="chat", key_path=None: ["http://badhost:1/v1", EP1]
         try:
             rep = G.doctor("chat")
         finally:
@@ -253,6 +283,41 @@ class DoctorTest(unittest.TestCase):
             G.resolve_endpoints = orig_resolve
         self.assertEqual(rep["http://badhost:1/v1"]["status"], "error")
         self.assertEqual(rep[EP1]["status"], "ok")
+
+    def test_doctor_forwards_key_path(self):
+        with patch("gateway_failover.resolve_endpoints", return_value=[EP1]) as mock_resolve:
+            with patch("urllib.request.urlopen") as mock_url:
+                resp = MagicMock()
+                resp.status = 200
+                resp.read.return_value = b"{}"
+                mock_url.return_value.__enter__.return_value = resp
+                res = G.doctor("chat", key_path="/path/to/key.json")
+                mock_resolve.assert_called_once_with("chat", key_path="/path/to/key.json")
+                self.assertIn(EP1, res)
+
+
+class CliTest(unittest.TestCase):
+    def test_cli_main_endpoints_with_key_path(self):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            with patch("gateway_failover.resolve_endpoints", return_value=[EP1]) as mock_resolve:
+                G.main(["--kind", "image", "--key-path", "/path/to/custom_key.json"])
+                mock_resolve.assert_called_once_with("image", key_path="/path/to/custom_key.json")
+        self.assertIn(EP1, buf.getvalue())
+
+    def test_cli_main_doctor_with_key_path(self):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            with patch("gateway_failover.doctor", return_value={EP1: {"status": "ok"}}) as mock_doctor:
+                G.main(["--kind", "chat", "--doctor", "--key-path", "/path/to/custom_key.json"])
+                mock_doctor.assert_called_once_with("chat", key_path="/path/to/custom_key.json")
+        self.assertIn("ok", buf.getvalue())
 
 
 if __name__ == "__main__":

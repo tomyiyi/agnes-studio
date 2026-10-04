@@ -84,7 +84,7 @@ def _dedup(urls: list[str]) -> list[str]:
     return out
 
 
-def resolve_endpoints(kind: str = "chat") -> list[str]:
+def resolve_endpoints(kind: str = "chat", key_path: Path | str | None = None) -> list[str]:
     """解析 kind 对应的网关端点列表（优先级从高到低，去重）。"""
     if kind not in ("chat", "image"):
         raise ValueError("kind 必须为 chat 或 image")
@@ -106,7 +106,11 @@ def resolve_endpoints(kind: str = "chat") -> list[str]:
         resolver = load_credentials if kind == "chat" else (load_gateway or load_credentials)
         if callable(resolver):
             try:
-                primary = (resolver()[0] or "").strip().rstrip("/")
+                try:
+                    res_tuple = resolver(key_path=key_path)
+                except TypeError:
+                    res_tuple = resolver()
+                primary = (res_tuple[0] or "").strip().rstrip("/")
             except Exception:
                 primary = ""
     fallbacks = _split_urls(os.environ.get(prefix + "_FALLBACK_URLS"))
@@ -149,9 +153,10 @@ def post_with_failover(
     kind: str = "chat",
     timeout: int = 30,
     api_key: str | None = None,
-    key_resolver: Callable[[], tuple] | None = None,
+    key_resolver: Callable[..., tuple] | None = None,
     http_post: Callable | None = None,
     first_endpoint: str | None = None,
+    key_path: Path | str | None = None,
 ) -> dict:
     """带故障转移的 POST。
 
@@ -160,7 +165,7 @@ def post_with_failover(
     全部端点故障时抛 AllGatewaysFailed。
     first_endpoint: 显式指定的端点排首位（请求级覆盖高于环境链）。
     """
-    endpoints = resolve_endpoints(kind)
+    endpoints = resolve_endpoints(kind, key_path=key_path)
     if first_endpoint and str(first_endpoint).strip():
         fe = str(first_endpoint).strip().rstrip("/")
         endpoints = [fe] + [u for u in endpoints if u != fe]
@@ -171,7 +176,11 @@ def post_with_failover(
             resolver = load_credentials if kind == "chat" else (load_gateway or load_credentials)
         if callable(resolver):
             try:
-                api_key = resolver()[1]
+                try:
+                    res_tuple = resolver(key_path=key_path)
+                except TypeError:
+                    res_tuple = resolver()
+                api_key = res_tuple[1]
             except Exception:
                 api_key = None
 
@@ -199,7 +208,11 @@ def post_with_failover(
                            for a in attempts) or last_err))
 
 
-def doctor(kind: str = "chat", timeout: int = 5) -> dict[str, dict]:
+def doctor(
+    kind: str = "chat",
+    timeout: int = 5,
+    key_path: Path | str | None = None,
+) -> dict[str, dict]:
     """对每个端点 GET /models 探活；单个端点异常不拖垮整体。
 
     状态语义：
@@ -208,7 +221,7 @@ def doctor(kind: str = "chat", timeout: int = 5) -> dict[str, dict]:
       error - 其他（连不上/超时/5xx…）
     """
     results: dict[str, dict] = {}
-    for ep in resolve_endpoints(kind):
+    for ep in resolve_endpoints(kind, key_path=key_path):
         try:
             req = urllib.request.Request(
                 ep + "/models", method="GET",
@@ -241,12 +254,13 @@ def main(argv: list[str] | None = None) -> None:
 
     ap = argparse.ArgumentParser(description="New API 网关故障转移探活")
     ap.add_argument("--kind", default="chat", choices=["chat", "image"])
+    ap.add_argument("--key-path", default=None, help="自定义 key JSON 路径")
     ap.add_argument("--doctor", action="store_true", help="探活所有端点")
     a = ap.parse_args(argv)
     if a.doctor:
-        print(json.dumps(doctor(a.kind), ensure_ascii=False, indent=2))
+        print(json.dumps(doctor(a.kind, key_path=a.key_path), ensure_ascii=False, indent=2))
         return
-    print(json.dumps({"endpoints": resolve_endpoints(a.kind)},
+    print(json.dumps({"endpoints": resolve_endpoints(a.kind, key_path=a.key_path)},
                      ensure_ascii=False, indent=2))
 
 
