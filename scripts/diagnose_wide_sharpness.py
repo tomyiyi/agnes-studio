@@ -11,13 +11,20 @@ def _gradient_mean(gray: np.ndarray) -> float:
         raise ValueError("gray image must be a 2D array with both dimensions >= 2")
     return float((np.abs(np.diff(gray, axis=1)).mean() + np.abs(np.diff(gray, axis=0)).mean()) / 2)
 
-def diagnose(path: Path, roi=(0.20, 0.15, 0.80, 0.90)) -> dict:
+def diagnose(path: Path | str, roi=(0.20, 0.15, 0.80, 0.90)) -> dict:
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Image file not found: {path}")
+    if not isinstance(roi, (tuple, list)) or len(roi) != 4:
+        raise ValueError("roi must be a sequence of 4 numbers (left, top, right, bottom)")
+    left, top, right, bottom = roi
+    if not (0.0 <= left < right <= 1.0 and 0.0 <= top < bottom <= 1.0):
+        raise ValueError(f"Invalid roi coordinates: {roi}. Must satisfy 0 <= left < right <= 1 and 0 <= top < bottom <= 1")
     raw = path.read_bytes()
     with Image.open(path) as source:
         image = source.convert("L")
         width, height = image.size
         gray = np.asarray(image, dtype=np.float32)
-    left, top, right, bottom = roi
     crop = gray[int(height * top):int(height * bottom), int(width * left):int(width * right)]
     full = _gradient_mean(gray)
     candidate = _gradient_mean(crop)
