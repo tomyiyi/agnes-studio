@@ -3205,6 +3205,121 @@ class TestGeminiEngine(unittest.TestCase):
         self.assertEqual(base, "http://new-api.fallback:15000/v1")
         self.assertEqual(key, "sk-new-api-fallback-key")
 
+    @patch.dict("os.environ", {}, clear=True)
+    def test_load_credentials_with_explicit_key_path(self):
+        custom_key_file = self.tmp_path / "custom_key.json"
+        custom_key_file.write_text(json.dumps({
+            "chat_base_url": "http://custom-chat.example.com/v1",
+            "api_key": "custom-key-789",
+            "models": {
+                "chat": ["agnes-2.5-pro", "unsupported-model"]
+            }
+        }), encoding="utf-8")
+
+        base, key, model = load_credentials(key_path=custom_key_file)
+        self.assertEqual(base, "http://custom-chat.example.com/v1")
+        self.assertEqual(key, "custom-key-789")
+        self.assertEqual(model, "agnes-2.5-pro")
+
+    @patch.dict("os.environ", {}, clear=True)
+    def test_load_credentials_with_explicit_key_path_str(self):
+        custom_key_file = self.tmp_path / "custom_str_key.json"
+        custom_key_file.write_text(json.dumps({
+            "base_url": "http://custom-str.example.com/v1",
+            "api_key": "custom-str-key-456",
+        }), encoding="utf-8")
+
+        base, key, model = load_credentials(key_path=str(custom_key_file))
+        self.assertEqual(base, "http://custom-str.example.com/v1")
+        self.assertEqual(key, "custom-str-key-456")
+
+    @patch.dict("os.environ", {}, clear=True)
+    def test_load_credentials_with_nonexistent_custom_key_path(self):
+        nonexistent = self.tmp_path / "does_not_exist_key.json"
+        base, key, model = load_credentials(key_path=nonexistent)
+        self.assertEqual(base, DEFAULT_BASE)
+        self.assertIsNone(key)
+        self.assertEqual(model, DEFAULT_CHAT_MODEL)
+
+    def test_call_agnes_forwards_key_path(self):
+        fake_key_path = self.tmp_path / "fake_forward_key.json"
+        with patch("agnes_engine.load_credentials", return_value=("http://127.0.0.1:13000/v1", "sk-forward", "agnes-3.0-flash")) as mock_load, \
+             patch("urllib.request.urlopen") as mock_urlopen:
+            mock_resp = MagicMock()
+            mock_resp.status = 200
+            mock_resp.read.return_value = json.dumps({
+                "choices": [{"message": {"content": "ok"}}]
+            }).encode("utf-8")
+            mock_resp.__enter__.return_value = mock_resp
+            mock_urlopen.return_value = mock_resp
+
+            res = call_agnes([{"role": "user", "content": "hi"}], key_path=fake_key_path)
+            self.assertTrue(res.get("ok"))
+            mock_load.assert_called_once_with(key_path=fake_key_path)
+
+    def test_generate_creative_brief_forwards_key_path(self):
+        fake_key_path = self.tmp_path / "brief_key.json"
+        with patch("agnes_engine.call_agnes", return_value={
+            "ok": True,
+            "content": json.dumps({
+                "title": "测试标题",
+                "subtitle": "SUBTITLE",
+                "body": "正文内容",
+                "author": "AGNES",
+                "style_preset": "cinema_01",
+                "gen_prompt": "prompt...",
+            }),
+            "cost_s": 0.1,
+            "trace_id": "test-trace",
+        }) as mock_call:
+            res = generate_creative_brief("测试主题", key_path=fake_key_path)
+            self.assertTrue(res.get("ok"))
+            self.assertIn("key_path", mock_call.call_args[1])
+            self.assertEqual(mock_call.call_args[1]["key_path"], fake_key_path)
+
+    def test_refine_prompt_for_agnes_forwards_key_path(self):
+        fake_key_path = self.tmp_path / "refine_key.json"
+        with patch("agnes_engine.call_agnes", return_value={
+            "ok": True,
+            "content": "enhanced optical prompt",
+            "cost_s": 0.1,
+            "trace_id": "test-trace",
+        }) as mock_call:
+            res = refine_prompt_for_agnes("raw prompt", key_path=fake_key_path)
+            self.assertTrue(res.get("ok"))
+            self.assertIn("key_path", mock_call.call_args[1])
+            self.assertEqual(mock_call.call_args[1]["key_path"], fake_key_path)
+
+    def test_detect_visual_subjects_forwards_key_path(self):
+        fake_key_path = self.tmp_path / "vision_key.json"
+        sample_img = self.tmp_path / "test_vis.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        with patch("agnes_engine.call_agnes", return_value={
+            "ok": True,
+            "content": json.dumps([{"x_min": 0.1, "x_max": 0.5, "y_min": 0.2, "y_max": 0.6}]),
+        }) as mock_call:
+            res = detect_visual_subjects(str(sample_img), key_path=fake_key_path)
+            self.assertEqual(len(res), 1)
+            self.assertIn("key_path", mock_call.call_args[1])
+            self.assertEqual(mock_call.call_args[1]["key_path"], fake_key_path)
+
+    def test_vision_inspect_artwork_forwards_key_path(self):
+        fake_key_path = self.tmp_path / "inspect_key.json"
+        sample_img = self.tmp_path / "test_inspect.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        with patch("agnes_engine.call_agnes", return_value={
+            "ok": True,
+            "content": json.dumps({"aesthetic_score": 95, "occlusion_risk": "low"}),
+            "cost_s": 0.1,
+            "trace_id": "test-trace",
+        }) as mock_call:
+            res = vision_inspect_artwork(str(sample_img), title="测试作品", key_path=fake_key_path)
+            self.assertTrue(res.get("ok"))
+            self.assertIn("key_path", mock_call.call_args[1])
+            self.assertEqual(mock_call.call_args[1]["key_path"], fake_key_path)
+
     def test_strip_markdown_codeblock(self):
         self.assertEqual(_strip_markdown_codeblock('```json\n{"k": "v"}\n```'), '{"k": "v"}')
         self.assertEqual(_strip_markdown_codeblock('```JSON\n{"k": "v"}\n```'), '{"k": "v"}')

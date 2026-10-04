@@ -25,7 +25,7 @@ import uuid
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(SCRIPTS_DIR) not in sys.path:
@@ -132,7 +132,7 @@ def reset_rate_limiter() -> None:
 
 
 
-def load_credentials() -> Tuple[str, Optional[str], str]:
+def load_credentials(key_path: Optional[Union[Path, str]] = None) -> Tuple[str, Optional[str], str]:
     """读取网关配置，返回 (base_url, api_key, chat_model)
     
     优先级：
@@ -161,12 +161,13 @@ def load_credentials() -> Tuple[str, Optional[str], str]:
     )
 
     # 2. 本地配置文件
+    target_path = Path(key_path) if key_path is not None else KEY_PATH
     file_base = None
     file_key = None
     file_model = None
-    if KEY_PATH.exists():
+    if target_path.exists():
         try:
-            with open(KEY_PATH, "r", encoding="utf-8") as f:
+            with open(target_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             file_base = data.get("chat_base_url") or data.get("base_url")
             file_key = data.get("api_key")
@@ -272,6 +273,7 @@ def call_agnes(
     failover: bool = True,
     timeout: int = 45,
     retries: int = 2,
+    key_path: Optional[Union[Path, str]] = None,
 ) -> Dict[str, Any]:
     """通过 New API 网关调用 Agnes 聊天模型（令牌桶限速 + 指数退避重试 + 网关故障转移）。
 
@@ -284,7 +286,7 @@ def call_agnes(
     只做被动探活（GET /models，不触发模型推理），两者不重叠。
     """
     trace = _new_trace_id(trace_id)
-    def_base, def_key, def_model = load_credentials()
+    def_base, def_key, def_model = load_credentials(key_path=key_path)
     base = (base_url or def_base).rstrip("/")
     target_model = model or def_model
 
@@ -412,6 +414,7 @@ def generate_creative_brief(
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
     trace_id: Optional[str] = None,
+    key_path: Optional[Union[Path, str]] = None,
 ) -> Dict[str, Any]:
     """
     智能生成商业级海报简报与排版文案
@@ -456,6 +459,7 @@ def generate_creative_brief(
         base_url=base_url,
         api_key=api_key,
         trace_id=trace,
+        key_path=key_path,
     )
 
     if not res.get("ok"):
@@ -491,6 +495,7 @@ def refine_prompt_for_agnes(
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
     trace_id: Optional[str] = None,
+    key_path: Optional[Union[Path, str]] = None,
 ) -> Dict[str, Any]:
     """
     将普通的自然语言提示词编译为 Agnes 物理光学级专业 Prompt
@@ -523,6 +528,7 @@ def refine_prompt_for_agnes(
         base_url=base_url,
         api_key=api_key,
         trace_id=trace,
+        key_path=key_path,
     )
 
     if not res.get("ok"):
@@ -539,6 +545,7 @@ def detect_visual_subjects(
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
     trace_id: Optional[str] = None,
+    key_path: Optional[Union[Path, str]] = None,
 ) -> List[Dict[str, float]]:
     """
     使用 Agnes 多模态视觉能力检测图片中的人脸与高显著性主体保护区。
@@ -582,7 +589,8 @@ def detect_visual_subjects(
             max_tokens=400,
             base_url=base_url,
             api_key=api_key,
-        trace_id=trace_id,
+            trace_id=trace_id,
+            key_path=key_path,
         )
 
         if not res.get("ok"):
@@ -621,6 +629,7 @@ def vision_inspect_artwork(
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
     trace_id: Optional[str] = None,
+    key_path: Optional[Union[Path, str]] = None,
 ) -> Dict[str, Any]:
     """
     对生成的排版海报或留白底图进行 Agnes 多模态视觉审美质检与安全区评估
@@ -675,7 +684,8 @@ def vision_inspect_artwork(
             max_tokens=600,
             base_url=base_url,
             api_key=api_key,
-        trace_id=trace,
+            trace_id=trace,
+            key_path=key_path,
         )
 
         if not res.get("ok"):
