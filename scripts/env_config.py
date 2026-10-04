@@ -5,6 +5,8 @@ Agnes Studio - 跨平台环境与路径解析器 (Cross-Platform Path & Environm
 自动支持 macOS (MacBook Pro M5 / 黑苹果主机) 与 Linux (Omarchy / 虚拟机 / 服务器)
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import shutil
@@ -77,23 +79,32 @@ def resolve_chrome_path() -> str:
                 
     return "chromium"
 
-def resolve_font_path(font_key: str = "smiley") -> str:
+def resolve_font_path(font_key: str | Path | None = "smiley") -> str:
     """
     自动解析跨平台中文字体路径 (macOS / Linux / Windows)
     支持 'smiley' (得意黑), 'wenkai' (霞鹜文楷), 'songti' / 'serif' (宋体/衬线), 'pingfang' / 'sans' (黑体/无衬线)。
     返回存在的字体文件绝对路径；若未命中则返回项目中可用的备选字体。
     """
-    key = str(font_key).lower().strip()
+    if font_key is None or not str(font_key).strip():
+        font_key = "smiley"
 
     # 1. 优先检查直接传递的有效绝对路径或相对路径
-    direct = Path(font_key)
-    if direct.is_file():
-        return str(direct.resolve())
+    try:
+        direct = Path(font_key)
+        if direct.is_file():
+            return str(direct.resolve())
+    except (TypeError, ValueError):
+        pass
+
+    key = str(font_key).lower().strip()
 
     # 2. 检查 public/fonts 中是否有完全同名或匹配文件名
-    exact_match = FONTS_DIR / font_key
-    if exact_match.is_file():
-        return str(exact_match.resolve())
+    try:
+        exact_match = FONTS_DIR / str(font_key)
+        if exact_match.is_file():
+            return str(exact_match.resolve())
+    except (TypeError, ValueError):
+        pass
 
     # 3. 按语义类型路由候选路径
     if key in ("smiley", "smileysans", "smiley-sans", "oblique"):

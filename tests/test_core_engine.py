@@ -590,6 +590,21 @@ class TestEnvConfig(unittest.TestCase):
         self.assertTrue(len(fallback_path) > 0)
         self.assertTrue(Path(fallback_path).exists(), f"兜底字体路径不存在: {fallback_path}")
 
+    def test_font_resolution_none_and_empty(self):
+        for empty_val in [None, "", "   ", "\t\n"]:
+            with self.subTest(empty_val=empty_val):
+                resolved = resolve_font_path(empty_val)
+                self.assertIsInstance(resolved, str)
+                self.assertTrue(len(resolved) > 0)
+                self.assertTrue(Path(resolved).exists(), f"空值/None 解析字体路径不存在: {resolved}")
+
+    def test_font_resolution_path_object(self):
+        sample_path = FONTS_DIR / "SmileySans-Oblique.ttf"
+        if sample_path.exists():
+            resolved = resolve_font_path(sample_path)
+            self.assertIsInstance(resolved, str)
+            self.assertEqual(resolved, str(sample_path.resolve()))
+
     def test_venv_site_packages_registered(self):
         venv_dir = PROJECT_ROOT / ".venv"
         if venv_dir.exists():
