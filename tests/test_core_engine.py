@@ -87,7 +87,11 @@ from expert_poster_designer import (
     render_expert_neochinese_poster,
 )
 from poster_composer import compose_commercial_poster
-from vision_subject_detector import detect_faces, check_occlusion
+from vision_subject_detector import (
+    detect_faces,
+    check_occlusion,
+    main as vision_detector_main,
+)
 from film_cover_engine import (
     render_shusheng_capsule_green,
     render_shusheng_split_red,
@@ -1723,6 +1727,133 @@ class TestVisionSubjectDetector(unittest.TestCase):
                  patch("agnes_engine.detect_visual_subjects", side_effect=RuntimeError("gateway unavailable")):
                 res = detect_faces(str(tmp_img))
                 self.assertEqual(res, [])
+
+    def test_cli_main_default_target(self):
+        with patch("vision_subject_detector.detect_faces", return_value=[{"x_min": 0.2}]) as mock_detect:
+            with patch("pathlib.Path.is_file", return_value=True):
+                code = vision_detector_main(["--quiet"])
+                self.assertEqual(code, 0)
+                mock_detect.assert_called_once()
+
+    def test_cli_main_missing_image_returns_error_code(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            missing_img = Path(tmpdir) / "not_there.png"
+            code = vision_detector_main(["--image", str(missing_img), "--quiet"])
+            self.assertEqual(code, 1)
+
+    def test_cli_main_with_out_and_json(self):
+        import io
+        from contextlib import redirect_stdout
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_img = Path(tmpdir) / "face.png"
+            Image.new("RGB", (100, 100), color=(10, 10, 10)).save(tmp_img, "PNG")
+            out_json = Path(tmpdir) / "sub" / "report.json"
+            mock_faces = [{"x_min": 0.4, "x_max": 0.6, "y_min": 0.4, "y_max": 0.6}]
+
+            buf = io.StringIO()
+            with patch("vision_subject_detector.detect_faces", return_value=mock_faces), \
+                 redirect_stdout(buf):
+                code = vision_detector_main([
+                    "--image", str(tmp_img),
+                    "--out", str(out_json),
+                    "--json",
+                    "--quiet",
+                ])
+
+            self.assertEqual(code, 0)
+            self.assertTrue(out_json.exists())
+            data = json.loads(out_json.read_text(encoding="utf-8"))
+            self.assertTrue(data["exists"])
+            self.assertEqual(data["subjects_count"], 1)
+            self.assertEqual(data["subjects"], mock_faces)
+
+            # verify json was also printed to stdout
+            stdout_data = json.loads(buf.getvalue().strip())
+            self.assertEqual(stdout_data["subjects_count"], 1)
+
+    def test_cli_main_with_box_no_occlusion(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_img = Path(tmpdir) / "face.png"
+            Image.new("RGB", (100, 100), color=(10, 10, 10)).save(tmp_img, "PNG")
+            out_json = Path(tmpdir) / "report.json"
+            mock_faces = [{"x_min": 0.4, "x_max": 0.6, "y_min": 0.4, "y_max": 0.6}]
+
+            with patch("vision_subject_detector.detect_faces", return_value=mock_faces):
+                code = vision_detector_main([
+                    "--image", str(tmp_img),
+                    "--out", str(out_json),
+                    "--box", "0.05", "0.05", "0.25", "0.25",
+                    "--strict",
+                    "--quiet",
+                ])
+
+            self.assertEqual(code, 0)
+            data = json.loads(out_json.read_text(encoding="utf-8"))
+            self.assertIn("occlusion", data)
+            self.assertFalse(data["occlusion"]["has_occlusion"])
+            self.assertIsNone(data["occlusion"]["conflicting_zone"])
+
+    def test_cli_main_strict_occlusion_failure(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_img = Path(tmpdir) / "face.png"
+            Image.new("RGB", (100, 100), color=(10, 10, 10)).save(tmp_img, "PNG")
+            mock_faces = [{"x_min": 0.4, "x_max": 0.6, "y_min": 0.4, "y_max": 0.6}]
+
+            with patch("vision_subject_detector.detect_faces", return_value=mock_faces):
+                # non-strict mode: warns but returns 0
+                code_non_strict = vision_detector_main([
+                    "--image", str(tmp_img),
+                    "--box", "0.35", "0.38", "0.55", "0.55",
+                    "--quiet",
+                ])
+                self.assertEqual(code_non_strict, 0)
+
+                # strict mode: occlusion causes exit code 1
+                code_strict = vision_detector_main([
+                    "--image", str(tmp_img),
+                    "--box", "0.35", "0.38", "0.55", "0.55",
+                    "--strict",
+                    "--quiet",
+                ])
+                self.assertEqual(code_strict, 1)
+
+    def test_cli_main_require_subject(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_img = Path(tmpdir) / "face.png"
+            Image.new("RGB", (100, 100), color=(10, 10, 10)).save(tmp_img, "PNG")
+
+            # 0 faces with require-subject returns 1
+            with patch("vision_subject_detector.detect_faces", return_value=[]):
+                code_empty = vision_detector_main([
+                    "--image", str(tmp_img),
+                    "--require-subject",
+                    "--quiet",
+                ])
+                self.assertEqual(code_empty, 1)
+
+            # 1 face with require-subject returns 0
+            with patch("vision_subject_detector.detect_faces", return_value=[{"x_min": 0.5}]):
+                code_ok = vision_detector_main([
+                    "--image", str(tmp_img),
+                    "--require-subject",
+                    "--quiet",
+                ])
+                self.assertEqual(code_ok, 0)
+
+    def test_cli_main_quiet_mode_suppresses_stdout(self):
+        import io
+        from contextlib import redirect_stdout
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_img = Path(tmpdir) / "face.png"
+            Image.new("RGB", (100, 100), color=(10, 10, 10)).save(tmp_img, "PNG")
+
+            buf = io.StringIO()
+            with patch("vision_subject_detector.detect_faces", return_value=[]), \
+                 redirect_stdout(buf):
+                code = vision_detector_main(["--image", str(tmp_img), "--quiet"])
+
+            self.assertEqual(code, 0)
+            self.assertEqual(buf.getvalue().strip(), "")
 
 
 
