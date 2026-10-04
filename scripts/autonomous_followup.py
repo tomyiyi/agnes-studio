@@ -10,6 +10,7 @@ Agnes Studio - 24/7 自主跟进守护与晨报生成器 (Autonomous Follow-up &
 4. 准点于早上 8:00 汇总全夜巡检与演进成果，自动撰写并交付《晨报》。
 """
 
+import argparse
 import os
 import sys
 import time
@@ -359,39 +360,91 @@ def generate_morning_report(history, report_file=None, now=None):
     post_event("morning_report_delivered", {"report_path": str(target_file)})
     return str(target_file)
 
-def main():
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Agnes Studio 24/7 Autonomous Follow-up Daemon & Morning Reporter"
+    )
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Run a single cycle (check sync, check server heal, optional pipeline) and exit",
+    )
+    parser.add_argument(
+        "--report-now",
+        action="store_true",
+        help="Immediately generate morning report file and exit",
+    )
+    parser.add_argument(
+        "--no-heal",
+        action="store_true",
+        help="Disable auto-healing server spawn when checking server health",
+    )
+    parser.add_argument(
+        "--no-sync",
+        action="store_true",
+        help="Skip Git remote fetch/pull checks",
+    )
+    parser.add_argument(
+        "--no-pipeline",
+        action="store_true",
+        help="Skip executing creative pipeline cycle",
+    )
+    parser.add_argument(
+        "--out-report",
+        type=str,
+        default=None,
+        help="Custom output path for morning report markdown",
+    )
+    args = parser.parse_args(argv)
+
+    if args.report_now:
+        log("📢 触发即时生成晨报...", "REPORT")
+        report_path = generate_morning_report([], report_file=args.out_report)
+        log(f"✓ 晨报已即时输出至: {report_path}", "REPORT")
+        return 0
+
     log("🚀 [Agnes Studio] 24/7 自主跟进守护引擎已启动，目标持续跟进至早上 08:00...")
     post_event("daemon_started", {"target_time": "08:00:00", "dir": str(DIR)})
-    
+
     cycle_counter = 0
     history = []
-    
+
     while True:
         now = datetime.datetime.now()
-        # 检查是否已达到早上 8:00 (例如 08:00 - 08:05 之间且未生成晨报)
-        if now.hour == 8 and 0 <= now.minute <= 10:
+        # 检查是否已达到早上 8:00 (例如 08:00 - 08:10 之间且未生成晨报)
+        if not args.once and now.hour == 8 and 0 <= now.minute <= 10:
             log("⏰ 已到达早上 08:00，正在汇总全夜数据生成晨报...", "REPORT")
-            generate_morning_report(history)
+            generate_morning_report(history, report_file=args.out_report)
             break
 
         cycle_counter += 1
         log(f"--- 巡检巡视 Cycle #{cycle_counter} (当前时间: {now.strftime('%H:%M:%S')}) ---")
 
         # 1. 检查并同步 Git 提交
-        check_and_sync_git()
+        if not args.no_sync:
+            check_and_sync_git()
 
         # 2. 检查并自愈服务
-        check_and_heal_server()
+        check_and_heal_server(auto_heal=not args.no_heal)
 
-        # 3. 每 2 个周期 (约 20 分钟) 运行一次自主海报演进流水线
-        if cycle_counter % 2 == 1:
-            res = run_creative_pipeline_cycle(cycle_counter)
-            if res:
-                history.append(res)
+        # 3. 运行自主海报演进流水线
+        if not args.no_pipeline:
+            # 持续守护模式下每 2 个周期跑一次，--once 单次运行模式下直接跑一次
+            if args.once or cycle_counter % 2 == 1:
+                res = run_creative_pipeline_cycle(cycle_counter)
+                if res:
+                    history.append(res)
+
+        if args.once:
+            log(f"✓ --once 单次巡检演进周期 Cycle #{cycle_counter} 执行完成", "INFO")
+            break
 
         # 睡眠等待下一个周期 (600 秒 = 10 分钟)
         log("本轮巡检完毕，将在 10 分钟后执行下一轮巡检...", "WAIT")
         time.sleep(600)
 
+    return 0
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -109,6 +109,7 @@ from autonomous_followup import (
     check_and_heal_server,
     run_creative_pipeline_cycle,
     generate_morning_report,
+    main as followup_main,
 )
 import pro_poster_renderer
 from pro_poster_renderer import (
@@ -3068,6 +3069,40 @@ class TestAutonomousFollowup(unittest.TestCase):
         mock_urlopen.side_effect = urllib.error.URLError("Network unreachable")
         result = run_creative_pipeline_cycle(2, server_base="http://127.0.0.1:8088", timeout=10)
         self.assertIsNone(result)
+
+    def test_cli_main_report_now(self):
+        report_file = self.tmp_path / "cli_report_now.md"
+        exit_code = followup_main(["--report-now", "--out-report", str(report_file)])
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(report_file.exists())
+        content = report_file.read_text(encoding="utf-8")
+        self.assertIn("# Agnes Studio 自主演进晨报", content)
+
+    @patch("autonomous_followup.run_creative_pipeline_cycle")
+    @patch("autonomous_followup.check_and_heal_server")
+    @patch("autonomous_followup.check_and_sync_git")
+    def test_cli_main_once_mode(self, mock_sync, mock_heal, mock_pipeline):
+        mock_sync.return_value = (False, "up_to_date")
+        mock_heal.return_value = (True, True)
+
+        exit_code = followup_main(["--once", "--no-pipeline"])
+        self.assertEqual(exit_code, 0)
+        mock_sync.assert_called_once()
+        mock_heal.assert_called_once_with(auto_heal=True)
+        mock_pipeline.assert_not_called()
+
+    @patch("autonomous_followup.run_creative_pipeline_cycle")
+    @patch("autonomous_followup.check_and_heal_server")
+    @patch("autonomous_followup.check_and_sync_git")
+    def test_cli_main_once_with_pipeline_and_flags(self, mock_sync, mock_heal, mock_pipeline):
+        mock_heal.return_value = (True, True)
+        mock_pipeline.return_value = {"title": "T", "score": 90}
+
+        exit_code = followup_main(["--once", "--no-sync", "--no-heal"])
+        self.assertEqual(exit_code, 0)
+        mock_sync.assert_not_called()
+        mock_heal.assert_called_once_with(auto_heal=False)
+        mock_pipeline.assert_called_once_with(1)
 
 
 class TestProPosterRenderer(unittest.TestCase):
