@@ -160,7 +160,7 @@ def load_credentials() -> Tuple[str, Optional[str], str]:
         try:
             with open(KEY_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            file_base = data.get("chat_base_url")
+            file_base = data.get("chat_base_url") or data.get("base_url")
             file_key = data.get("api_key")
             if not env_model:
                 chat_models = (data.get("models") or {}).get("chat") or []
@@ -171,8 +171,12 @@ def load_credentials() -> Tuple[str, Optional[str], str]:
             pass
 
     # 3. 通用环境变量回退（过滤已知的环境化石，避免劫持默认网关）
-    _FOSSIL_BASE_MARKERS = ("192.168.1.164:8045", "127.0.0.1:18045")
-    fallback_base = os.getenv("GEMINI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+    _FOSSIL_BASE_MARKERS = (":18045", ":8045", ":3000")
+    fallback_base = (
+        os.getenv("GEMINI_BASE_URL")
+        or os.getenv("OPENAI_BASE_URL")
+        or os.getenv("OPENAI_API_BASE")
+    )
     if fallback_base and any(m in fallback_base for m in _FOSSIL_BASE_MARKERS):
         fallback_base = None
     fallback_key = os.getenv("ANTIGRAVITY_API_KEY") or os.getenv("OPENAI_API_KEY")

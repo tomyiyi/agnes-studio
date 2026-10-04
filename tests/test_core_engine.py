@@ -2989,6 +2989,37 @@ class TestGeminiEngine(unittest.TestCase):
             self.assertEqual(base, "http://file.example/v1")
             self.assertEqual(key, "file-key-123")
 
+    @patch.dict("os.environ", {}, clear=True)
+    def test_load_credentials_key_file_base_url_fallback(self):
+        fake_key_file = self.tmp_path / "fake_key.json"
+        fake_key_file.write_text(json.dumps({
+            "base_url": "http://fallback-base.example/v1",
+            "api_key": "file-key-456",
+        }), encoding="utf-8")
+
+        with patch("agnes_engine.KEY_PATH", fake_key_file):
+            base, key, model = load_credentials()
+            self.assertEqual(base, "http://fallback-base.example/v1")
+            self.assertEqual(key, "file-key-456")
+
+    @patch.dict("os.environ", {
+        "OPENAI_API_BASE": "http://127.0.0.1:19000/v1",
+        "OPENAI_API_KEY": "sk-fallback-key",
+    }, clear=True)
+    @patch("agnes_engine.KEY_PATH", Path("/tmp/non_existent_key_path_xyz.json"))
+    def test_load_credentials_with_openai_api_base(self):
+        base, key, model = load_credentials()
+        self.assertEqual(base, "http://127.0.0.1:19000/v1")
+        self.assertEqual(key, "sk-fallback-key")
+
+    @patch.dict("os.environ", {
+        "OPENAI_BASE_URL": "http://127.0.0.1:3000/v1",
+    }, clear=True)
+    @patch("agnes_engine.KEY_PATH", Path("/tmp/non_existent_key_path_xyz.json"))
+    def test_load_credentials_ignores_fossil_3000(self):
+        base, key, model = load_credentials()
+        self.assertEqual(base, DEFAULT_BASE)
+
     def test_strip_markdown_codeblock(self):
         self.assertEqual(_strip_markdown_codeblock('```json\n{"k": "v"}\n```'), '{"k": "v"}')
         self.assertEqual(_strip_markdown_codeblock('```JSON\n{"k": "v"}\n```'), '{"k": "v"}')
