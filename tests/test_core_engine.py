@@ -343,6 +343,7 @@ from render_variants_verify import (
     normalize_variant_key as verify_normalize_variant_key,
     list_variants as verify_list_variants,
     render_variant_style as verify_render_variant_style,
+    build_arg_parser as verify_build_arg_parser,
     main as verify_variants_main,
 )
 import batch_layout_cn_789
@@ -8071,6 +8072,152 @@ class TestRenderVariantsVerify(unittest.TestCase):
             ])
         self.assertEqual(code, 0)
         self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_build_arg_parser(self):
+        parser = verify_build_arg_parser()
+        self.assertIsNotNone(parser)
+        parsed = parser.parse_args([
+            "--variant", "v2",
+            "--src", "dummy.png",
+            "--out", "dummy_out.png",
+            "--out-dir", "/tmp",
+            "--title", "测试标题",
+            "--latin", "TEST LATIN",
+            "--slogan", "测试标语",
+            "--list",
+            "--json",
+            "--dry-run",
+            "--quiet",
+            "--strict",
+        ])
+        self.assertEqual(parsed.variant, "v2")
+        self.assertEqual(parsed.src, "dummy.png")
+        self.assertEqual(parsed.out, "dummy_out.png")
+        self.assertEqual(parsed.out_dir, "/tmp")
+        self.assertEqual(parsed.title, "测试标题")
+        self.assertEqual(parsed.latin, "TEST LATIN")
+        self.assertEqual(parsed.slogan, "测试标语")
+        self.assertTrue(parsed.list)
+        self.assertTrue(parsed.json)
+        self.assertTrue(parsed.dry_run)
+        self.assertTrue(parsed.quiet)
+        self.assertTrue(parsed.strict)
+
+    def test_cli_main_list_json(self):
+        from contextlib import redirect_stdout
+        import json
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = verify_variants_main(["--list", "--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertEqual(len(data), 8)
+        keys = [item["key"] for item in data]
+        for expected in ["v1_top_title", "v2_topleft", "v8_vertical_seal"]:
+            self.assertIn(expected, keys)
+
+    def test_shot_dry_run_returns_path_without_playwright(self):
+        out_p = self.tmp_path / "dry_shot.png"
+        ret = verify_shot("<html></html>", out_p, quiet=True, dry_run=True)
+        self.assertEqual(ret, out_p)
+        self.assertFalse(out_p.exists())
+
+    def test_cli_main_dry_run_single(self):
+        from contextlib import redirect_stdout
+
+        sample_img = self.tmp_path / "variant_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "dry_out.png"
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = verify_variants_main([
+                "--variant", "v2",
+                "--src", str(sample_img),
+                "--out", str(out_p),
+                "--dry-run",
+            ])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("DRY dry_out.png", out)
+        self.assertIn("done", out)
+        self.assertFalse(out_p.exists())
+
+    def test_cli_main_dry_run_all(self):
+        from contextlib import redirect_stdout
+
+        sample_img = self.tmp_path / "variant_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_dir = self.tmp_path / "dry_batch"
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = verify_variants_main([
+                "--variant", "all",
+                "--src", str(sample_img),
+                "--out-dir", str(out_dir),
+                "--dry-run",
+            ])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("DRY v1_top_title.png", out)
+        self.assertIn("DRY v8_vertical_seal.png", out)
+        self.assertIn("done", out)
+
+    def test_cli_main_dry_run_json_output(self):
+        from contextlib import redirect_stdout
+        import json
+
+        sample_img = self.tmp_path / "variant_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_dir = self.tmp_path / "dry_batch_json"
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = verify_variants_main([
+                "--variant", "all",
+                "--src", str(sample_img),
+                "--out-dir", str(out_dir),
+                "--dry-run",
+                "--json",
+            ])
+        self.assertEqual(code, 0)
+        raw_out = buf.getvalue()
+        data = json.loads(raw_out)
+        self.assertEqual(len(data), 8)
+        for item in data:
+            self.assertEqual(item["status"], "ok")
+            self.assertTrue(item["dry_run"])
+            self.assertTrue(item["output"].endswith(".png"))
+
+    def test_cli_main_strict_invalid_variant(self):
+        from contextlib import redirect_stdout
+        import json
+
+        sample_img = self.tmp_path / "variant_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        buf_json = io.StringIO()
+        with redirect_stdout(buf_json):
+            code_json = verify_variants_main([
+                "--variant", "invalid_variant_key",
+                "--src", str(sample_img),
+                "--strict",
+                "--json",
+            ])
+        self.assertEqual(code_json, 1)
+        err_data = json.loads(buf_json.getvalue())
+        self.assertFalse(err_data["ok"])
+        self.assertIn("Unknown variant key", err_data["error"])
+
+        code_strict = verify_variants_main([
+            "--variant", "invalid_variant_key",
+            "--src", str(sample_img),
+            "--strict",
+            "--quiet",
+        ])
+        self.assertEqual(code_strict, 1)
 
 
 class TestBatchLayoutCn789(unittest.TestCase):
