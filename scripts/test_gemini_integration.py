@@ -772,26 +772,44 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """CLI 主入口函数，返回状态码 0 (成功) 或 1 (失败)。"""
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
-    steps = parse_steps(args.steps)
-    suite_res = run_integration_suite(
-        steps=steps,
-        out_dir=args.out_dir,
-        mock=args.mock,
-        skip_network=args.skip_network,
-        dry_run=args.dry_run,
-        verbose=not args.quiet,
-        raise_on_error=False,
-    )
-    if args.json:
-        json_str = json.dumps(suite_res, ensure_ascii=False, indent=2)
-        if args.json == "-":
-            print(json_str)
-        else:
-            p = Path(args.json)
-            p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(json_str, encoding="utf-8")
-    return 0 if suite_res.get("ok") else 1
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+
+    try:
+        steps = parse_steps(args.steps)
+        suite_res = run_integration_suite(
+            steps=steps,
+            out_dir=args.out_dir,
+            mock=args.mock,
+            skip_network=args.skip_network,
+            dry_run=args.dry_run,
+            verbose=not args.quiet,
+            raise_on_error=False,
+        )
+        if args.json:
+            json_str = json.dumps(suite_res, ensure_ascii=False, indent=2)
+            if args.json == "-":
+                print(json_str)
+            else:
+                p = Path(args.json)
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(json_str, encoding="utf-8")
+        return 0 if suite_res.get("ok") else 1
+    except Exception as e:
+        if args.json:
+            err_payload = {"ok": False, "error": str(e)}
+            err_str = json.dumps(err_payload, ensure_ascii=False, indent=2)
+            if args.json == "-":
+                print(err_str)
+            else:
+                try:
+                    p = Path(args.json)
+                    p.parent.mkdir(parents=True, exist_ok=True)
+                    p.write_text(err_str, encoding="utf-8")
+                except Exception:
+                    print(err_str)
+        elif not args.quiet:
+            print(f"❌ Gemini 集成验证套件执行失败: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

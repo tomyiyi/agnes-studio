@@ -15616,6 +15616,59 @@ class TestGeminiIntegrationSuite(unittest.TestCase):
         )
         self.assertTrue(res["ok"])
 
+    def test_cli_stdout_json_output(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = gemini_main([
+                "--mock",
+                "--dry-run",
+                "--out-dir", str(self.tmp_path),
+                "--json",
+                "--quiet",
+            ])
+        self.assertEqual(ret, 0)
+        data = json.loads(buf.getvalue())
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["passed"], 7)
+
+    def test_cli_exception_stderr_output(self):
+        buf = io.StringIO()
+        with patch("test_gemini_integration.run_integration_suite", side_effect=RuntimeError("Integration crash")):
+            with redirect_stderr(buf):
+                ret = gemini_main(["--mock"])
+        self.assertEqual(ret, 1)
+        self.assertIn("❌ Gemini 集成验证套件执行失败: Integration crash", buf.getvalue())
+
+    def test_cli_exception_quiet_mode(self):
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("test_gemini_integration.run_integration_suite", side_effect=RuntimeError("Integration crash")):
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                ret = gemini_main(["--mock", "--quiet"])
+        self.assertEqual(ret, 1)
+        self.assertEqual(err_buf.getvalue(), "")
+        self.assertEqual(out_buf.getvalue(), "")
+
+    def test_cli_exception_json_stdout(self):
+        buf = io.StringIO()
+        with patch("test_gemini_integration.run_integration_suite", side_effect=RuntimeError("Integration crash")):
+            with redirect_stdout(buf):
+                ret = gemini_main(["--mock", "--json"])
+        self.assertEqual(ret, 1)
+        data = json.loads(buf.getvalue())
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["error"], "Integration crash")
+
+    def test_cli_exception_json_file(self):
+        json_report = self.tmp_path / "err_report.json"
+        with patch("test_gemini_integration.run_integration_suite", side_effect=RuntimeError("File write crash")):
+            ret = gemini_main(["--mock", "--json", str(json_report)])
+        self.assertEqual(ret, 1)
+        self.assertTrue(json_report.exists())
+        data = json.loads(json_report.read_text(encoding="utf-8"))
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["error"], "File write crash")
+
 
 class TestComposeBeautyCovers(unittest.TestCase):
     """测试高定美妆封面 2350×1000 负空间与对角拆字排版组件 (Beauty Cover Suite)"""
