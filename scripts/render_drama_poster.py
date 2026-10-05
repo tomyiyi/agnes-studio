@@ -3,8 +3,10 @@
 """反 slop 海报：一个巨型事件 + 三级字阶 + 最多一种表现手法。"""
 from __future__ import annotations
 
+import argparse
 import base64
 from html import escape
+import json
 import sys
 from pathlib import Path
 
@@ -59,9 +61,20 @@ def sanitize_img_uri(uri: str) -> str:
     )
 
 
-def shot(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 500, quiet: bool = False) -> Path:
+def shot(
+    html: str,
+    out: str | Path,
+    size=(864, 1152),
+    timeout_ms: int = 500,
+    quiet: bool = False,
+    dry_run: bool = False,
+) -> Path:
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    if dry_run:
+        if not quiet:
+            print(f" ✓ {out_path.name} (dry_run)")
+        return out_path
     from playwright.sync_api import sync_playwright
 
     chrome_path = resolve_chrome_path()
@@ -139,11 +152,12 @@ def mega_bleed(
     subtitle_top: str = "Night Voyage",
     subtitle_bottom: str = "Agnes · 2026",
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """named move: mega-title-bleed — 巨字贴边裁切，仅 macro+micro。"""
     img = b64(image)
     html = build_mega_bleed_html(img, title=title, subtitle_top=subtitle_top, subtitle_bottom=subtitle_bottom)
-    return shot(html, out, quiet=quiet)
+    return shot(html, out, quiet=quiet, dry_run=dry_run)
 
 
 def build_hard_field_html(
@@ -185,11 +199,12 @@ def hard_field(
     tagline: str = "她把城市调成静音",
     micro_text: str = "A Film Still",
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """named move: hard-field-inversion — 底部硬色场反转，标题可读通道。"""
     img = b64(image)
     html = build_hard_field_html(img, title=title, tagline=tagline, micro_text=micro_text)
-    return shot(html, out, quiet=quiet)
+    return shot(html, out, quiet=quiet, dry_run=dry_run)
 
 
 def build_chinese_corner_html(
@@ -243,6 +258,7 @@ def chinese_corner(
     bottom_label: str = "Agnes Studio",
     seal_char: str = "航",
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """named move: 边角式 + 计白当黑 — 字藏一角，中间全给图。"""
     img = b64(image)
@@ -253,7 +269,7 @@ def chinese_corner(
         bottom_label=bottom_label,
         seal_char=seal_char,
     )
-    return shot(html, out, quiet=quiet)
+    return shot(html, out, quiet=quiet, dry_run=dry_run)
 
 
 # =============================================================================
@@ -265,16 +281,19 @@ DRAMA_POSTER_STYLES = {
         "name": "巨字贴边裁切 (Mega Title Bleed)",
         "func": mega_bleed,
         "default_file": "drama_01_mega_bleed.png",
+        "description": "巨字贴边裁切：只保留 macro 主标题与微型标签，破格出血冲击力",
     },
     "hard_field": {
         "name": "硬色场反转 (Hard Field Inversion)",
         "func": hard_field,
         "default_file": "drama_02_hard_field.png",
+        "description": "硬色场反转：底部 36% 纯黑硬色场反转，确保主标题极致可读与视觉重心",
     },
     "chinese_corner": {
         "name": "边角式计白当黑 (Chinese Corner)",
         "func": chinese_corner,
         "default_file": "drama_03_corner.png",
+        "description": "边角式计白当黑：右上竖排主标题与右下朱红印章，大面积留白让位于画面",
     },
 }
 
@@ -282,7 +301,12 @@ DRAMA_POSTER_STYLES = {
 def list_drama_poster_styles() -> list[dict[str, str]]:
     """列出所有已注册的反 slop 戏剧性海报版式预设"""
     return [
-        {"key": k, "name": v["name"], "default_file": v["default_file"]}
+        {
+            "key": k,
+            "name": v["name"],
+            "default_file": v["default_file"],
+            "description": v.get("description", ""),
+        }
         for k, v in DRAMA_POSTER_STYLES.items()
     ]
 
@@ -296,6 +320,7 @@ def render_drama_poster_style(
     tagline: str | None = None,
     seal: str | None = None,
     quiet: bool = False,
+    dry_run: bool = False,
     **kwargs,
 ) -> Path:
     """按风格名称派发渲染对应的反 slop 戏剧性海报"""
@@ -308,23 +333,54 @@ def render_drama_poster_style(
     if key == "mega_bleed":
         sub_top = subtitle if subtitle is not None else "Night Voyage"
         sub_bot = tagline if tagline is not None else "Agnes · 2026"
-        return func(image=image, out=out, title=title, subtitle_top=sub_top, subtitle_bottom=sub_bot, quiet=quiet)
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            subtitle_top=sub_top,
+            subtitle_bottom=sub_bot,
+            quiet=quiet,
+            dry_run=dry_run,
+        )
     elif key == "hard_field":
         tline = tagline if tagline is not None else "她把城市调成静音"
         micro = subtitle if subtitle is not None else "A Film Still"
-        return func(image=image, out=out, title=title, tagline=tline, micro_text=micro, quiet=quiet)
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            tagline=tline,
+            micro_text=micro,
+            quiet=quiet,
+            dry_run=dry_run,
+        )
     elif key == "chinese_corner":
         sub = subtitle if subtitle is not None else "Night Voyage"
         bot_label = tagline if tagline is not None else "Agnes Studio"
         seal_c = seal if seal is not None else (title[-1] if title else "航")
-        return func(image=image, out=out, title=title, subtitle=sub, bottom_label=bot_label, seal_char=seal_c, quiet=quiet)
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            subtitle=sub,
+            bottom_label=bot_label,
+            seal_char=seal_c,
+            quiet=quiet,
+            dry_run=dry_run,
+        )
     else:
-        return func(image=image, out=out, title=title, quiet=quiet, **kwargs)
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            quiet=quiet,
+            dry_run=dry_run,
+            **kwargs,
+        )
 
 
-def main(argv: list[str] | None = None) -> int:
-    import argparse
-
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建反 slop 巨幅戏剧性海报渲染命令行参数解析器"""
     parser = argparse.ArgumentParser(description="Agnes Studio · 反 slop 巨幅戏剧性海报渲染引擎 (Drama Poster Renderer)")
     parser.add_argument(
         "--style",
@@ -345,6 +401,11 @@ def main(argv: list[str] | None = None) -> int:
         "-o",
         default=None,
         help="输出海报路径（在 style=all 时将自动附加风格后缀）",
+    )
+    parser.add_argument(
+        "--out-dir",
+        default=None,
+        help="输出海报目录（当未指定 --out 时覆盖默认输出目录）",
     )
     parser.add_argument(
         "--title",
@@ -373,6 +434,16 @@ def main(argv: list[str] | None = None) -> int:
         help="列出所有可用的戏剧性海报风格预设",
     )
     parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出风格列表或批量执行结果报告",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="预演模式：仅校验参数与规划输出路径，不唤起浏览器真实光栅化",
+    )
+    parser.add_argument(
         "--quiet",
         "-q",
         action="store_true",
@@ -383,10 +454,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="严格模式：遇到底图缺失或渲染异常时返回非零退出码 1",
     )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
     args = parser.parse_args(argv if argv is not None else [])
 
     if args.list:
-        if not args.quiet:
+        if args.json:
+            print(json.dumps(list_drama_poster_styles(), ensure_ascii=False, indent=2))
+        elif not args.quiet:
             print("Agnes Studio 可用戏剧性海报风格预设:")
             for s in list_drama_poster_styles():
                 print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
@@ -394,11 +472,14 @@ def main(argv: list[str] | None = None) -> int:
 
     # 确定输入源
     resolved_src = None
-    if args.src:
-        p = Path(args.src)
+    input_path_arg = args.src
+    if input_path_arg:
+        p = Path(input_path_arg)
         if not p.is_file():
-            if not args.quiet:
-                print(f"❌ 找不到输入底图: {args.src}", file=sys.stderr)
+            if not args.quiet and not args.json:
+                print(f"❌ 找不到输入底图: {input_path_arg}", file=sys.stderr)
+            elif args.json:
+                print(json.dumps({"error": f"找不到输入底图: {input_path_arg}", "ok": False}, ensure_ascii=False))
             return 1 if args.strict else 0
         resolved_src = p
     else:
@@ -414,14 +495,18 @@ def main(argv: list[str] | None = None) -> int:
                 break
 
     if resolved_src is None:
-        if not args.quiet:
+        if not args.quiet and not args.json:
             print("❌ 未指定 --src 且未发现默认候选底图资产", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"error": "未指定 --src 且未发现默认候选底图资产", "ok": False}, ensure_ascii=False))
         return 1 if args.strict else 0
 
     target_styles = list(DRAMA_POSTER_STYLES.keys()) if args.style == "all" else [args.style]
 
+    quiet = args.quiet or args.json
+    report_items = []
     try:
-        default_out_dir = ROOT / "outputs" / "drama_study"
+        default_out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "drama_study")
         for st in target_styles:
             if args.out:
                 out_path = Path(args.out)
@@ -439,14 +524,26 @@ def main(argv: list[str] | None = None) -> int:
                 subtitle=args.subtitle,
                 tagline=args.tagline,
                 seal=args.seal,
-                quiet=args.quiet,
+                quiet=quiet,
+                dry_run=args.dry_run,
             )
-        if not args.quiet:
+            report_items.append({
+                "style": st,
+                "name": DRAMA_POSTER_STYLES[st]["name"],
+                "output": str(out_path),
+                "dry_run": args.dry_run,
+                "status": "ok",
+            })
+        if args.json:
+            print(json.dumps(report_items, ensure_ascii=False, indent=2))
+        elif not args.quiet:
             print("done")
         return 0
     except Exception as e:
-        if not args.quiet:
+        if not args.quiet and not args.json:
             print(f"❌ 戏剧性海报渲染失败: {e}", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"error": str(e), "ok": False}, ensure_ascii=False))
         return 1 if args.strict else 0
 
 
