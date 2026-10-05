@@ -202,6 +202,10 @@ from render_drama_poster import (
     hard_field,
     build_chinese_corner_html,
     chinese_corner,
+    DRAMA_POSTER_STYLES,
+    list_drama_poster_styles,
+    render_drama_poster_style,
+    main as drama_poster_main,
 )
 import render_cn_type_poster
 from render_cn_type_poster import (
@@ -4989,6 +4993,159 @@ class TestRenderDramaPoster(unittest.TestCase):
         mock_shot.return_value = self.tmp_path / "mock_drama.png"
         render_drama_poster.main()
         self.assertEqual(mock_shot.call_count, 3)
+
+    @patch("playwright.sync_api.sync_playwright")
+    def test_shot_quiet_mode(self, mock_playwright):
+        from contextlib import redirect_stdout
+
+        fake_page = MagicMock()
+        fake_browser = MagicMock()
+        fake_browser.new_page.return_value = fake_page
+        mock_p_inst = MagicMock()
+        mock_p_inst.chromium.launch.return_value = fake_browser
+        mock_playwright.return_value.__enter__.return_value = mock_p_inst
+
+        out_p = self.tmp_path / "shot_quiet.png"
+        out_p.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = drama_shot("<html></html>", out_p, quiet=True)
+        self.assertEqual(ret, out_p)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    @patch("render_drama_poster.shot")
+    def test_render_styles_quiet_mode(self, mock_shot):
+        sample_img = self.tmp_path / "drama_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out.png"
+        mock_shot.return_value = out_p
+
+        res_bleed = mega_bleed(sample_img, out_p, quiet=True)
+        self.assertEqual(res_bleed, out_p)
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+        res_field = hard_field(sample_img, out_p, quiet=True)
+        self.assertEqual(res_field, out_p)
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+        res_corner = chinese_corner(sample_img, out_p, quiet=True)
+        self.assertEqual(res_corner, out_p)
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+    @patch("render_drama_poster.shot")
+    def test_list_and_render_drama_poster_style(self, mock_shot):
+        styles = list_drama_poster_styles()
+        self.assertEqual(len(styles), 3)
+        keys = {s["key"] for s in styles}
+        self.assertEqual(keys, {"mega_bleed", "hard_field", "chinese_corner"})
+
+        sample_img = self.tmp_path / "drama_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "dispatched.png"
+        mock_shot.return_value = out_p
+
+        ret = render_drama_poster_style(
+            "chinese_corner",
+            sample_img,
+            out_p,
+            title="戏曲夜航",
+            subtitle="OPERA NIGHT",
+            tagline="AGNES",
+            seal="印",
+            quiet=True,
+        )
+        self.assertEqual(ret, out_p)
+        mock_shot.assert_called()
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+        with self.assertRaises(KeyError):
+            render_drama_poster_style("unknown_style", sample_img, out_p)
+
+    def test_cli_main_list_mode(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = drama_poster_main(["--list"])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("Agnes Studio 可用戏剧性海报风格预设:", out)
+        self.assertIn("mega_bleed", out)
+        self.assertIn("hard_field", out)
+        self.assertIn("chinese_corner", out)
+
+    @patch("render_drama_poster.shot")
+    def test_cli_main_single_style_with_custom_src_and_out(self, mock_shot):
+        sample_img = self.tmp_path / "drama_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "single_out.png"
+        mock_shot.return_value = out_p
+
+        code = drama_poster_main([
+            "--style", "hard_field",
+            "--src", str(sample_img),
+            "--out", str(out_p),
+            "--title", "反转硬场",
+            "--subtitle", "SUBTITLE",
+            "--tagline", "TAGLINE",
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_shot.call_count, 1)
+
+    @patch("render_drama_poster.shot")
+    def test_cli_main_all_mode(self, mock_shot):
+        sample_img = self.tmp_path / "drama_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_base = self.tmp_path / "bundle.png"
+        mock_shot.return_value = self.tmp_path / "out.png"
+
+        code = drama_poster_main([
+            "--style", "all",
+            "--src", str(sample_img),
+            "--out", str(out_base),
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_shot.call_count, 3)
+
+    def test_cli_main_missing_src_strict_mode(self):
+        missing_src = self.tmp_path / "does_not_exist.png"
+        code_strict = drama_poster_main([
+            "--style", "mega_bleed",
+            "--src", str(missing_src),
+            "--strict",
+            "--quiet",
+        ])
+        self.assertEqual(code_strict, 1)
+
+        code_lenient = drama_poster_main([
+            "--style", "mega_bleed",
+            "--src", str(missing_src),
+            "--quiet",
+        ])
+        self.assertEqual(code_lenient, 0)
+
+    @patch("render_drama_poster.shot")
+    def test_cli_main_quiet_mode_suppresses_stdout(self, mock_shot):
+        from contextlib import redirect_stdout
+
+        sample_img = self.tmp_path / "drama_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "quiet_out.png"
+        mock_shot.return_value = out_p
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = drama_poster_main([
+                "--style", "mega_bleed",
+                "--src", str(sample_img),
+                "--out", str(out_p),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
 
 
 class TestRenderCnTypePoster(unittest.TestCase):

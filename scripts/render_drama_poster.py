@@ -59,7 +59,7 @@ def sanitize_img_uri(uri: str) -> str:
     )
 
 
-def shot(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 500) -> Path:
+def shot(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 500, quiet: bool = False) -> Path:
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     from playwright.sync_api import sync_playwright
@@ -78,8 +78,9 @@ def shot(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 500) ->
             page.wait_for_timeout(timeout_ms)
         page.screenshot(path=str(out_path), type="png")
         b.close()
-    size_kb = out_path.stat().st_size // 1024 if out_path.exists() else 0
-    print(f" ✓ {out_path.name} {size_kb} KB")
+    if not quiet:
+        size_kb = out_path.stat().st_size // 1024 if out_path.exists() else 0
+        print(f" ✓ {out_path.name} {size_kb} KB")
     return out_path
 
 
@@ -137,11 +138,12 @@ def mega_bleed(
     title: str = "夜航",
     subtitle_top: str = "Night Voyage",
     subtitle_bottom: str = "Agnes · 2026",
+    quiet: bool = False,
 ) -> Path:
     """named move: mega-title-bleed — 巨字贴边裁切，仅 macro+micro。"""
     img = b64(image)
     html = build_mega_bleed_html(img, title=title, subtitle_top=subtitle_top, subtitle_bottom=subtitle_bottom)
-    return shot(html, out)
+    return shot(html, out, quiet=quiet)
 
 
 def build_hard_field_html(
@@ -182,11 +184,12 @@ def hard_field(
     title: str = "夜航",
     tagline: str = "她把城市调成静音",
     micro_text: str = "A Film Still",
+    quiet: bool = False,
 ) -> Path:
     """named move: hard-field-inversion — 底部硬色场反转，标题可读通道。"""
     img = b64(image)
     html = build_hard_field_html(img, title=title, tagline=tagline, micro_text=micro_text)
-    return shot(html, out)
+    return shot(html, out, quiet=quiet)
 
 
 def build_chinese_corner_html(
@@ -239,6 +242,7 @@ def chinese_corner(
     subtitle: str = "Night Voyage",
     bottom_label: str = "Agnes Studio",
     seal_char: str = "航",
+    quiet: bool = False,
 ) -> Path:
     """named move: 边角式 + 计白当黑 — 字藏一角，中间全给图。"""
     img = b64(image)
@@ -249,20 +253,202 @@ def chinese_corner(
         bottom_label=bottom_label,
         seal_char=seal_char,
     )
-    return shot(html, out)
+    return shot(html, out, quiet=quiet)
 
 
-def main():
-    base = ROOT / "outputs" / "epic_compare" / "clean_base.png"
-    if not base.exists():
-        base = ROOT / "public" / "assets" / "agnes_1789995698_9987.png"
-    out = ROOT / "outputs" / "drama_study"
-    out.mkdir(parents=True, exist_ok=True)
-    mega_bleed(base, out / "drama_01_mega_bleed.png")
-    hard_field(base, out / "drama_02_hard_field.png")
-    chinese_corner(base, out / "drama_03_corner.png")
-    print("done")
+# =============================================================================
+# 风格注册表与多风格派发器
+# =============================================================================
+
+DRAMA_POSTER_STYLES = {
+    "mega_bleed": {
+        "name": "巨字贴边裁切 (Mega Title Bleed)",
+        "func": mega_bleed,
+        "default_file": "drama_01_mega_bleed.png",
+    },
+    "hard_field": {
+        "name": "硬色场反转 (Hard Field Inversion)",
+        "func": hard_field,
+        "default_file": "drama_02_hard_field.png",
+    },
+    "chinese_corner": {
+        "name": "边角式计白当黑 (Chinese Corner)",
+        "func": chinese_corner,
+        "default_file": "drama_03_corner.png",
+    },
+}
+
+
+def list_drama_poster_styles() -> list[dict[str, str]]:
+    """列出所有已注册的反 slop 戏剧性海报版式预设"""
+    return [
+        {"key": k, "name": v["name"], "default_file": v["default_file"]}
+        for k, v in DRAMA_POSTER_STYLES.items()
+    ]
+
+
+def render_drama_poster_style(
+    style: str,
+    image: str | Path,
+    out: str | Path,
+    title: str = "夜航",
+    subtitle: str | None = None,
+    tagline: str | None = None,
+    seal: str | None = None,
+    quiet: bool = False,
+    **kwargs,
+) -> Path:
+    """按风格名称派发渲染对应的反 slop 戏剧性海报"""
+    key = style.strip().lower()
+    if key not in DRAMA_POSTER_STYLES:
+        raise KeyError(f"Unknown drama poster style: '{style}'. Available: {list(DRAMA_POSTER_STYLES.keys())}")
+    style_meta = DRAMA_POSTER_STYLES[key]
+    func = style_meta["func"]
+
+    if key == "mega_bleed":
+        sub_top = subtitle if subtitle is not None else "Night Voyage"
+        sub_bot = tagline if tagline is not None else "Agnes · 2026"
+        return func(image=image, out=out, title=title, subtitle_top=sub_top, subtitle_bottom=sub_bot, quiet=quiet)
+    elif key == "hard_field":
+        tline = tagline if tagline is not None else "她把城市调成静音"
+        micro = subtitle if subtitle is not None else "A Film Still"
+        return func(image=image, out=out, title=title, tagline=tline, micro_text=micro, quiet=quiet)
+    elif key == "chinese_corner":
+        sub = subtitle if subtitle is not None else "Night Voyage"
+        bot_label = tagline if tagline is not None else "Agnes Studio"
+        seal_c = seal if seal is not None else (title[-1] if title else "航")
+        return func(image=image, out=out, title=title, subtitle=sub, bottom_label=bot_label, seal_char=seal_c, quiet=quiet)
+    else:
+        return func(image=image, out=out, title=title, quiet=quiet, **kwargs)
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Agnes Studio · 反 slop 巨幅戏剧性海报渲染引擎 (Drama Poster Renderer)")
+    parser.add_argument(
+        "--style",
+        "-s",
+        default="all",
+        choices=["mega_bleed", "hard_field", "chinese_corner", "all"],
+        help="海报版式风格: mega_bleed | hard_field | chinese_corner | all (默认: all)",
+    )
+    parser.add_argument(
+        "--src",
+        "--image",
+        "-i",
+        default=None,
+        help="输入背景底图路径（未指定时探查默认底图）",
+    )
+    parser.add_argument(
+        "--out",
+        "-o",
+        default=None,
+        help="输出海报路径（在 style=all 时将自动附加风格后缀）",
+    )
+    parser.add_argument(
+        "--title",
+        "-t",
+        default="夜航",
+        help="海报中文主标题 (默认: 夜航)",
+    )
+    parser.add_argument(
+        "--subtitle",
+        default=None,
+        help="海报副标题/说明文本 (默认根据风格预设自动提供)",
+    )
+    parser.add_argument(
+        "--tagline",
+        default=None,
+        help="海报标语/底部标签 (默认根据风格预设自动提供)",
+    )
+    parser.add_argument(
+        "--seal",
+        default=None,
+        help="印章文字 (仅 chinese_corner 风格使用，默认从标题取末字)",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="列出所有可用的戏剧性海报风格预设",
+    )
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="静默模式，抑制控制台日志",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格模式：遇到底图缺失或渲染异常时返回非零退出码 1",
+    )
+    args = parser.parse_args(argv if argv is not None else [])
+
+    if args.list:
+        if not args.quiet:
+            print("Agnes Studio 可用戏剧性海报风格预设:")
+            for s in list_drama_poster_styles():
+                print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
+        return 0
+
+    # 确定输入源
+    resolved_src = None
+    if args.src:
+        p = Path(args.src)
+        if not p.is_file():
+            if not args.quiet:
+                print(f"❌ 找不到输入底图: {args.src}", file=sys.stderr)
+            return 1 if args.strict else 0
+        resolved_src = p
+    else:
+        candidates = [
+            ROOT / "outputs" / "epic_compare" / "clean_base.png",
+            ROOT / "public" / "assets" / "agnes_1789995698_9987.png",
+            ROOT / "assets" / "agnes_1790006749_b2b755da.png",
+            ROOT / "assets" / "agnes_1789995999_1670.png",
+        ]
+        for c in candidates:
+            if c.is_file():
+                resolved_src = c
+                break
+
+    if resolved_src is None:
+        if not args.quiet:
+            print("❌ 未指定 --src 且未发现默认候选底图资产", file=sys.stderr)
+        return 1 if args.strict else 0
+
+    target_styles = list(DRAMA_POSTER_STYLES.keys()) if args.style == "all" else [args.style]
+
+    try:
+        default_out_dir = ROOT / "outputs" / "drama_study"
+        for st in target_styles:
+            if args.out:
+                out_path = Path(args.out)
+                if args.style == "all":
+                    out_path = out_path.with_name(f"{out_path.stem}_{st}{out_path.suffix or '.png'}")
+            else:
+                default_out_dir.mkdir(parents=True, exist_ok=True)
+                out_path = default_out_dir / DRAMA_POSTER_STYLES[st]["default_file"]
+
+            render_drama_poster_style(
+                style=st,
+                image=resolved_src,
+                out=out_path,
+                title=args.title,
+                subtitle=args.subtitle,
+                tagline=args.tagline,
+                seal=args.seal,
+                quiet=args.quiet,
+            )
+        if not args.quiet:
+            print("done")
+        return 0
+    except Exception as e:
+        if not args.quiet:
+            print(f"❌ 戏剧性海报渲染失败: {e}", file=sys.stderr)
+        return 1 if args.strict else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main(sys.argv[1:]))
