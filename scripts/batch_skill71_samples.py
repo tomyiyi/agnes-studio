@@ -335,7 +335,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     quiet = args.quiet or args.json
 
@@ -385,10 +385,10 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return 0
     except Exception as e:
-        if not args.quiet and not args.json:
-            print(f"❌ 71 项生图 Skill 批量样张生成失败: {e}", file=sys.stderr)
-        elif args.json:
+        if args.json:
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+        elif not args.quiet:
+            print(f"❌ 71 项生图 Skill 批量样张生成失败: {e}", file=sys.stderr)
         return 1
 
 
