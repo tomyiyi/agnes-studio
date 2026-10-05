@@ -64,39 +64,47 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def main(argv=None) -> int:
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
-    roi_tuple = tuple(args.roi)
-    rows = []
-    has_error = False
-    for path in args.images:
-        try:
-            row = diagnose(path, roi=roi_tuple)
-            rows.append(row)
-        except Exception as e:
-            has_error = True
-            if args.strict:
-                if not args.quiet:
-                    print(json.dumps({
-                        "ok": False,
-                        "error": str(e),
-                        "file": str(path),
-                    }, ensure_ascii=False, indent=2), file=sys.stderr)
-                return 1
-            rows.append({
-                "file": str(path),
-                "error": str(e),
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+    try:
+        roi_tuple = tuple(args.roi)
+        rows = []
+        has_error = False
+        for path in args.images:
+            try:
+                row = diagnose(path, roi=roi_tuple)
+                rows.append(row)
+            except Exception as e:
+                has_error = True
+                if args.strict:
+                    if not args.quiet:
+                        print(json.dumps({
+                            "ok": False,
+                            "error": str(e),
+                            "file": str(path),
+                        }, ensure_ascii=False, indent=2), file=sys.stderr)
+                    return 1
+                rows.append({
+                    "file": str(path),
+                    "error": str(e),
+                    "ok": False,
+                    "input_unchanged": True,
+                })
+        report = {"schema": "agnes.wide-sharpness-diagnostic.v1", "scope": "read-only existing images",
+                  "count": len(rows), "rows": rows,
+                  "interpretation": "candidate ROI is diagnostic evidence only; it does not alter acceptance thresholds"}
+        if args.out is not None:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+        if not args.quiet:
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 1 if (args.strict and has_error) else 0
+    except Exception as e:
+        if not args.quiet:
+            print(json.dumps({
                 "ok": False,
-                "input_unchanged": True,
-            })
-    report = {"schema": "agnes.wide-sharpness-diagnostic.v1", "scope": "read-only existing images",
-              "count": len(rows), "rows": rows,
-              "interpretation": "candidate ROI is diagnostic evidence only; it does not alter acceptance thresholds"}
-    if args.out is not None:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
-    if not args.quiet:
-        print(json.dumps(report, ensure_ascii=False, indent=2))
-    return 1 if (args.strict and has_error) else 0
+                "error": str(e),
+            }, ensure_ascii=False, indent=2), file=sys.stderr)
+        return 1
 
 if __name__ == "__main__":
     raise SystemExit(main())

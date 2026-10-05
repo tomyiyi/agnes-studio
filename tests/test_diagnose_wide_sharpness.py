@@ -177,5 +177,39 @@ class TestDiagnoseWideSharpness(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertEqual(err_buf.getvalue(), "")
 
+    def test_cli_main_top_level_exception_stderr_output(self):
+        import io
+        import contextlib
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            image = root / "wide.png"
+            report = root / "report.json"
+            Image.new("RGB", (100, 100), "white").save(image)
+            err_buf = io.StringIO()
+            with patch.object(Path, "write_text", side_effect=RuntimeError("Disk write failure")), \
+                 contextlib.redirect_stderr(err_buf):
+                code = main([str(image), "--out", str(report)])
+            self.assertEqual(code, 1)
+            err_data = json.loads(err_buf.getvalue())
+            self.assertFalse(err_data["ok"])
+            self.assertEqual(err_data["error"], "Disk write failure")
+
+    def test_cli_main_top_level_exception_quiet_mode(self):
+        import io
+        import contextlib
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            image = root / "wide.png"
+            report = root / "report.json"
+            Image.new("RGB", (100, 100), "white").save(image)
+            err_buf = io.StringIO()
+            with patch.object(Path, "write_text", side_effect=RuntimeError("Disk write failure")), \
+                 contextlib.redirect_stderr(err_buf):
+                code = main([str(image), "--out", str(report), "-q"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+
 
 if __name__ == "__main__": unittest.main()
