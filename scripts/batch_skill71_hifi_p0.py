@@ -414,31 +414,31 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     quiet = args.quiet or args.json
 
-    if args.list_presets:
-        presets = list_hifi_presets()
-        if args.json:
-            presets_data = [
-                {
-                    "id": sid,
-                    "name": name,
-                    "size": sz,
-                    "prompt_length": len(prompt),
-                    "prompt": prompt,
-                }
-                for sid, name, sz, prompt in presets
-            ]
-            print(json.dumps(presets_data, ensure_ascii=False, indent=2))
-        elif not args.quiet:
-            print("Agnes Studio · P0 八套高保真样张预设清单:")
-            for sid, name, sz, prompt in presets:
-                print(f"  [{sid}] {name:<30} | {sz} | 提示词长: {len(prompt)}")
-        return 0
-
     try:
+        if args.list_presets:
+            presets = list_hifi_presets()
+            if args.json:
+                presets_data = [
+                    {
+                        "id": sid,
+                        "name": name,
+                        "size": sz,
+                        "prompt_length": len(prompt),
+                        "prompt": prompt,
+                    }
+                    for sid, name, sz, prompt in presets
+                ]
+                print(json.dumps(presets_data, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio · P0 八套高保真样张预设清单:")
+                for sid, name, sz, prompt in presets:
+                    print(f"  [{sid}] {name:<30} | {sz} | 提示词长: {len(prompt)}")
+            return 0
+
         results = run_batch_hifi(
             skills=args.skills,
             limit=args.limit,
@@ -470,10 +470,10 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return 0
     except Exception as e:
-        if not args.quiet and not args.json:
-            print(f"❌ P0 高保真样张批量生成失败: {e}", file=sys.stderr)
-        elif args.json:
+        if args.json:
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+        elif not args.quiet:
+            print(f"❌ P0 高保真样张批量生成失败: {e}", file=sys.stderr)
         return 1
 
 

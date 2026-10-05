@@ -12824,6 +12824,37 @@ class TestBatchSkill71HifiP0(unittest.TestCase):
             self.assertEqual(err_buf.getvalue(), "")
             self.assertEqual(out_buf.getvalue(), "")
 
+    def test_cli_list_presets_exception_json_output(self):
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("batch_skill71_hifi_p0.list_hifi_presets", side_effect=RuntimeError("HiFi presets corrupted")):
+            with redirect_stdout(buf):
+                code = batch_skill71_hifi_p0.main(["--list-presets", "--json"])
+            self.assertEqual(code, 1)
+            data = json.loads(buf.getvalue())
+            self.assertFalse(data["ok"])
+            self.assertEqual(data["error"], "HiFi presets corrupted")
+
+    def test_cli_list_presets_exception_stderr_output(self):
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("batch_skill71_hifi_p0.list_hifi_presets", side_effect=RuntimeError("HiFi presets corrupted")):
+            with redirect_stderr(buf):
+                code = batch_skill71_hifi_p0.main(["--list-presets"])
+            self.assertEqual(code, 1)
+            self.assertIn("❌ P0 高保真样张批量生成失败: HiFi presets corrupted", buf.getvalue())
+
+    def test_cli_list_presets_exception_quiet_mode(self):
+        from contextlib import redirect_stderr, redirect_stdout
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("batch_skill71_hifi_p0.list_hifi_presets", side_effect=RuntimeError("HiFi presets corrupted")):
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                code = batch_skill71_hifi_p0.main(["--list-presets", "--quiet"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
 
 class TestBatchSkill71Samples(unittest.TestCase):
     """测试 71 项生图 Skill 批量样张生成引擎 batch_skill71_samples"""
