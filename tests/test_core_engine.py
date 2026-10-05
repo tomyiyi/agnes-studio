@@ -243,6 +243,7 @@ from render_cn_type_poster import (
     CN_TYPE_POSTER_STYLES,
     list_cn_type_poster_styles,
     render_cn_type_poster_style,
+    build_arg_parser as cn_build_arg_parser,
     main as cn_type_poster_main,
 )
 import render_layout_poster
@@ -6259,6 +6260,130 @@ class TestRenderCnTypePoster(unittest.TestCase):
             ])
         self.assertEqual(code, 0)
         self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_build_arg_parser(self):
+        parser = cn_build_arg_parser()
+        self.assertIsInstance(parser, argparse.ArgumentParser)
+        actions = {dest: a for a in parser._actions for dest in a.dest.split()}
+        self.assertIn("style", actions)
+        self.assertIn("src", actions)
+        self.assertIn("input", actions)
+        self.assertIn("out", actions)
+        self.assertIn("out_dir", actions)
+        self.assertIn("title", actions)
+        self.assertIn("latin", actions)
+        self.assertIn("sub", actions)
+        self.assertIn("slogan", actions)
+        self.assertIn("seal", actions)
+        self.assertIn("list", actions)
+        self.assertIn("json", actions)
+        self.assertIn("dry_run", actions)
+        self.assertIn("quiet", actions)
+        self.assertIn("strict", actions)
+
+    def test_cli_main_list_json(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = cn_type_poster_main(["--list", "--json"])
+        self.assertEqual(code, 0)
+        items = json.loads(buf.getvalue())
+        self.assertIsInstance(items, list)
+        self.assertEqual(len(items), 3)
+        keys = [x["key"] for x in items]
+        self.assertEqual(keys, ["monument", "puhui_mega", "vertical_epic"])
+        for item in items:
+            self.assertIn("default_file", item)
+            self.assertIn("description", item)
+
+    def test_render_html_dry_run_returns_path_without_playwright(self):
+        out_target = self.tmp_path / "dry_run_dir" / "poster_dry.png"
+        res = cn_render_html("<html><body>Dry</body></html>", out_target, quiet=True, dry_run=True)
+        self.assertEqual(res, out_target)
+        self.assertTrue(out_target.parent.exists())
+
+    def test_render_cn_type_poster_style_dry_run(self):
+        sample_img = self.tmp_path / "sample.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_target = self.tmp_path / "dry_style.png"
+        res = render_cn_type_poster_style("vertical_epic", sample_img, out_target, dry_run=True, quiet=True)
+        self.assertEqual(res, out_target)
+
+    def test_cli_main_dry_run_single(self):
+        from contextlib import redirect_stdout
+
+        sample_img = self.tmp_path / "sample.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "single_dry.png"
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = cn_type_poster_main([
+                "--style", "puhui_mega",
+                "--src", str(sample_img),
+                "--out", str(out_p),
+                "--dry-run",
+            ])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("(dry_run)", out)
+        self.assertIn("single_dry.png", out)
+
+    def test_cli_main_dry_run_all(self):
+        sample_img = self.tmp_path / "sample.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_base = self.tmp_path / "bundle.png"
+
+        code = cn_type_poster_main([
+            "--style", "all",
+            "--src", str(sample_img),
+            "--out", str(out_base),
+            "--dry-run",
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+
+    def test_cli_main_dry_run_json_output(self):
+        from contextlib import redirect_stdout
+
+        sample_img = self.tmp_path / "sample.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_base = self.tmp_path / "bundle.png"
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = cn_type_poster_main([
+                "--style", "all",
+                "--src", str(sample_img),
+                "--out", str(out_base),
+                "--dry-run",
+                "--json",
+            ])
+        self.assertEqual(code, 0)
+        items = json.loads(buf.getvalue())
+        self.assertIsInstance(items, list)
+        self.assertEqual(len(items), 3)
+        for it in items:
+            self.assertEqual(it["status"], "ok")
+            self.assertTrue(it["dry_run"])
+            self.assertIn("style", it)
+            self.assertIn("output", it)
+
+    def test_cli_main_missing_src_json_error(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = cn_type_poster_main([
+                "--src", str(self.tmp_path / "not_there.png"),
+                "--json",
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        err = json.loads(buf.getvalue())
+        self.assertFalse(err["ok"])
+        self.assertIn("error", err)
 
 
 class TestRenderLayoutPoster(unittest.TestCase):

@@ -6,8 +6,10 @@
 """
 from __future__ import annotations
 
+import argparse
 import base64
 from html import escape
+import json
 import os
 import sys
 from pathlib import Path
@@ -56,10 +58,21 @@ def sanitize_img_uri(uri: str) -> str:
     )
 
 
-def render_html(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 600, quiet: bool = False) -> Path:
+def render_html(
+    html: str,
+    out: str | Path,
+    size=(864, 1152),
+    timeout_ms: int = 600,
+    quiet: bool = False,
+    dry_run: bool = False,
+) -> Path:
     """使用 Playwright 渲染 HTML 为高清海报 PNG。"""
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    if dry_run:
+        if not quiet:
+            print(f"  ✓ {out_path.name} (dry_run)")
+        return out_path
     from playwright.sync_api import sync_playwright
 
     chrome_path = resolve_chrome_path()
@@ -275,6 +288,7 @@ def style_monument(
     size=(864, 1152),
     timeout_ms: int = 600,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """思源宋 Black · 电影纪念碑：巨字顶满宽度，西文细带，竖线分隔。"""
     img = sanitize_img_uri(b64(image))
@@ -287,7 +301,7 @@ def style_monument(
         meta=meta,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run)
 
 
 def style_puhui_mega(
@@ -300,6 +314,7 @@ def style_puhui_mega(
     size=(864, 1152),
     timeout_ms: int = 600,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """阿里普惠 Heavy · 巨字建筑：字占下半屏当图形。"""
     img = sanitize_img_uri(b64(image))
@@ -310,7 +325,7 @@ def style_puhui_mega(
         en_bottom=en_bottom,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run)
 
 
 def style_vertical_epic(
@@ -324,6 +339,7 @@ def style_vertical_epic(
     size=(864, 1152),
     timeout_ms: int = 600,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """思源宋 · 中轴竖排东方史诗。"""
     img = sanitize_img_uri(b64(image))
@@ -335,7 +351,7 @@ def style_vertical_epic(
         seal_char=seal_char,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run)
 
 
 # =============================================================================
@@ -347,16 +363,19 @@ CN_TYPE_POSTER_STYLES = {
         "name": "思源宋 Black 电影纪念碑 (Monument)",
         "func": style_monument,
         "default_file": "type_monument_song.png",
+        "description": "思源宋 Black 电影纪念碑：巨字顶满宽度，西文细带，竖线分隔",
     },
     "puhui_mega": {
         "name": "阿里普惠 Heavy 巨字建筑 (Puhui Mega)",
         "func": style_puhui_mega,
         "default_file": "type_puhui_mega.png",
+        "description": "阿里普惠 Heavy 巨字建筑：字占下半屏当图形，粗黑厚重建筑感",
     },
     "vertical_epic": {
         "name": "思源宋 中轴竖排东方史诗 (Vertical Epic)",
         "func": style_vertical_epic,
         "default_file": "type_vertical_epic.png",
+        "description": "思源宋 中轴竖排东方史诗：右侧大标竖排搭配金石印章与暗部微光",
     },
 }
 
@@ -364,7 +383,12 @@ CN_TYPE_POSTER_STYLES = {
 def list_cn_type_poster_styles() -> list[dict[str, str]]:
     """列出所有已注册的纪念碑式高级字排风格预设"""
     return [
-        {"key": k, "name": v["name"], "default_file": v["default_file"]}
+        {
+            "key": k,
+            "name": v["name"],
+            "default_file": v["default_file"],
+            "description": v.get("description", ""),
+        }
         for k, v in CN_TYPE_POSTER_STYLES.items()
     ]
 
@@ -385,6 +409,7 @@ def render_cn_type_poster_style(
     size=(864, 1152),
     timeout_ms: int = 600,
     quiet: bool = False,
+    dry_run: bool = False,
     **kwargs,
 ) -> Path:
     """按风格名称派发渲染对应的纪念碑式高级字排海报"""
@@ -408,6 +433,7 @@ def render_cn_type_poster_style(
             size=size,
             timeout_ms=timeout_ms,
             quiet=quiet,
+            dry_run=dry_run,
         )
     elif key == "puhui_mega":
         return func(
@@ -420,6 +446,7 @@ def render_cn_type_poster_style(
             size=size,
             timeout_ms=timeout_ms,
             quiet=quiet,
+            dry_run=dry_run,
         )
     elif key == "vertical_epic":
         slogan_text = slogan if slogan is not None else "她把城市调成静音"
@@ -435,6 +462,7 @@ def render_cn_type_poster_style(
             size=size,
             timeout_ms=timeout_ms,
             quiet=quiet,
+            dry_run=dry_run,
         )
     else:
         return func(
@@ -445,13 +473,13 @@ def render_cn_type_poster_style(
             size=size,
             timeout_ms=timeout_ms,
             quiet=quiet,
+            dry_run=dry_run,
             **kwargs,
         )
 
 
-def main(argv: list[str] | None = None) -> int:
-    import argparse
-
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建纪念碑式高级字排渲染命令行参数解析器"""
     parser = argparse.ArgumentParser(description="Agnes Studio · 纪念碑式高级字排渲染引擎 (Monumental CN Typography Poster)")
     parser.add_argument(
         "--style",
@@ -516,6 +544,16 @@ def main(argv: list[str] | None = None) -> int:
         help="列出所有可用的纪念碑式字排风格预设",
     )
     parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出风格列表或批量执行结果报告",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="预演模式：仅校验参数与规划输出路径，不唤起浏览器真实光栅化",
+    )
+    parser.add_argument(
         "--quiet",
         "-q",
         action="store_true",
@@ -526,10 +564,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="严格模式：遇到底图缺失或渲染异常时返回非零退出码 1",
     )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     if args.list:
-        if not args.quiet:
+        if args.json:
+            print(json.dumps(list_cn_type_poster_styles(), ensure_ascii=False, indent=2))
+        elif not args.quiet:
             print("Agnes Studio 可用纪念碑字排风格预设:")
             for s in list_cn_type_poster_styles():
                 print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
@@ -541,8 +586,10 @@ def main(argv: list[str] | None = None) -> int:
     if input_path_arg:
         p = Path(input_path_arg)
         if not p.is_file():
-            if not args.quiet:
+            if not args.quiet and not args.json:
                 print(f"❌ 找不到输入底图: {input_path_arg}", file=sys.stderr)
+            elif args.json:
+                print(json.dumps({"error": f"找不到输入底图: {input_path_arg}", "ok": False}, ensure_ascii=False))
             return 1 if (args.strict or args.input) else 0
         resolved_src = p
     else:
@@ -558,12 +605,16 @@ def main(argv: list[str] | None = None) -> int:
                 break
 
     if resolved_src is None:
-        if not args.quiet:
+        if not args.quiet and not args.json:
             print("❌ 未指定底图且未发现默认候选底图资产", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"error": "未指定底图且未发现默认候选底图资产", "ok": False}, ensure_ascii=False))
         return 1 if args.strict else 0
 
     target_styles = list(CN_TYPE_POSTER_STYLES.keys()) if args.style == "all" else [args.style]
 
+    quiet = args.quiet or args.json
+    report_items = []
     try:
         default_out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "epic_compare")
         for st in target_styles:
@@ -584,14 +635,26 @@ def main(argv: list[str] | None = None) -> int:
                 sub=args.sub,
                 slogan=args.slogan,
                 seal=args.seal,
-                quiet=args.quiet,
+                quiet=quiet,
+                dry_run=args.dry_run,
             )
-        if not args.quiet:
+            report_items.append({
+                "style": st,
+                "name": CN_TYPE_POSTER_STYLES[st]["name"],
+                "output": str(out_path),
+                "dry_run": args.dry_run,
+                "status": "ok",
+            })
+        if args.json:
+            print(json.dumps(report_items, ensure_ascii=False, indent=2))
+        elif not args.quiet:
             print("done")
         return 0
     except Exception as e:
-        if not args.quiet:
+        if not args.quiet and not args.json:
             print(f"❌ 纪念碑式海报渲染失败: {e}", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"error": str(e), "ok": False}, ensure_ascii=False))
         return 1 if args.strict else 0
 
 
