@@ -2906,7 +2906,6 @@ class TestFilmCoverEngine(unittest.TestCase):
                     "--style", "top_green",
                     "--src", str(self.dummy_bg),
                     "--json",
-                    "--strict",
                 ])
         self.assertEqual(code, 1)
         err_report = json.loads(buf.getvalue().strip())
@@ -2923,7 +2922,6 @@ class TestFilmCoverEngine(unittest.TestCase):
             code = film_cover_main([
                 "--style", "top_green",
                 "--src", str(self.dummy_bg),
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertIn("❌ 电影感封面排版失败: Cover disk render error", buf.getvalue())
@@ -2939,7 +2937,6 @@ class TestFilmCoverEngine(unittest.TestCase):
                 "--style", "top_green",
                 "--src", str(self.dummy_bg),
                 "-q",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertEqual(out_buf.getvalue(), "")

@@ -655,7 +655,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"ok": False, "error": str(e)}, indent=2, ensure_ascii=False))
         elif not args.quiet:
             print(f"❌ 电影感封面排版失败: {e}", file=sys.stderr)
-        return 1 if args.strict else 0
+        return 1
 
 
 if __name__ == "__main__":
