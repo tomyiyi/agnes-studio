@@ -872,7 +872,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"error": str(e), "ok": False}, ensure_ascii=False))
         elif not args.quiet:
             print(f"❌ 标题字设计海报渲染失败: {e}", file=sys.stderr)
-        return 1 if (args.strict or args.input) else 0
+        return 1
 
 
 if __name__ == "__main__":

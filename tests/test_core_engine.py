@@ -9337,7 +9337,6 @@ class TestRenderTitleDesign(unittest.TestCase):
             code = title_design_main([
                 "--style", "t1_cut_slash",
                 "--src", str(sample_img),
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertIn("❌ 标题字设计海报渲染失败: Simulated title design render crash", buf.getvalue())
@@ -9355,7 +9354,6 @@ class TestRenderTitleDesign(unittest.TestCase):
                 "--style", "t1_cut_slash",
                 "--src", str(sample_img),
                 "-q",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertEqual(out_buf.getvalue(), "")
