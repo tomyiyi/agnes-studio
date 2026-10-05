@@ -124,6 +124,7 @@ from poster_composer import (
 from vision_subject_detector import (
     detect_faces,
     check_occlusion,
+    build_arg_parser as vision_detector_build_arg_parser,
     main as vision_detector_main,
 )
 from film_cover_engine import (
@@ -2374,6 +2375,115 @@ class TestVisionSubjectDetector(unittest.TestCase):
 
             self.assertEqual(code, 0)
             self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_vision_detector_build_arg_parser(self):
+        parser = vision_detector_build_arg_parser()
+        self.assertIsInstance(parser, argparse.ArgumentParser)
+        args = parser.parse_args([
+            "--image", "test.png",
+            "--out", "out.json",
+            "--box", "0.1", "0.2", "0.3", "0.4",
+            "--padding", "0.05",
+            "--json",
+            "--quiet",
+            "--require-subject",
+            "--strict",
+            "--base-url", "https://api.example.com",
+            "--api-key", "sk-123",
+            "--trace-id", "trace-abc",
+            "--key-path", "keys/test.key",
+        ])
+        self.assertEqual(args.image, "test.png")
+        self.assertEqual(args.out, "out.json")
+        self.assertEqual(args.box, [0.1, 0.2, 0.3, 0.4])
+        self.assertEqual(args.padding, 0.05)
+        self.assertTrue(args.json)
+        self.assertTrue(args.quiet)
+        self.assertTrue(args.require_subject)
+        self.assertTrue(args.strict)
+        self.assertEqual(args.base_url, "https://api.example.com")
+        self.assertEqual(args.api_key, "sk-123")
+        self.assertEqual(args.trace_id, "trace-abc")
+        self.assertEqual(args.key_path, "keys/test.key")
+
+    def test_cli_main_missing_image_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+        with tempfile.TemporaryDirectory() as tmpdir:
+            missing_img = Path(tmpdir) / "not_there.png"
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                code = vision_detector_main(["--image", str(missing_img), "--json"])
+            self.assertEqual(code, 1)
+            raw = buf.getvalue().strip()
+            data = json.loads(raw)
+            self.assertFalse(data["ok"])
+            self.assertFalse(data["exists"])
+            self.assertIn("error", data)
+            self.assertEqual(data["image"], str(missing_img.resolve()))
+
+    def test_cli_main_out_and_json_without_quiet_no_pollution(self):
+        import io
+        from contextlib import redirect_stdout
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_img = Path(tmpdir) / "face.png"
+            Image.new("RGB", (100, 100), color=(10, 10, 10)).save(tmp_img, "PNG")
+            out_json = Path(tmpdir) / "sub" / "report.json"
+            mock_faces = [{"x_min": 0.4, "x_max": 0.6, "y_min": 0.4, "y_max": 0.6}]
+
+            buf = io.StringIO()
+            with patch("vision_subject_detector.detect_faces", return_value=mock_faces), \
+                 redirect_stdout(buf):
+                # Notice: --quiet is NOT passed, but stdout must remain pure JSON
+                code = vision_detector_main([
+                    "--image", str(tmp_img),
+                    "--out", str(out_json),
+                    "--json",
+                ])
+
+            self.assertEqual(code, 0)
+            self.assertTrue(out_json.exists())
+            raw = buf.getvalue().strip()
+            # Must parse as valid JSON without extra text lines
+            data = json.loads(raw)
+            self.assertTrue(data["ok"])
+            self.assertTrue(data["exists"])
+            self.assertEqual(data["subjects_count"], 1)
+
+    def test_cli_main_success_json_has_ok_flag(self):
+        import io
+        from contextlib import redirect_stdout
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_img = Path(tmpdir) / "face.png"
+            Image.new("RGB", (100, 100), color=(10, 10, 10)).save(tmp_img, "PNG")
+            mock_faces = [{"x_min": 0.3, "x_max": 0.7, "y_min": 0.2, "y_max": 0.8}]
+
+            buf = io.StringIO()
+            with patch("vision_subject_detector.detect_faces", return_value=mock_faces), \
+                 redirect_stdout(buf):
+                code = vision_detector_main(["--image", str(tmp_img), "--json"])
+
+            self.assertEqual(code, 0)
+            data = json.loads(buf.getvalue().strip())
+            self.assertTrue(data["ok"])
+            self.assertEqual(data["subjects_count"], 1)
+
+    def test_cli_main_runtime_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_img = Path(tmpdir) / "face.png"
+            Image.new("RGB", (100, 100), color=(10, 10, 10)).save(tmp_img, "PNG")
+
+            buf = io.StringIO()
+            with patch("vision_subject_detector.detect_faces", side_effect=RuntimeError("GPU memory explosion")), \
+                 redirect_stdout(buf):
+                code = vision_detector_main(["--image", str(tmp_img), "--json"])
+
+            self.assertEqual(code, 1)
+            data = json.loads(buf.getvalue().strip())
+            self.assertFalse(data["ok"])
+            self.assertIn("GPU memory explosion", data["error"])
 
 
 

@@ -5,9 +5,11 @@ Agnes Studio · 多模态视觉主体与避障检测引擎 (Vision Subject Detec
 调用 macOS 原生 Vision 框架，提供像素级人脸/主体保护区判定
 """
 
-import subprocess
+import argparse
 import json
 import os
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -170,9 +172,8 @@ def check_occlusion(text_box, exclusion_zones, padding=None):
             return True, zone
     return False, None
 
-def main(argv: list[str] | None = None) -> int:
-    import argparse
-
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建视觉主体与避障检测引擎 CLI 参数解析器"""
     parser = argparse.ArgumentParser(description="Agnes Studio · 多模态视觉主体与避障检测引擎 (Vision Subject Detector)")
     parser.add_argument(
         "--image",
@@ -242,6 +243,11 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="密钥文件路径",
     )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
     args = parser.parse_args(argv)
 
     current_dir = Path(__file__).resolve().parent.parent
@@ -256,61 +262,81 @@ def main(argv: list[str] | None = None) -> int:
             target_path = test_img
 
     if not target_path.is_file():
-        if not args.quiet:
-            print(f"❌ 找不到目标图片文件: {target_path}")
+        err_msg = f"找不到目标图片文件: {target_path}"
+        if args.json:
+            print(json.dumps({
+                "ok": False,
+                "exists": False,
+                "image": str(target_path),
+                "error": err_msg,
+            }, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print(f"❌ {err_msg}", file=sys.stderr if args.strict else sys.stdout)
         return 1
 
-    faces = detect_faces(
-        str(target_path),
-        base_url=args.base_url,
-        api_key=args.api_key,
-        trace_id=args.trace_id,
-        key_path=args.key_path,
-    )
+    try:
+        faces = detect_faces(
+            str(target_path),
+            base_url=args.base_url,
+            api_key=args.api_key,
+            trace_id=args.trace_id,
+            key_path=args.key_path,
+        )
 
-    occlusion_result = None
-    if args.box is not None:
-        has_overlap, zone = check_occlusion(args.box, faces, padding=args.padding)
-        occlusion_result = {
-            "has_occlusion": has_overlap,
-            "conflicting_zone": zone,
-            "test_box": args.box,
+        occlusion_result = None
+        if args.box is not None:
+            has_overlap, zone = check_occlusion(args.box, faces, padding=args.padding)
+            occlusion_result = {
+                "has_occlusion": has_overlap,
+                "conflicting_zone": zone,
+                "test_box": args.box,
+            }
+
+        report = {
+            "ok": True,
+            "image": str(target_path),
+            "exists": True,
+            "subjects_count": len(faces),
+            "subjects": faces,
         }
+        if occlusion_result is not None:
+            report["occlusion"] = occlusion_result
 
-    report = {
-        "image": str(target_path),
-        "exists": True,
-        "subjects_count": len(faces),
-        "subjects": faces,
-    }
-    if occlusion_result is not None:
-        report["occlusion"] = occlusion_result
+        if args.out:
+            out_file = Path(args.out).resolve()
+            out_file.parent.mkdir(parents=True, exist_ok=True)
+            out_file.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            if not args.quiet and not args.json:
+                print(f"✨ 视觉检测与避障报告已保存至: {out_file}")
 
-    if args.out:
-        out_file = Path(args.out).resolve()
-        out_file.parent.mkdir(parents=True, exist_ok=True)
-        out_file.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        if not args.quiet:
-            print(f"✨ 视觉检测与避障报告已保存至: {out_file}")
+        if args.json:
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print(f"✓ 检测到人脸/主体保护区: {faces}")
+            if occlusion_result:
+                if occlusion_result["has_occlusion"]:
+                    print(f"⚠️ 文本框与主体保护区发生重叠: {occlusion_result['conflicting_zone']}")
+                else:
+                    print("✓ 文本框避障安全，未与主体重叠")
 
-    if args.json:
-        print(json.dumps(report, ensure_ascii=False, indent=2))
-    elif not args.quiet:
-        print(f"✓ 检测到人脸/主体保护区: {faces}")
-        if occlusion_result:
-            if occlusion_result["has_occlusion"]:
-                print(f"⚠️ 文本框与主体保护区发生重叠: {occlusion_result['conflicting_zone']}")
-            else:
-                print("✓ 文本框避障安全，未与主体重叠")
-
-    # 退出码判定
-    if args.require_subject and len(faces) == 0:
-        return 1
-    if args.strict:
-        if occlusion_result and occlusion_result["has_occlusion"]:
+        # 退出码判定
+        if args.require_subject and len(faces) == 0:
             return 1
+        if args.strict:
+            if occlusion_result and occlusion_result["has_occlusion"]:
+                return 1
 
-    return 0
+        return 0
+    except Exception as e:
+        if args.json:
+            print(json.dumps({
+                "ok": False,
+                "image": str(target_path),
+                "error": str(e),
+            }, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print(f"❌ 视觉主体与避障检测异常: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
