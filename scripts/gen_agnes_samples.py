@@ -305,15 +305,22 @@ def main(argv: list[str] | None = None) -> int:
     quiet = args.quiet or args.json
 
     if args.list_items:
-        items = list_items(lib_path=args.lib)
-        if args.json:
-            print(json.dumps(items, ensure_ascii=False, indent=2))
-        elif not args.quiet:
-            print("Agnes Studio · GPT Image 预设清单:")
-            for it in items:
-                print(f"  [{it['id']:<6}] {it['title']:<24} | 分类: {it['category']:<12} | 分辨率: {it['agnes_size']}")
-            print(f"总计: {len(items)} 项预设")
-        return 0
+        try:
+            items = list_items(lib_path=args.lib)
+            if args.json:
+                print(json.dumps(items, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio · GPT Image 预设清单:")
+                for it in items:
+                    print(f"  [{it['id']:<6}] {it['title']:<24} | 分类: {it['category']:<12} | 分辨率: {it['agnes_size']}")
+                print(f"总计: {len(items)} 项预设")
+            return 0
+        except Exception as e:
+            if not args.quiet and not args.json:
+                print(f"❌ GPT Image 预设清单读取失败: {e}", file=sys.stderr)
+            elif args.json:
+                print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+            return 1
 
     target_ids: list[str] = []
     if args.ids:
@@ -336,10 +343,10 @@ def main(argv: list[str] | None = None) -> int:
             quiet=quiet,
         )
     except Exception as exc:
-        if args.json:
+        if not args.quiet and not args.json:
+            print(f"❌ GPT Image 样张批量生成失败: {exc}", file=sys.stderr)
+        elif args.json:
             print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
-        elif not args.quiet:
-            print(f"Error during batch generation: {exc}", file=sys.stderr)
         return 1
 
     if args.json:

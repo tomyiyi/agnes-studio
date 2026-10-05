@@ -14010,6 +14010,57 @@ class TestGenAgnesSamples(unittest.TestCase):
         self.assertIn("error", data)
         self.assertIn("non_existent_file.json", data["error"])
 
+    def test_cli_exception_stderr_output(self):
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("gen_agnes_samples.run_batch_gen", side_effect=ValueError("Invalid preset item")):
+            with redirect_stderr(buf):
+                code = gen_agnes_main([])
+            self.assertEqual(code, 1)
+            self.assertIn("❌ GPT Image 样张批量生成失败: Invalid preset item", buf.getvalue())
+
+    def test_cli_exception_quiet_mode(self):
+        from contextlib import redirect_stderr, redirect_stdout
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("gen_agnes_samples.run_batch_gen", side_effect=RuntimeError("Silent failure")):
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                code = gen_agnes_main(["--quiet"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
+    def test_cli_list_items_exception_json_output(self):
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("gen_agnes_samples.list_items", side_effect=RuntimeError("Lib parse failure")):
+            with redirect_stdout(buf):
+                code = gen_agnes_main(["--list-items", "--json"])
+            self.assertEqual(code, 1)
+            data = json.loads(buf.getvalue())
+            self.assertFalse(data["ok"])
+            self.assertEqual(data["error"], "Lib parse failure")
+
+    def test_cli_list_items_exception_stderr_output(self):
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("gen_agnes_samples.list_items", side_effect=RuntimeError("Lib parse failure")):
+            with redirect_stderr(buf):
+                code = gen_agnes_main(["--list-items"])
+            self.assertEqual(code, 1)
+            self.assertIn("❌ GPT Image 预设清单读取失败: Lib parse failure", buf.getvalue())
+
+    def test_cli_list_items_exception_quiet_mode(self):
+        from contextlib import redirect_stderr, redirect_stdout
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("gen_agnes_samples.list_items", side_effect=RuntimeError("Lib parse failure")):
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                code = gen_agnes_main(["--list-items", "--quiet"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
 
 class TestGeminiIntegrationSuite(unittest.TestCase):
     """测试 Gemini 智能引擎与全链路排印管线自动化验证套件 test_gemini_integration"""
