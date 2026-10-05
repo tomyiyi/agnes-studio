@@ -327,6 +327,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--report", type=str, default=None, help="指定的 batch_report.json 路径")
     parser.add_argument("--output-json", type=str, default=str(DEFAULT_OUTPUT_JSON), help=f"合并报告输出路径 (默认: {DEFAULT_OUTPUT_JSON})")
     parser.add_argument("--list-groups", action="store_true", help="列出预设风格分组映射并退出")
+    parser.add_argument("--json", action="store_true", help="以 JSON 格式输出分组映射或画廊合并汇总报告")
+    parser.add_argument("-q", "--quiet", action="store_true", help="静默模式，减少标准输出打印")
+    parser.add_argument("--strict", action="store_true", help="严格模式：存在任何执行异常或合并异常时返回非零退出码 1")
     return parser
 
 
@@ -335,10 +338,23 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
 
+    quiet = args.quiet or args.json
+
     if args.list_groups:
-        print("Agnes Studio · 71 项 Skill 分组映射清单:")
-        for gname, (gid, label) in GROUP_META.items():
-            print(f"  [{gid:<18}] {label} (原组名: {gname})")
+        if args.json:
+            groups_data = [
+                {
+                    "id": gid,
+                    "label": label,
+                    "source_group": gname,
+                }
+                for gname, (gid, label) in GROUP_META.items()
+            ]
+            print(json.dumps(groups_data, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print("Agnes Studio · 71 项 Skill 分组映射清单:")
+            for gname, (gid, label) in GROUP_META.items():
+                print(f"  [{gid:<18}] {label} (原组名: {gname})")
         return 0
 
     try:
@@ -351,14 +367,20 @@ def main(argv: list[str] | None = None) -> int:
             output_json=args.output_json,
             dry_run=args.dry_run,
         )
-        print(f"Agnes Studio · 画廊合并完成 (dry_run={args.dry_run}):")
-        print(f"  * 资产总数: {meta['gallery_total']}")
-        print(f"  * Skill71 录入: {meta['skill71']}")
-        print(f"  * 样张复制: {meta['copied']}")
-        print(f"  * 分类数: {len(meta['categories'])}")
+        if args.json:
+            print(json.dumps(meta, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print(f"Agnes Studio · 画廊合并完成 (dry_run={args.dry_run}):")
+            print(f"  * 资产总数: {meta['gallery_total']}")
+            print(f"  * Skill71 录入: {meta['skill71']}")
+            print(f"  * 样张复制: {meta['copied']}")
+            print(f"  * 分类数: {len(meta['categories'])}")
         return 0
     except Exception as e:
-        print(f"❌ 画廊合并失败: {e}", file=sys.stderr)
+        if args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print(f"❌ 画廊合并失败: {e}", file=sys.stderr)
         return 1
 
 

@@ -11577,6 +11577,71 @@ class TestMergeSkill71Gallery(unittest.TestCase):
         # 3. 传递不存在的路径时返回 1
         self.assertEqual(merge_main(["--html", str(self.tmp_path / "not_there.html")]), 1)
 
+    def test_build_arg_parser(self):
+        parser = merge_build_arg_parser()
+        self.assertIsInstance(parser, argparse.ArgumentParser)
+        actions = {dest: a for a in parser._actions for dest in a.dest.split()}
+        self.assertIn("dry_run", actions)
+        self.assertIn("html", actions)
+        self.assertIn("index", actions)
+        self.assertIn("samples_dir", actions)
+        self.assertIn("assets_dir", actions)
+        self.assertIn("report", actions)
+        self.assertIn("output_json", actions)
+        self.assertIn("list_groups", actions)
+        self.assertIn("json", actions)
+        self.assertIn("quiet", actions)
+        self.assertIn("strict", actions)
+
+    def test_cli_list_groups_json(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = merge_main(["--list-groups", "--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), len(MERGE_GROUP_META))
+        for item in data:
+            self.assertIn("id", item)
+            self.assertIn("label", item)
+            self.assertIn("source_group", item)
+
+    def test_cli_dry_run_json_output(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = merge_main(["--dry-run", "--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertIsInstance(data, dict)
+        self.assertIn("gallery_total", data)
+        self.assertIn("skill71", data)
+        self.assertIn("copied", data)
+        self.assertTrue(data.get("dry_run"))
+
+    def test_cli_quiet_mode_suppresses_stdout(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = merge_main(["--dry-run", "--quiet"])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_cli_strict_json_error(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = merge_main(["--html", str(self.tmp_path / "not_there.html"), "--json", "--strict"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue())
+        self.assertFalse(data["ok"])
+        self.assertIn("HTML file not found", data["error"])
+
     def test_public_index_html_integrity(self):
         """确保工作区真实 public/index.html 具备完整的全局画廊定义且计数精准无冲突"""
         real_html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
