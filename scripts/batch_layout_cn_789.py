@@ -191,6 +191,7 @@ def compose_07(
     title: str = "留白",
     latin: str = "THE WHITE",
     caption: str = "把空气留给呼吸",
+    quiet: bool = False,
 ) -> Path:
     """杂志开窗：大图窗居中偏上 + 左竖排中文书脊 + 窗下 caption。"""
     src_p = Path(src)
@@ -242,7 +243,8 @@ def compose_07(
     out_p = Path(out)
     out_p.parent.mkdir(parents=True, exist_ok=True)
     canvas.convert("RGB").save(out_p, quality=93)
-    print("OK compose", out_p.name)
+    if not quiet:
+        print("OK compose", out_p.name)
     return out_p
 
 
@@ -252,6 +254,7 @@ def compose_08(
     title: str = "静物",
     latin: str = "STILL LIFE",
     caption: str = "安静是最好的滤镜",
+    quiet: bool = False,
 ) -> Path:
     """杂志开窗·b：偏心大窗 + 中文横题（字大、字距开）。"""
     src_p = Path(src)
@@ -297,7 +300,8 @@ def compose_08(
     out_p = Path(out)
     out_p.parent.mkdir(parents=True, exist_ok=True)
     canvas.convert("RGB").save(out_p, quality=93)
-    print("OK compose", out_p.name)
+    if not quiet:
+        print("OK compose", out_p.name)
     return out_p
 
 
@@ -308,6 +312,7 @@ def compose_09(
     latin: str = "MONOLOGUE",
     micro: str = "一个人的完整场",
     caption: str | None = None,
+    quiet: bool = False,
 ) -> Path:
     """独主体大空场：人物放大占右下，左上中文巨字 + 留白。"""
     src_p = Path(src)
@@ -360,7 +365,8 @@ def compose_09(
     out_p = Path(out)
     out_p.parent.mkdir(parents=True, exist_ok=True)
     canvas.convert("RGB").save(out_p, quality=93)
-    print("OK compose", out_p.name)
+    if not quiet:
+        print("OK compose", out_p.name)
     return out_p
 
 
@@ -392,6 +398,21 @@ LAYOUT_CN_REGISTRY = {
 }
 
 
+def list_layout_cn_variants() -> list[dict[str, Any]]:
+    """返回 7/8/9 版式规格清单列表。"""
+    res = []
+    for k, info in sorted(LAYOUT_CN_REGISTRY.items()):
+        res.append({
+            "key": k,
+            "name": info["name"],
+            "default_title": info["default_title"],
+            "default_latin": info["default_latin"],
+            "default_caption": info["default_caption"],
+            "default_filename": info["default_filename"],
+        })
+    return res
+
+
 def normalize_variant_key(key: str) -> str:
     """标准化版式键名：'07', '7', '07a', 'window' -> '07'。"""
     k = str(key or "").strip().lower()
@@ -411,6 +432,7 @@ def render_layout_cn(
     title: str = "",
     latin: str = "",
     caption_or_micro: str = "",
+    quiet: bool = False,
 ) -> Path:
     """按版式类型调度渲染器。"""
     k = normalize_variant_key(variant)
@@ -418,7 +440,7 @@ def render_layout_cn(
     t = title or info["default_title"]
     l = latin or info["default_latin"]
     c = caption_or_micro or info["default_caption"]
-    return info["func"](src=src, out=out, title=t, latin=l, caption=c)
+    return info["func"](src=src, out=out, title=t, latin=l, caption=c, quiet=quiet)
 
 
 def render_all_layouts(
@@ -427,6 +449,7 @@ def render_all_layouts(
     title: str = "",
     latin: str = "",
     caption: str = "",
+    quiet: bool = False,
 ) -> dict[str, Path]:
     """批量渲染全部三种版式到指定目录。"""
     out_d = Path(out_dir)
@@ -440,6 +463,7 @@ def render_all_layouts(
             title=title or info["default_title"],
             latin=latin or info["default_latin"],
             caption=caption or info["default_caption"],
+            quiet=quiet,
         )
     return results
 
@@ -586,15 +610,16 @@ def run_batch_generate_shots(
     return report
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建 7/8/9 版式精修与中文排版渲染器命令行参数解析器。"""
     parser = argparse.ArgumentParser(
-        description="Agnes Studio 7/8/9 版式精修与中文排版渲染器"
+        description="Agnes Studio 7/8/9 版式精修与中文排版渲染器 (Layout CN 07/08/09 Engine)"
     )
     parser.add_argument(
         "--variant",
         choices=["07", "08", "09", "all"],
         default="all",
-        help="目标版式编号 (07, 08, 09 或 all)",
+        help="目标版式编号: 07 (杂志开窗), 08 (偏心大窗), 09 (独主体大空场), 或 all (全部)",
     )
     parser.add_argument(
         "--src",
@@ -621,6 +646,12 @@ def main(argv: list[str] | None = None) -> int:
         help="运行完整批处理流程 (含默认配图与预设文案)",
     )
     parser.add_argument(
+        "--list",
+        "-l",
+        action="store_true",
+        help="列出所有可用的 7/8/9 版式规格及预设参数",
+    )
+    parser.add_argument(
         "--generate",
         action="store_true",
         help="调用网关自主生成人物原图 (需网关可用)",
@@ -635,15 +666,51 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="强制重新生成底图，即使已存在",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出版式规格清单或渲染结果报告",
+    )
+    parser.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="静默模式，抑制控制台标准输出",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格模式：遇到底图缺失或执行异常时返回退出码 1",
+    )
+    return parser
 
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
     args = parser.parse_args(argv)
 
+    # 1. 响应 --list
+    if args.list:
+        variants = list_layout_cn_variants()
+        if args.json:
+            if not args.quiet:
+                print(json.dumps(variants, ensure_ascii=False, indent=2))
+        else:
+            if not args.quiet:
+                print("Agnes Studio · 7/8/9 经典中文版式清单:")
+                for v in variants:
+                    print(
+                        f"  [{v['key']}] {v['name']} -> "
+                        f"默认: 《{v['default_title']}》/ {v['default_latin']} ({v['default_filename']})"
+                    )
+        return 0
+
     try:
-        # 1. 尝试网关生成
+        # 2. 尝试网关生成
         report: list[dict] = []
         if args.generate:
             if not args.dry_run and (not generate or not save_image):
-                print("⚠️ agnes_gateway 不可用，跳过生成步骤", file=sys.stderr)
+                if not args.quiet:
+                    print("⚠️ agnes_gateway 不可用，跳过生成步骤", file=sys.stderr)
             else:
                 report = run_batch_generate_shots(
                     out_dir=OUT,
@@ -651,12 +718,13 @@ def main(argv: list[str] | None = None) -> int:
                     dry_run=args.dry_run,
                 )
 
-        # 2. 底图定位
+        # 3. 底图定位
         src_path: Path | None = None
         if args.src:
             src_path = Path(args.src)
             if not src_path.is_file():
-                print(f"❌ 找不到底图文件: {args.src}", file=sys.stderr)
+                if not args.quiet:
+                    print(f"❌ 找不到底图文件: {args.src}", file=sys.stderr)
                 return 1
         else:
             candidates = [
@@ -669,7 +737,8 @@ def main(argv: list[str] | None = None) -> int:
                     src_path = c
                     break
 
-        # 3. 执行排版合成
+        # 4. 执行排版合成
+        inner_quiet = args.quiet or args.json
         if args.batch:
             jobs = [
                 ("07a_portrait.png", "07A_CN_留白.png", "留白", "THE WHITE", "把空气留给呼吸"),
@@ -679,39 +748,72 @@ def main(argv: list[str] | None = None) -> int:
                 ("09a_portrait.png", "09A_CN_独白.png", "独白", "MONOLOGUE", "一个人的完整场"),
                 ("09b_portrait.png", "09B_CN_自在.png", "自在", "AT EASE", "不必满，不必急"),
             ]
+            rendered_jobs = []
             for src_name, dst_name, title, latin, caption in jobs:
                 cur_src = (OUT / src_name) if (OUT / src_name).is_file() else src_path
                 if not cur_src or not cur_src.is_file():
-                    print("MISS src for", dst_name)
+                    if not args.quiet:
+                        print("MISS src for", dst_name)
+                    if args.strict:
+                        return 1
                     continue
                 dst = OUT / dst_name
                 if dst_name.startswith("07"):
-                    compose_07(cur_src, dst, title, latin, caption)
+                    p = compose_07(cur_src, dst, title, latin, caption, quiet=inner_quiet)
                 elif dst_name.startswith("08"):
-                    compose_08(cur_src, dst, title, latin, caption)
+                    p = compose_08(cur_src, dst, title, latin, caption, quiet=inner_quiet)
                 else:
-                    compose_09(cur_src, dst, title, latin, caption)
+                    p = compose_09(cur_src, dst, title, latin, caption, quiet=inner_quiet)
+                rendered_jobs.append(str(p))
+
+            if args.strict and not rendered_jobs:
+                if not args.quiet:
+                    print("❌ strict 模式下无任何底图可用，排版合成终止", file=sys.stderr)
+                return 1
 
             (OUT / "batch_report.json").write_text(
                 json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
             )
-            print("DONE")
+            if args.json:
+                res_obj = {
+                    "ok": True,
+                    "batch": True,
+                    "count": len(rendered_jobs),
+                    "rendered": rendered_jobs,
+                    "generation_report": report,
+                }
+                if not args.quiet:
+                    print(json.dumps(res_obj, ensure_ascii=False, indent=2))
+            else:
+                if not args.quiet:
+                    print("DONE")
             return 0
 
-        # 单项或全量渲染
+        # 单项或全量渲染检查底图
         if not src_path or not src_path.is_file():
-            print("❌ 未提供底图且未检测到默认底图", file=sys.stderr)
+            if not args.quiet:
+                print("❌ 未提供底图且未检测到默认底图", file=sys.stderr)
             return 1
 
         target_out_dir = Path(args.out) if args.out else OUT
         if args.variant == "all":
-            render_all_layouts(
+            all_rendered = render_all_layouts(
                 src=src_path,
                 out_dir=target_out_dir,
                 title=args.title or "",
                 latin=args.latin or "",
                 caption=args.caption or "",
+                quiet=inner_quiet,
             )
+            if args.json:
+                res_obj = {
+                    "ok": True,
+                    "variant": "all",
+                    "src": str(src_path),
+                    "results": {k: str(v) for k, v in all_rendered.items()},
+                }
+                if not args.quiet:
+                    print(json.dumps(res_obj, ensure_ascii=False, indent=2))
             return 0
 
         # 指定具体 variant
@@ -721,20 +823,31 @@ def main(argv: list[str] | None = None) -> int:
             if (args.out and not Path(args.out).is_dir())
             else (target_out_dir / LAYOUT_CN_REGISTRY[k]["default_filename"])
         )
-        render_layout_cn(
+        single_res = render_layout_cn(
             variant=k,
             src=src_path,
             out=out_target,
             title=args.title or "",
             latin=args.latin or "",
             caption_or_micro=args.caption or "",
+            quiet=inner_quiet,
         )
+        if args.json:
+            res_obj = {
+                "ok": True,
+                "variant": k,
+                "src": str(src_path),
+                "output": str(single_res),
+            }
+            if not args.quiet:
+                print(json.dumps(res_obj, ensure_ascii=False, indent=2))
         return 0
 
     except Exception as e:
-        print(f"❌ 执行失败: {e}", file=sys.stderr)
+        if not args.quiet:
+            print(f"❌ 执行失败: {e}", file=sys.stderr)
         return 1
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main(sys.argv[1:]))

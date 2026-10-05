@@ -21,6 +21,7 @@ import unittest
 import urllib.error
 import tarfile
 import zipfile
+from contextlib import redirect_stdout, redirect_stderr
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -361,6 +362,8 @@ from batch_layout_cn_789 import (
     classify_generation_error as layout_cn_classify_error,
     generate_layout_shot,
     run_batch_generate_shots,
+    list_layout_cn_variants,
+    build_arg_parser as build_layout_cn_arg_parser,
 )
 import batch_layout_variants
 from batch_layout_variants import (
@@ -8250,6 +8253,110 @@ class TestBatchLayoutCn789(unittest.TestCase):
             "--out", str(self.tmp_path / "cli_gen_07.png"),
         ])
         self.assertEqual(ret, 0)
+
+    def test_list_layout_cn_variants(self):
+        variants = list_layout_cn_variants()
+        self.assertIsInstance(variants, list)
+        self.assertEqual(len(variants), 3)
+        keys = [v["key"] for v in variants]
+        self.assertEqual(keys, ["07", "08", "09"])
+        for v in variants:
+            self.assertIn("key", v)
+            self.assertIn("name", v)
+            self.assertIn("default_title", v)
+            self.assertIn("default_latin", v)
+            self.assertIn("default_caption", v)
+            self.assertIn("default_filename", v)
+            self.assertTrue(v["default_filename"].endswith(".png"))
+
+    def test_build_layout_cn_arg_parser(self):
+        parser = build_layout_cn_arg_parser()
+        args = parser.parse_args(["--list", "--json", "-q", "--strict"])
+        self.assertTrue(args.list)
+        self.assertTrue(args.json)
+        self.assertTrue(args.quiet)
+        self.assertTrue(args.strict)
+
+    def test_cli_list_and_json_modes(self):
+        # 1. --list 纯文本模式
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = batch_layout_cn_789.main(["--list"])
+        self.assertEqual(ret, 0)
+        output = buf.getvalue()
+        self.assertIn("Agnes Studio · 7/8/9 经典中文版式清单", output)
+        self.assertIn("[07]", output)
+
+        # 2. --list --json 格式化输出
+        buf_json = io.StringIO()
+        with redirect_stdout(buf_json):
+            ret_json = batch_layout_cn_789.main(["--list", "--json"])
+        self.assertEqual(ret_json, 0)
+        data = json.loads(buf_json.getvalue())
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 3)
+        self.assertEqual(data[0]["key"], "07")
+
+        # 3. 单项渲染 + --json
+        buf_single = io.StringIO()
+        out_single = self.tmp_path / "cli_single_json.png"
+        with redirect_stdout(buf_single):
+            ret_single = batch_layout_cn_789.main([
+                "--variant", "07",
+                "--src", str(self.test_img_path),
+                "--out", str(out_single),
+                "--json",
+            ])
+        self.assertEqual(ret_single, 0)
+        single_data = json.loads(buf_single.getvalue())
+        self.assertTrue(single_data.get("ok"))
+        self.assertEqual(single_data.get("variant"), "07")
+        self.assertTrue(out_single.is_file())
+
+        # 4. 全量渲染 + --json
+        buf_all = io.StringIO()
+        out_all_dir = self.tmp_path / "cli_all_json"
+        with redirect_stdout(buf_all):
+            ret_all = batch_layout_cn_789.main([
+                "--variant", "all",
+                "--src", str(self.test_img_path),
+                "--out", str(out_all_dir),
+                "--json",
+            ])
+        self.assertEqual(ret_all, 0)
+        all_data = json.loads(buf_all.getvalue())
+        self.assertTrue(all_data.get("ok"))
+        self.assertEqual(len(all_data.get("results", {})), 3)
+
+    def test_cli_quiet_and_strict_modes(self):
+        # 1. quiet 模式下不输出 stdout
+        buf_quiet = io.StringIO()
+        with redirect_stdout(buf_quiet):
+            ret = batch_layout_cn_789.main(["--list", "--quiet"])
+        self.assertEqual(ret, 0)
+        self.assertEqual(buf_quiet.getvalue().strip(), "")
+
+        # 2. strict 模式在底图丢失时返回 1
+        ret_strict_missing = batch_layout_cn_789.main([
+            "--variant", "08",
+            "--src", str(self.tmp_path / "no_such_file.png"),
+            "--strict",
+            "--quiet",
+        ])
+        self.assertEqual(ret_strict_missing, 1)
+
+    def test_compose_quiet_parameter(self):
+        # 验证 compose 函数的 quiet 参数静默标准输出
+        buf = io.StringIO()
+        out_p = self.tmp_path / "quiet_07.png"
+        with redirect_stdout(buf):
+            compose_07(
+                src=self.test_img_path,
+                out=out_p,
+                quiet=True,
+            )
+        self.assertEqual(buf.getvalue().strip(), "")
+        self.assertTrue(out_p.is_file())
 
 
 class TestBatchLayoutVariants(unittest.TestCase):
