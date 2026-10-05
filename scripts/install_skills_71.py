@@ -471,7 +471,36 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dry-run", action="store_true", help="Validate entries and targets without downloading")
     parser.add_argument("-w", "--workers", type=int, default=6, help="Worker threads for concurrent installation")
     parser.add_argument("--list", action="store_true", help="List matching manifest entries and exit")
+    parser.add_argument("--json", action="store_true", help="以 JSON 格式输出技能清单或安装汇总报告")
+    parser.add_argument("-q", "--quiet", action="store_true", help="静默模式，减少控制台普通日志输出")
+    parser.add_argument("--strict", action="store_true", help="严格模式：存在任何失败项或执行异常时返回非零退出码 1")
     return parser
+
+
+def list_skills(
+    manifest_path: Path | str | None = None,
+    ids: str | list[str] | None = None,
+    group: str | None = None,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """返回 Skill 清单列表及许可证与目标安装目录元数据。"""
+    manifest_file = resolve_manifest_path(manifest_path)
+    data = load_manifest(manifest_file)
+    entries = data.get("entries", [])
+    filtered = filter_entries(entries, ids=ids, group=group, limit=limit)
+    res: list[dict[str, Any]] = []
+    for e in filtered:
+        lic = LICENSE_NOTES.get(e.get("id", "")) or e.get("license_note") or ""
+        res.append({
+            "id": e.get("id", ""),
+            "display_name": e.get("display_name", ""),
+            "group": e.get("group", ""),
+            "target_directory_name": e.get("install", {}).get("target_directory_name", ""),
+            "license": lic,
+            "repository": e.get("repository", ""),
+            "verified_ref": e.get("verified_ref", ""),
+        })
+    return res
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -482,21 +511,36 @@ def main(argv: list[str] | None = None) -> int:
     try:
         manifest_data = load_manifest(args.manifest)
     except Exception as e:
-        print(f"Error loading manifest: {e}", file=sys.stderr)
+        if getattr(args, "json", False):
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+        else:
+            print(f"Error loading manifest: {e}", file=sys.stderr)
         return 1
 
     entries = manifest_data.get("entries", [])
     filtered = filter_entries(entries, ids=args.ids, group=args.group, limit=args.limit)
 
     if args.list:
-        print(f"Agnes Studio · Skills Manifest ({len(filtered)} / {len(entries)} entries):")
-        for e in filtered:
-            lic = LICENSE_NOTES.get(e.get("id", "")) or e.get("license_note") or ""
-            lic_str = f" [{lic}]" if lic else ""
-            print(f"  [{e.get('id', '???'):5}] {e.get('display_name', ''):20} | 组: {e.get('group', ''):16} | 目录: {e.get('install', {}).get('target_directory_name', '')}{lic_str}")
+        if args.json:
+            res = list_skills(
+                manifest_path=args.manifest,
+                ids=args.ids,
+                group=args.group,
+                limit=args.limit,
+            )
+            print(json.dumps(res, ensure_ascii=False, indent=2))
+            return 0
+        if not args.quiet:
+            print(f"Agnes Studio · Skills Manifest ({len(filtered)} / {len(entries)} entries):")
+            for e in filtered:
+                lic = LICENSE_NOTES.get(e.get("id", "")) or e.get("license_note") or ""
+                lic_str = f" [{lic}]" if lic else ""
+                print(f"  [{e.get('id', '???'):5}] {e.get('display_name', ''):20} | 组: {e.get('group', ''):16} | 目录: {e.get('install', {}).get('target_directory_name', '')}{lic_str}")
         return 0
 
-    print(f"Agnes Studio · Skill71 Installer: installing {len(filtered)} skills (workers={args.workers}, dry_run={args.dry_run})")
+    if not args.quiet and not args.json:
+        print(f"Agnes Studio · Skill71 Installer: installing {len(filtered)} skills (workers={args.workers}, dry_run={args.dry_run})")
+
     report = run_install(
         manifest_path=args.manifest,
         cache_dir=args.cache_dir,
@@ -507,12 +551,20 @@ def main(argv: list[str] | None = None) -> int:
         dry_run=args.dry_run,
         workers=args.workers,
     )
-    for r in report["results"]:
-        print(f"[{r['status']:7}] {r['id']:5} {str(r.get('declared_skill_name',''))[:40]:40} {str(r.get('error',''))[:80]}", flush=True)
 
-    ok_count = report["ok"] + report["dry_run"]
-    print(f"\nDONE ok={ok_count}/{report['total']} report={report.get('report_path')}")
-    return 0 if report.get("error", 0) == 0 else 1
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+    elif not args.quiet:
+        for r in report["results"]:
+            print(f"[{r['status']:7}] {r['id']:5} {str(r.get('declared_skill_name',''))[:40]:40} {str(r.get('error',''))[:80]}", flush=True)
+
+        ok_count = report["ok"] + report["dry_run"]
+        print(f"\nDONE ok={ok_count}/{report['total']} report={report.get('report_path')}")
+
+    has_error = report.get("error", 0) > 0
+    if getattr(args, "strict", False) and has_error:
+        return 1
+    return 1 if has_error else 0
 
 
 if __name__ == "__main__":

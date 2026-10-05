@@ -481,6 +481,7 @@ from install_skills_71 import (
     install_one as skills_71_install_one,
     run_install as skills_71_run_install,
     build_arg_parser as skills_71_build_arg_parser,
+    list_skills as skills_71_list_skills,
     main as skills_71_main,
 )
 import gen_agnes_samples
@@ -12451,6 +12452,156 @@ class TestInstallSkills71(unittest.TestCase):
         # 4. CLI 不存在 manifest 报错
         ret_err = skills_71_main(["--manifest", str(self.tmp_path / "not_found.json")])
         self.assertEqual(ret_err, 1)
+
+    def test_build_arg_parser(self):
+        parser = skills_71_build_arg_parser()
+        args = parser.parse_args(["-m", "custom.json", "--json", "-q", "--strict", "--dry-run", "-w", "4"])
+        self.assertEqual(args.manifest, "custom.json")
+        self.assertTrue(args.json)
+        self.assertTrue(args.quiet)
+        self.assertTrue(args.strict)
+        self.assertTrue(args.dry_run)
+        self.assertEqual(args.workers, 4)
+
+    def test_list_skills_helper(self):
+        manifest_file = self.tmp_path / "skills-manifest.json"
+        manifest_file.write_text(json.dumps({
+            "entries": [
+                {
+                    "id": "ST01",
+                    "display_name": "技能一",
+                    "group": "照片抽象转译",
+                    "install": {"target_directory_name": "skill-01", "kind": "zip"},
+                    "repository": "test/repo-1",
+                    "verified_ref": "v1.0.0"
+                },
+                {
+                    "id": "ST02",
+                    "display_name": "技能二",
+                    "group": "光色与氛围改造",
+                    "install": {"target_directory_name": "skill-02", "kind": "directory"},
+                    "repository": "test/repo-2",
+                    "verified_ref": "v2.0.0"
+                }
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        all_skills = skills_71_list_skills(manifest_path=manifest_file)
+        self.assertEqual(len(all_skills), 2)
+        self.assertEqual(all_skills[0]["id"], "ST01")
+        self.assertEqual(all_skills[0]["display_name"], "技能一")
+        self.assertEqual(all_skills[0]["group"], "照片抽象转译")
+        self.assertEqual(all_skills[0]["target_directory_name"], "skill-01")
+        self.assertEqual(all_skills[0]["repository"], "test/repo-1")
+        self.assertEqual(all_skills[0]["verified_ref"], "v1.0.0")
+
+        filtered = skills_71_list_skills(manifest_path=manifest_file, group="光色与氛围改造")
+        self.assertEqual(len(filtered), 1)
+        self.assertEqual(filtered[0]["id"], "ST02")
+
+    def test_cli_list_json(self):
+        manifest_file = self.tmp_path / "skills-manifest.json"
+        manifest_file.write_text(json.dumps({
+            "entries": [
+                {
+                    "id": "ST01",
+                    "display_name": "技能一",
+                    "group": "照片抽象转译",
+                    "install": {"target_directory_name": "skill-01", "kind": "zip"}
+                }
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = skills_71_main(["--manifest", str(manifest_file), "--list", "--json"])
+        self.assertEqual(ret, 0)
+        items = json.loads(buf.getvalue())
+        self.assertIsInstance(items, list)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["id"], "ST01")
+        self.assertEqual(items[0]["display_name"], "技能一")
+        self.assertEqual(items[0]["target_directory_name"], "skill-01")
+
+    def test_cli_dry_run_json_output(self):
+        manifest_file = self.tmp_path / "skills-manifest.json"
+        manifest_file.write_text(json.dumps({
+            "entries": [
+                {
+                    "id": "ST01",
+                    "display_name": "技能一",
+                    "group": "照片抽象转译",
+                    "install": {"target_directory_name": "skill-01", "kind": "zip"}
+                }
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = skills_71_main([
+                "--manifest", str(manifest_file),
+                "--cache-dir", str(self.cache_dir),
+                "--out-dir", str(self.out_root),
+                "--dry-run",
+                "--json",
+                "-w", "1"
+            ])
+        self.assertEqual(ret, 0)
+        report = json.loads(buf.getvalue())
+        self.assertEqual(report["total"], 1)
+        self.assertEqual(report["dry_run"], 1)
+        self.assertEqual(report["ok"], 0)
+        self.assertEqual(report["error"], 0)
+        self.assertIn("results", report)
+        self.assertEqual(len(report["results"]), 1)
+        self.assertEqual(report["results"][0]["id"], "ST01")
+
+    def test_cli_quiet_mode_suppresses_stdout(self):
+        manifest_file = self.tmp_path / "skills-manifest.json"
+        manifest_file.write_text(json.dumps({
+            "entries": [
+                {
+                    "id": "ST01",
+                    "display_name": "技能一",
+                    "group": "照片抽象转译",
+                    "install": {"target_directory_name": "skill-01", "kind": "zip"}
+                }
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        # 1. --list -q 静默
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = skills_71_main(["--manifest", str(manifest_file), "--list", "-q"])
+        self.assertEqual(ret, 0)
+        self.assertEqual(buf.getvalue(), "")
+
+        # 2. --dry-run -q 静默
+        buf2 = io.StringIO()
+        with redirect_stdout(buf2):
+            ret = skills_71_main([
+                "--manifest", str(manifest_file),
+                "--cache-dir", str(self.cache_dir),
+                "--out-dir", str(self.out_root),
+                "--dry-run",
+                "-q",
+                "-w", "1"
+            ])
+        self.assertEqual(ret, 0)
+        self.assertEqual(buf2.getvalue(), "")
+
+    def test_cli_strict_json_error(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = skills_71_main([
+                "--manifest", str(self.tmp_path / "not_found.json"),
+                "--strict",
+                "--json"
+            ])
+        self.assertEqual(ret, 1)
+        payload = json.loads(buf.getvalue())
+        self.assertFalse(payload["ok"])
+        self.assertIn("error", payload)
 
 
 class TestGenAgnesSamples(unittest.TestCase):
