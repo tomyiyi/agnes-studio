@@ -91,7 +91,7 @@ def shell(img: str, inner: str, extra: str = "") -> str:
     </style></head><body><div class="s"><img class="bg" src="{clean_img}">{inner}</div></body></html>"""
 
 
-def shot(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 450) -> Path:
+def shot(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 450, quiet: bool = False) -> Path:
     """使用 Playwright 渲染 HTML 为高清海报 PNG。"""
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -110,8 +110,9 @@ def shot(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 450) ->
             page.wait_for_timeout(timeout_ms)
         page.screenshot(path=str(out_path), type="png")
         b.close()
-    size_kb = out_path.stat().st_size // 1024 if out_path.exists() else 0
-    print(f"OK {out_path.name} ({size_kb} KB)")
+    if not quiet:
+        size_kb = out_path.stat().st_size // 1024 if out_path.exists() else 0
+        print(f"OK {out_path.name} ({size_kb} KB)")
     return out_path
 
 
@@ -287,10 +288,11 @@ def render_v1_top_title(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 450,
+    quiet: bool = False,
 ) -> Path:
     img = b64(image)
     html = build_v1_top_title_html(img, title=title, latin=latin, slogan=slogan, extra_css=extra_css)
-    return shot(html, out, size=size, timeout_ms=timeout_ms)
+    return shot(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_v2_topleft(
@@ -302,10 +304,11 @@ def render_v2_topleft(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 450,
+    quiet: bool = False,
 ) -> Path:
     img = b64(image)
     html = build_v2_topleft_html(img, title=title, latin=latin, slogan=slogan, extra_css=extra_css)
-    return shot(html, out, size=size, timeout_ms=timeout_ms)
+    return shot(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_v3_vertical_corner(
@@ -316,10 +319,11 @@ def render_v3_vertical_corner(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 450,
+    quiet: bool = False,
 ) -> Path:
     img = b64(image)
     html = build_v3_vertical_corner_html(img, title=title, latin=latin, extra_css=extra_css)
-    return shot(html, out, size=size, timeout_ms=timeout_ms)
+    return shot(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_v4_bottom_left_min(
@@ -330,10 +334,11 @@ def render_v4_bottom_left_min(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 450,
+    quiet: bool = False,
 ) -> Path:
     img = b64(image)
     html = build_v4_bottom_left_min_html(img, title=title, latin=latin, extra_css=extra_css)
-    return shot(html, out, size=size, timeout_ms=timeout_ms)
+    return shot(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_v5_whisper(
@@ -344,10 +349,11 @@ def render_v5_whisper(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 450,
+    quiet: bool = False,
 ) -> Path:
     img = b64(image)
     html = build_v5_whisper_html(img, title=title, tag=tag, extra_css=extra_css)
-    return shot(html, out, size=size, timeout_ms=timeout_ms)
+    return shot(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_v6_center_top(
@@ -358,10 +364,11 @@ def render_v6_center_top(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 450,
+    quiet: bool = False,
 ) -> Path:
     img = b64(image)
     html = build_v6_center_top_html(img, title=title, latin=latin, extra_css=extra_css)
-    return shot(html, out, size=size, timeout_ms=timeout_ms)
+    return shot(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_v7_diag_minimal(
@@ -372,10 +379,11 @@ def render_v7_diag_minimal(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 450,
+    quiet: bool = False,
 ) -> Path:
     img = b64(image)
     html = build_v7_diag_minimal_html(img, title=title, latin=latin, extra_css=extra_css)
-    return shot(html, out, size=size, timeout_ms=timeout_ms)
+    return shot(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_v8_vertical_seal(
@@ -386,54 +394,135 @@ def render_v8_vertical_seal(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 450,
+    quiet: bool = False,
 ) -> Path:
     img = b64(image)
     html = build_v8_vertical_seal_html(img, title=title, seal_char=seal_char, extra_css=extra_css)
-    return shot(html, out, size=size, timeout_ms=timeout_ms)
+    return shot(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 VARIANTS_REGISTRY = {
     "v1_top_title": {
+        "name": "顶部标题 (V1 Top Title)",
         "builder": build_v1_top_title_html,
         "renderer": render_v1_top_title,
         "default_filename": "v1_top_title.png",
+        "default_file": "v1_top_title.png",
     },
     "v2_topleft": {
+        "name": "左上角字 (V2 Top Left)",
         "builder": build_v2_topleft_html,
         "renderer": render_v2_topleft,
         "default_filename": "v2_topleft.png",
+        "default_file": "v2_topleft.png",
     },
     "v3_vertical_corner": {
+        "name": "竖排右上 (V3 Vertical Corner)",
         "builder": build_v3_vertical_corner_html,
         "renderer": render_v3_vertical_corner,
         "default_filename": "v3_vertical_corner.png",
+        "default_file": "v3_vertical_corner.png",
     },
     "v4_bottom_left_min": {
+        "name": "极简角标 (V4 Bottom Left Minimal)",
         "builder": build_v4_bottom_left_min_html,
         "renderer": render_v4_bottom_left_min,
         "default_filename": "v4_bottom_left_min.png",
+        "default_file": "v4_bottom_left_min.png",
     },
     "v5_whisper": {
+        "name": "负空间大留白 (V5 Whisper)",
         "builder": build_v5_whisper_html,
         "renderer": render_v5_whisper,
         "default_filename": "v5_whisper.png",
+        "default_file": "v5_whisper.png",
     },
     "v6_center_top": {
+        "name": "中轴顶部横排 (V6 Center Top)",
         "builder": build_v6_center_top_html,
         "renderer": render_v6_center_top,
         "default_filename": "v6_center_top.png",
+        "default_file": "v6_center_top.png",
     },
     "v7_diag_minimal": {
+        "name": "对角极简 (V7 Diagonal Minimal)",
         "builder": build_v7_diag_minimal_html,
         "renderer": render_v7_diag_minimal,
         "default_filename": "v7_diag_minimal.png",
+        "default_file": "v7_diag_minimal.png",
     },
     "v8_vertical_seal": {
+        "name": "竖排书名与印章 (V8 Vertical Seal)",
         "builder": build_v8_vertical_seal_html,
         "renderer": render_v8_vertical_seal,
         "default_filename": "v8_vertical_seal.png",
+        "default_file": "v8_vertical_seal.png",
     },
 }
+
+
+def normalize_variant_key(key: str) -> str:
+    k = key.strip().lower()
+    mapping = {
+        "1": "v1_top_title", "v1": "v1_top_title", "top_title": "v1_top_title", "v1_top_title": "v1_top_title",
+        "2": "v2_topleft", "v2": "v2_topleft", "topleft": "v2_topleft", "v2_topleft": "v2_topleft",
+        "3": "v3_vertical_corner", "v3": "v3_vertical_corner", "vertical_corner": "v3_vertical_corner", "v3_vertical_corner": "v3_vertical_corner",
+        "4": "v4_bottom_left_min", "v4": "v4_bottom_left_min", "bottom_left_min": "v4_bottom_left_min", "v4_bottom_left_min": "v4_bottom_left_min",
+        "5": "v5_whisper", "v5": "v5_whisper", "whisper": "v5_whisper", "v5_whisper": "v5_whisper",
+        "6": "v6_center_top", "v6": "v6_center_top", "center_top": "v6_center_top", "v6_center_top": "v6_center_top",
+        "7": "v7_diag_minimal", "v7": "v7_diag_minimal", "diag_minimal": "v7_diag_minimal", "v7_diag_minimal": "v7_diag_minimal",
+        "8": "v8_vertical_seal", "v8": "v8_vertical_seal", "vertical_seal": "v8_vertical_seal", "v8_vertical_seal": "v8_vertical_seal",
+    }
+    if k in mapping:
+        return mapping[k]
+    raise KeyError(f"Unknown variant key: '{key}'. Available: {list(VARIANTS_REGISTRY.keys())}")
+
+
+def list_variants() -> list[dict[str, str]]:
+    """列出所有已注册的版式变体预设"""
+    return [
+        {"key": k, "name": v["name"], "default_file": v["default_filename"]}
+        for k, v in VARIANTS_REGISTRY.items()
+    ]
+
+
+def render_variant_style(
+    variant: str,
+    image: str | Path,
+    out: str | Path,
+    title: str = "夜航",
+    latin: str = "Night Voyage",
+    slogan: str = "她把城市调成静音",
+    tag: str = "2026",
+    seal_char: str | None = None,
+    extra_css: str = "",
+    size=(864, 1152),
+    timeout_ms: int = 450,
+    quiet: bool = False,
+    **kwargs,
+) -> Path:
+    """按版式变体名称派发渲染对应的海报"""
+    norm_key = normalize_variant_key(variant)
+    if norm_key == "v1_top_title":
+        return render_v1_top_title(image, out, title=title, latin=latin, slogan=slogan, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    elif norm_key == "v2_topleft":
+        return render_v2_topleft(image, out, title=title, latin=latin, slogan=slogan, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    elif norm_key == "v3_vertical_corner":
+        return render_v3_vertical_corner(image, out, title=title, latin=latin, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    elif norm_key == "v4_bottom_left_min":
+        return render_v4_bottom_left_min(image, out, title=title, latin=latin, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    elif norm_key == "v5_whisper":
+        return render_v5_whisper(image, out, title=title, tag=tag, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    elif norm_key == "v6_center_top":
+        return render_v6_center_top(image, out, title=title, latin=latin, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    elif norm_key == "v7_diag_minimal":
+        return render_v7_diag_minimal(image, out, title=title, latin=latin, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    elif norm_key == "v8_vertical_seal":
+        effective_seal = seal_char if seal_char is not None else (title[-1] if title else "航")
+        return render_v8_vertical_seal(image, out, title=title, seal_char=effective_seal, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    else:
+        func = VARIANTS_REGISTRY[norm_key]["renderer"]
+        return func(image, out, title=title, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet, **kwargs)
 
 
 def render_all_variants(
@@ -445,6 +534,7 @@ def render_all_variants(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 450,
+    quiet: bool = False,
 ) -> dict[str, Path]:
     """批量渲染全部 8 款版式变体并返回输出文件路径映射字典。"""
     dest = Path(out_dir) if out_dir else (ROOT / "outputs" / "verify_batch")
@@ -452,80 +542,175 @@ def render_all_variants(
     res: dict[str, Path] = {}
 
     res["v1_top_title"] = render_v1_top_title(
-        image, dest / "v1_top_title.png", title=title, latin=latin, slogan=slogan, extra_css=extra_css, size=size, timeout_ms=timeout_ms
+        image, dest / "v1_top_title.png", title=title, latin=latin, slogan=slogan, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet
     )
     res["v2_topleft"] = render_v2_topleft(
-        image, dest / "v2_topleft.png", title=title, latin=latin, slogan=slogan, extra_css=extra_css, size=size, timeout_ms=timeout_ms
+        image, dest / "v2_topleft.png", title=title, latin=latin, slogan=slogan, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet
     )
     res["v3_vertical_corner"] = render_v3_vertical_corner(
-        image, dest / "v3_vertical_corner.png", title=title, latin=latin, extra_css=extra_css, size=size, timeout_ms=timeout_ms
+        image, dest / "v3_vertical_corner.png", title=title, latin=latin, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet
     )
     res["v4_bottom_left_min"] = render_v4_bottom_left_min(
-        image, dest / "v4_bottom_left_min.png", title=title, latin=latin, extra_css=extra_css, size=size, timeout_ms=timeout_ms
+        image, dest / "v4_bottom_left_min.png", title=title, latin=latin, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet
     )
     res["v5_whisper"] = render_v5_whisper(
-        image, dest / "v5_whisper.png", title=title, tag="2026", extra_css=extra_css, size=size, timeout_ms=timeout_ms
+        image, dest / "v5_whisper.png", title=title, tag="2026", extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet
     )
     res["v6_center_top"] = render_v6_center_top(
-        image, dest / "v6_center_top.png", title=title, latin=latin, extra_css=extra_css, size=size, timeout_ms=timeout_ms
+        image, dest / "v6_center_top.png", title=title, latin=latin, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet
     )
     res["v7_diag_minimal"] = render_v7_diag_minimal(
-        image, dest / "v7_diag_minimal.png", title=title, latin=latin, extra_css=extra_css, size=size, timeout_ms=timeout_ms
+        image, dest / "v7_diag_minimal.png", title=title, latin=latin, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet
     )
     seal_c = title[-1] if title else "航"
     res["v8_vertical_seal"] = render_v8_vertical_seal(
-        image, dest / "v8_vertical_seal.png", title=title, seal_char=seal_c, extra_css=extra_css, size=size, timeout_ms=timeout_ms
+        image, dest / "v8_vertical_seal.png", title=title, seal_char=seal_c, extra_css=extra_css, size=size, timeout_ms=timeout_ms, quiet=quiet
     )
     return res
 
 
-def main(argv=None) -> int:
+def main(argv: list[str] | None = None) -> int:
     import argparse
-    parser = argparse.ArgumentParser(description="全量版式变体渲染器")
-    parser.add_argument("--input", "-i", type=str, default=None, help="底图路径")
-    parser.add_argument("--out-dir", "-o", type=str, default=None, help="输出目录")
-    parser.add_argument("--title", type=str, default="夜航", help="主标题")
-    parser.add_argument("--latin", type=str, default="Night Voyage", help="西文标题")
-    parser.add_argument("--slogan", type=str, default="她把城市调成静音", help="副标语")
-    parser.add_argument("--variant", "-v", type=str, default="all", help="指定渲染变体 (1-8, v1-v8 或 all)")
-    args = parser.parse_args(argv)
+    parser = argparse.ArgumentParser(description="Agnes Studio · 全量版式变体渲染引擎 (Variants Verify Renderer)")
+    parser.add_argument(
+        "--variant",
+        "--style",
+        "-v",
+        "-s",
+        default="all",
+        help="指定渲染变体 (1-8, v1-v8, v1_top_title 等或 all, 默认: all)",
+    )
+    parser.add_argument(
+        "--src",
+        "--image",
+        default=None,
+        help="输入背景底图路径（未指定时探查默认底图）",
+    )
+    parser.add_argument(
+        "--input",
+        "-i",
+        default=None,
+        help="输入背景底图路径（兼容选项）",
+    )
+    parser.add_argument(
+        "--out",
+        "-o",
+        default=None,
+        help="输出海报路径（在 variant=all 时将自动附加变体后缀）",
+    )
+    parser.add_argument(
+        "--out-dir",
+        default=None,
+        help="输出目录（如果指定且未提供 --out，海报将输出至该目录）",
+    )
+    parser.add_argument(
+        "--title",
+        "-t",
+        default="夜航",
+        help="主标题 (默认: 夜航)",
+    )
+    parser.add_argument(
+        "--latin",
+        "-l",
+        default="Night Voyage",
+        help="西文标题 (默认: Night Voyage)",
+    )
+    parser.add_argument(
+        "--slogan",
+        default="她把城市调成静音",
+        help="副标语 (默认: 她把城市调成静音)",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="列出所有可用的版式变体预设清单",
+    )
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="静默模式，抑制控制台日志",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格模式：遇到底图缺失或渲染异常时返回非零退出码 1",
+    )
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
-    if args.input:
-        base = Path(args.input)
+    if args.list:
+        if not args.quiet:
+            print("Agnes Studio 可用版式变体预设清单:")
+            for s in list_variants():
+                print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
+        return 0
+
+    # 确定输入源
+    resolved_src = None
+    input_path_arg = args.src or args.input
+    if input_path_arg:
+        p = Path(input_path_arg)
+        if not p.is_file():
+            if not args.quiet:
+                print(f"❌ 找不到输入底图: {input_path_arg}", file=sys.stderr)
+            return 1 if (args.strict or args.input) else 0
+        resolved_src = p
     else:
-        base = ROOT / "outputs" / "epic_compare" / "clean_base.png"
-        if not base.exists():
-            base = ROOT / "public" / "assets" / "agnes_1789995698_9987.png"
+        candidates = [
+            ROOT / "outputs" / "epic_compare" / "clean_base.png",
+            ROOT / "public" / "assets" / "agnes_1789995698_9987.png",
+            ROOT / "assets" / "agnes_1790006749_b2b755da.png",
+            ROOT / "assets" / "agnes_1789995999_1670.png",
+        ]
+        for c in candidates:
+            if c.is_file():
+                resolved_src = c
+                break
 
-    if not base.exists():
-        print(f"⚠️ 未找到可用底图: {base}")
-        return 1
+    if resolved_src is None:
+        if not args.quiet:
+            print("❌ 未指定底图且未发现默认候选底图资产", file=sys.stderr)
+        return 1 if args.strict else 0
 
-    out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "verify_batch")
-    out_dir.mkdir(parents=True, exist_ok=True)
+    var_arg = args.variant.strip().lower()
+    if var_arg == "all":
+        target_keys = list(VARIANTS_REGISTRY.keys())
+    else:
+        try:
+            target_keys = [normalize_variant_key(var_arg)]
+        except KeyError as e:
+            if not args.quiet:
+                print(f"❌ {e}", file=sys.stderr)
+            return 1 if args.strict else 0
 
-    variant = args.variant.lower().strip()
-    if variant in ("all", "1", "v1"):
-        render_v1_top_title(base, out_dir / "v1_top_title.png", title=args.title, latin=args.latin, slogan=args.slogan)
-    if variant in ("all", "2", "v2"):
-        render_v2_topleft(base, out_dir / "v2_topleft.png", title=args.title, latin=args.latin, slogan=args.slogan)
-    if variant in ("all", "3", "v3"):
-        render_v3_vertical_corner(base, out_dir / "v3_vertical_corner.png", title=args.title, latin=args.latin)
-    if variant in ("all", "4", "v4"):
-        render_v4_bottom_left_min(base, out_dir / "v4_bottom_left_min.png", title=args.title, latin=args.latin)
-    if variant in ("all", "5", "v5"):
-        render_v5_whisper(base, out_dir / "v5_whisper.png", title=args.title)
-    if variant in ("all", "6", "v6"):
-        render_v6_center_top(base, out_dir / "v6_center_top.png", title=args.title, latin=args.latin)
-    if variant in ("all", "7", "v7"):
-        render_v7_diag_minimal(base, out_dir / "v7_diag_minimal.png", title=args.title, latin=args.latin)
-    if variant in ("all", "8", "v8"):
-        seal_c = args.title[-1] if args.title else "航"
-        render_v8_vertical_seal(base, out_dir / "v8_vertical_seal.png", title=args.title, seal_char=seal_c)
+    try:
+        default_out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "verify_batch")
+        for k in target_keys:
+            if args.out:
+                out_path = Path(args.out)
+                if var_arg == "all":
+                    out_path = out_path.with_name(f"{out_path.stem}_{k}{out_path.suffix or '.png'}")
+            else:
+                default_out_dir.mkdir(parents=True, exist_ok=True)
+                out_path = default_out_dir / VARIANTS_REGISTRY[k]["default_filename"]
 
-    print("done", out_dir)
-    return 0
+            render_variant_style(
+                variant=k,
+                image=resolved_src,
+                out=out_path,
+                title=args.title,
+                latin=args.latin,
+                slogan=args.slogan,
+                quiet=args.quiet,
+            )
+        if not args.quiet:
+            print("done")
+        return 0
+    except Exception as e:
+        if not args.quiet:
+            print(f"❌ 版式变体海报渲染失败: {e}", file=sys.stderr)
+        return 1 if args.strict else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main(sys.argv[1:]))

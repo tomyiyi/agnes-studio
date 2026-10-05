@@ -314,6 +314,10 @@ from render_variants_verify import (
     render_v8_vertical_seal,
     VARIANTS_REGISTRY as VERIFY_VARIANTS_REGISTRY,
     render_all_variants as verify_render_all_variants,
+    normalize_variant_key as verify_normalize_variant_key,
+    list_variants as verify_list_variants,
+    render_variant_style as verify_render_variant_style,
+    main as verify_variants_main,
 )
 import batch_layout_cn_789
 from batch_layout_cn_789 import (
@@ -7102,6 +7106,185 @@ class TestRenderVariantsVerify(unittest.TestCase):
     def test_main_missing_input_returns_nonzero(self):
         ret = render_variants_verify.main(["--input", str(self.tmp_path / "does_not_exist.png")])
         self.assertEqual(ret, 1)
+
+    @patch("playwright.sync_api.sync_playwright")
+    def test_shot_quiet_mode(self, mock_playwright):
+        from contextlib import redirect_stdout
+
+        fake_page = MagicMock()
+        fake_browser = MagicMock()
+        fake_browser.new_page.return_value = fake_page
+        mock_p_inst = MagicMock()
+        mock_p_inst.chromium.launch.return_value = fake_browser
+        mock_playwright.return_value.__enter__.return_value = mock_p_inst
+
+        out_p = self.tmp_path / "shot_quiet.png"
+        out_p.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = verify_shot("<html></html>", out_p, quiet=True)
+        self.assertEqual(ret, out_p)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    @patch("render_variants_verify.shot")
+    def test_render_styles_quiet_mode(self, mock_shot):
+        sample_img = self.tmp_path / "variant_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out.png"
+        mock_shot.return_value = out_p
+
+        render_v1_top_title(sample_img, out_p, quiet=True)
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+        render_v2_topleft(sample_img, out_p, quiet=True)
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+        render_v3_vertical_corner(sample_img, out_p, quiet=True)
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+        render_v4_bottom_left_min(sample_img, out_p, quiet=True)
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+        render_v5_whisper(sample_img, out_p, quiet=True)
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+        render_v6_center_top(sample_img, out_p, quiet=True)
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+        render_v7_diag_minimal(sample_img, out_p, quiet=True)
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+        render_v8_vertical_seal(sample_img, out_p, quiet=True)
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+    def test_normalize_variant_key_and_list_variants(self):
+        self.assertEqual(verify_normalize_variant_key("1"), "v1_top_title")
+        self.assertEqual(verify_normalize_variant_key("V1"), "v1_top_title")
+        self.assertEqual(verify_normalize_variant_key("top_title"), "v1_top_title")
+        self.assertEqual(verify_normalize_variant_key("v8_vertical_seal"), "v8_vertical_seal")
+        with self.assertRaises(KeyError):
+            verify_normalize_variant_key("v99_nonexistent")
+
+        variants = verify_list_variants()
+        self.assertEqual(len(variants), 8)
+        keys = {v["key"] for v in variants}
+        self.assertIn("v1_top_title", keys)
+        self.assertIn("v8_vertical_seal", keys)
+
+    @patch("render_variants_verify.shot")
+    def test_render_variant_style_dispatch(self, mock_shot):
+        sample_img = self.tmp_path / "variant_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "dispatched.png"
+        mock_shot.return_value = out_p
+
+        ret = verify_render_variant_style(
+            "v1_top_title",
+            sample_img,
+            out_p,
+            title="顶部测试",
+            latin="TOP TEST",
+            slogan="标语",
+            quiet=True,
+        )
+        self.assertEqual(ret, out_p)
+        mock_shot.assert_called()
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+        # test v8 seal dispatch
+        ret8 = verify_render_variant_style(
+            "8",
+            sample_img,
+            out_p,
+            title="金石测试",
+            seal_char="印",
+            quiet=True,
+        )
+        self.assertEqual(ret8, out_p)
+
+    def test_cli_main_list_mode(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = verify_variants_main(["--list"])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("Agnes Studio 可用版式变体预设清单:", out)
+        self.assertIn("v1_top_title", out)
+        self.assertIn("v8_vertical_seal", out)
+
+    @patch("render_variants_verify.shot")
+    def test_cli_main_single_variant_with_custom_src_and_out(self, mock_shot):
+        sample_img = self.tmp_path / "variant_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "single_out.png"
+        mock_shot.return_value = out_p
+
+        code = verify_variants_main([
+            "--variant", "v3",
+            "--src", str(sample_img),
+            "--out", str(out_p),
+            "--title", "竖排测试",
+            "--latin", "VERTICAL TEST",
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_shot.call_count, 1)
+
+    @patch("render_variants_verify.shot")
+    def test_cli_main_all_mode(self, mock_shot):
+        sample_img = self.tmp_path / "variant_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_base = self.tmp_path / "bundle.png"
+        mock_shot.return_value = self.tmp_path / "out.png"
+
+        code = verify_variants_main([
+            "--variant", "all",
+            "--src", str(sample_img),
+            "--out", str(out_base),
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_shot.call_count, 8)
+
+    def test_cli_main_missing_src_strict_mode(self):
+        missing_src = self.tmp_path / "does_not_exist.png"
+        code_strict = verify_variants_main([
+            "--variant", "v1",
+            "--src", str(missing_src),
+            "--strict",
+            "--quiet",
+        ])
+        self.assertEqual(code_strict, 1)
+
+        code_lenient = verify_variants_main([
+            "--variant", "v1",
+            "--src", str(missing_src),
+            "--quiet",
+        ])
+        self.assertEqual(code_lenient, 0)
+
+    @patch("render_variants_verify.shot")
+    def test_cli_main_quiet_mode_suppresses_stdout(self, mock_shot):
+        from contextlib import redirect_stdout
+
+        sample_img = self.tmp_path / "variant_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "quiet_out.png"
+        mock_shot.return_value = out_p
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = verify_variants_main([
+                "--variant", "v1",
+                "--src", str(sample_img),
+                "--out", str(out_p),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
 
 
 class TestBatchLayoutCn789(unittest.TestCase):
