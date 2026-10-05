@@ -7968,7 +7968,6 @@ class TestRenderCnTypePoster(unittest.TestCase):
             code = cn_type_poster_main([
                 "--style", "monument",
                 "--src", str(sample_img),
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertIn("❌ 纪念碑式海报渲染失败: Simulated cn_type render crash", buf.getvalue())
@@ -7986,7 +7985,6 @@ class TestRenderCnTypePoster(unittest.TestCase):
                 "--style", "monument",
                 "--src", str(sample_img),
                 "-q",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertEqual(out_buf.getvalue(), "")
