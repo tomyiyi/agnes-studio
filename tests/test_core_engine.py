@@ -9917,7 +9917,6 @@ class TestRenderTitleRefined(unittest.TestCase):
             code = refined_title_main([
                 "--style", "r1_oriental_center",
                 "--src", str(sample_img),
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertIn("❌ 高级字设海报渲染失败: Simulated refined title render crash", buf.getvalue())
@@ -9935,7 +9934,6 @@ class TestRenderTitleRefined(unittest.TestCase):
                 "--style", "r1_oriental_center",
                 "--src", str(sample_img),
                 "-q",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertEqual(out_buf.getvalue(), "")
