@@ -11065,6 +11065,45 @@ class TestBatchLayoutCn789(unittest.TestCase):
         self.assertFalse(data.get("ok"))
         self.assertIn("error", data)
 
+    def test_cli_main_exception_stderr_output(self):
+        from contextlib import redirect_stderr
+        err_buf = io.StringIO()
+        with patch("batch_layout_cn_789.render_layout_cn", side_effect=RuntimeError("Simulated layout crash")):
+            with redirect_stderr(err_buf):
+                ret = batch_layout_cn_789.main([
+                    "--variant", "07",
+                    "--src", str(self.test_img_path),
+                ])
+        self.assertEqual(ret, 1)
+        self.assertIn("❌ 执行失败: Simulated layout crash", err_buf.getvalue())
+
+    def test_cli_main_exception_quiet_mode(self):
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with patch("batch_layout_cn_789.render_layout_cn", side_effect=RuntimeError("Simulated layout quiet crash")):
+            with redirect_stdout(out_buf), redirect_stderr(err_buf):
+                ret = batch_layout_cn_789.main([
+                    "--variant", "07",
+                    "--src", str(self.test_img_path),
+                    "-q",
+                ])
+        self.assertEqual(ret, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
+    def test_cli_missing_source_image_stderr_output(self):
+        from contextlib import redirect_stderr
+        err_buf = io.StringIO()
+        missing_src = self.tmp_path / "non_existent_layout_cn_src.png"
+        with redirect_stderr(err_buf):
+            ret = batch_layout_cn_789.main([
+                "--variant", "07",
+                "--src", str(missing_src),
+            ])
+        self.assertEqual(ret, 1)
+        self.assertIn("❌ 找不到底图文件", err_buf.getvalue())
+
 
 class TestBatchLayoutVariants(unittest.TestCase):
     """测试 12 款经典构图版式编号册生成器 batch_layout_variants"""

@@ -685,24 +685,25 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """7/8/9 经典中文版式精修与渲染引擎规范化 CLI 入口。"""
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
-
-    # 1. 响应 --list
-    if args.list:
-        variants = list_layout_cn_variants()
-        if args.json:
-            print(json.dumps(variants, ensure_ascii=False, indent=2))
-        elif not args.quiet:
-            print("Agnes Studio · 7/8/9 经典中文版式清单:")
-            for v in variants:
-                print(
-                    f"  [{v['key']}] {v['name']} -> "
-                    f"默认: 《{v['default_title']}》/ {v['default_latin']} ({v['default_filename']})"
-                )
-        return 0
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     try:
+        # 1. 响应 --list
+        if args.list:
+            variants = list_layout_cn_variants()
+            if args.json:
+                print(json.dumps(variants, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio · 7/8/9 经典中文版式清单:")
+                for v in variants:
+                    print(
+                        f"  [{v['key']}] {v['name']} -> "
+                        f"默认: 《{v['default_title']}》/ {v['default_latin']} ({v['default_filename']})"
+                    )
+            return 0
+
         # 2. 尝试网关生成
         report: list[dict] = []
         if args.generate:
@@ -847,10 +848,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     except Exception as e:
-        if not args.quiet and not args.json:
-            print(f"❌ 执行失败: {e}", file=sys.stderr)
-        elif args.json:
+        if args.json:
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+        elif not args.quiet:
+            print(f"❌ 执行失败: {e}", file=sys.stderr)
         return 1
 
 
