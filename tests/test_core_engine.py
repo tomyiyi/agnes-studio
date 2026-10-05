@@ -407,6 +407,7 @@ from batch_type_behind_v154 import (
     generate_single_experiment as generate_type_behind_v154_single,
     run_batch_v154 as run_batch_type_behind_v154,
     classify_generation_error as type_behind_v154_classify_error,
+    build_arg_parser as build_type_behind_v154_arg_parser,
 )
 import batch_skill71_hifi_p0
 from batch_skill71_hifi_p0 import (
@@ -10449,6 +10450,119 @@ class TestBatchTypeBehindV154(unittest.TestCase):
         ])
         self.assertEqual(ret_dry, 0)
         self.assertTrue((cli_out / "batch_v154_report.json").is_file())
+
+    def test_build_arg_parser(self):
+        parser = build_type_behind_v154_arg_parser()
+        self.assertIsInstance(parser, argparse.ArgumentParser)
+        actions = {dest: a for a in parser._actions for dest in a.dest.split()}
+        self.assertIn("list_experiments", actions)
+        self.assertIn("version", actions)
+        self.assertIn("stems", actions)
+        self.assertIn("limit", actions)
+        self.assertIn("out", actions)
+        self.assertIn("model", actions)
+        self.assertIn("size", actions)
+        self.assertIn("retries", actions)
+        self.assertIn("force", actions)
+        self.assertIn("dry_run", actions)
+        self.assertIn("json", actions)
+        self.assertIn("quiet", actions)
+        self.assertIn("strict", actions)
+
+    def test_cli_list_experiments_json(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = batch_type_behind_v154.main(["--list-experiments", "--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 6)
+        versions = [item["version"] for item in data]
+        self.assertEqual(versions, ["v154", "v155", "v156", "v157", "v158", "v159"])
+        for item in data:
+            self.assertIn("title", item)
+            self.assertIn("description", item)
+            self.assertIn("count", item)
+            self.assertEqual(item["count"], len(item["experiments"]))
+            self.assertGreater(len(item["experiments"]), 0)
+            for exp in item["experiments"]:
+                self.assertIn("stem", exp)
+                self.assertIn("prompt", exp)
+
+    def test_cli_dry_run_json_output(self):
+        from contextlib import redirect_stdout
+
+        cli_out = self.tmp_path / "cli_json_dry_v154"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = batch_type_behind_v154.main([
+                "--dry-run",
+                "-v", "v154",
+                "-n", "2",
+                "--out", str(cli_out),
+                "--json",
+            ])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertEqual(data["total"], 2)
+        self.assertEqual(data["ok"], 2)
+        self.assertEqual(data["failed"], 0)
+        self.assertTrue(data["dry_run"])
+        self.assertEqual(len(data["results"]), 2)
+        self.assertTrue((cli_out / "batch_v154_report.json").is_file())
+
+    def test_cli_quiet_mode_suppresses_stdout(self):
+        from contextlib import redirect_stdout
+
+        cli_out = self.tmp_path / "cli_quiet_dry_v154"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = batch_type_behind_v154.main([
+                "--dry-run",
+                "-v", "v154",
+                "-n", "1",
+                "--out", str(cli_out),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_run_batch_quiet_mode(self):
+        from contextlib import redirect_stdout
+
+        def fake_gen(prompt, size, model, retries):
+            return {"ok": True}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"x" * 100)
+
+        out_dir = self.tmp_path / "batch_quiet_v154"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            results = run_batch_type_behind_v154(
+                versions="v154",
+                limit=1,
+                out_dir=out_dir,
+                generate_fn=fake_gen,
+                save_image_fn=fake_save,
+                quiet=True,
+            )
+        self.assertEqual(len(results), 1)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_cli_strict_mode_failure(self):
+        with patch("batch_type_behind_v154.generate", None):
+            cli_out = self.tmp_path / "cli_strict_fail_v154"
+            code = batch_type_behind_v154.main([
+                "-v", "v154",
+                "-n", "1",
+                "--out", str(cli_out),
+                "--strict",
+                "--quiet",
+            ])
+            self.assertEqual(code, 1)
 
 
 class TestBatchSkill71HifiP0(unittest.TestCase):
