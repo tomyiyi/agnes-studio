@@ -236,6 +236,7 @@ def run_batch_skill_samples(
     dry_run: bool = False,
     generate_fn: Callable[..., dict[str, Any]] | None = None,
     save_image_fn: Callable[..., Any] | None = None,
+    quiet: bool = False,
 ) -> list[dict[str, Any]]:
     """批量执行 Skill 样张渲染并输出汇总报告。"""
     target_out = Path(out_dir)
@@ -244,7 +245,8 @@ def run_batch_skill_samples(
     selected_skills = filter_skills(all_skills, skills=skills, group=group, limit=limit)
 
     total = len(selected_skills)
-    print(f"Agnes Studio · 71 项生图 Skill 批量执行: 共 {total} 项 -> {target_out}", flush=True)
+    if not quiet:
+        print(f"Agnes Studio · 71 项生图 Skill 批量执行: 共 {total} 项 -> {target_out}", flush=True)
 
     results: list[dict[str, Any]] = []
 
@@ -266,9 +268,10 @@ def run_batch_skill_samples(
         for idx, s in enumerate(selected_skills, 1):
             r = _worker(s)
             results.append(r)
-            mark = "✓" if r.get("ok") else "✗"
-            tag = "DRY" if r.get("dry_run") else ("SKIP" if r.get("skipped") else mark)
-            print(f"[{idx}/{total}] {tag} {r.get('id')} {r.get('kb', 0)}KB {r.get('error', '')[:70]}", flush=True)
+            if not quiet:
+                mark = "✓" if r.get("ok") else "✗"
+                tag = "DRY" if r.get("dry_run") else ("SKIP" if r.get("skipped") else mark)
+                print(f"[{idx}/{total}] {tag} {r.get('id')} {r.get('kb', 0)}KB {r.get('error', '')[:70]}", flush=True)
     else:
         done = 0
         with ThreadPoolExecutor(max_workers=workers) as ex:
@@ -277,9 +280,10 @@ def run_batch_skill_samples(
                 r = fut.result()
                 results.append(r)
                 done += 1
-                mark = "✓" if r.get("ok") else "✗"
-                tag = "DRY" if r.get("dry_run") else ("SKIP" if r.get("skipped") else mark)
-                print(f"[{done}/{total}] {tag} {r.get('id')} {r.get('kb', 0)}KB {r.get('error', '')[:70]}", flush=True)
+                if not quiet:
+                    mark = "✓" if r.get("ok") else "✗"
+                    tag = "DRY" if r.get("dry_run") else ("SKIP" if r.get("skipped") else mark)
+                    print(f"[{done}/{total}] {tag} {r.get('id')} {r.get('kb', 0)}KB {r.get('error', '')[:70]}", flush=True)
 
     # 按照选定顺序排序结果
     order_map = {str(s.get("id")): i for i, s in enumerate(selected_skills)}
@@ -289,7 +293,8 @@ def run_batch_skill_samples(
     report_path.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
 
     ok_cnt = sum(1 for r in results if r.get("ok"))
-    print(f"done ok={ok_cnt}/{len(results)}", flush=True)
+    if not quiet:
+        print(f"done ok={ok_cnt}/{len(results)}", flush=True)
     return results
 
 
@@ -307,7 +312,8 @@ def list_skills(index_path: Path | str | None = None) -> list[dict[str, str]]:
     ]
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建 71 项生图 Skill 样张批量生成引擎命令行参数解析器"""
     parser = argparse.ArgumentParser(description="71 项生图 Skill 样张批量生成引擎")
     parser.add_argument("--list-skills", action="store_true", help="列出全部 Skill 清单")
     parser.add_argument("-s", "--skills", default=None, help="筛选特定 Skill ID (逗号分隔，如 ST03,ST07)")
@@ -321,15 +327,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--base-subject", default=BASE_SUBJECT, help="自定义统一基准主体提示词")
     parser.add_argument("-f", "--force", action="store_true", help="强制重新生成已存在的文件")
     parser.add_argument("-d", "--dry-run", action="store_true", help="演练模式，不请求实际生图 API")
+    parser.add_argument("--json", action="store_true", help="以 JSON 格式输出技能清单或批量执行汇总报告")
+    parser.add_argument("-q", "--quiet", action="store_true", help="静默模式，减少标准输出打印")
+    parser.add_argument("--strict", action="store_true", help="严格模式：存在任何失败项或执行异常时返回非零退出码 1")
+    return parser
 
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
     args = parser.parse_args(argv)
 
+    quiet = args.quiet or args.json
+
     if args.list_skills:
-        print("Agnes Studio · 71 项生图 Skill 索引清单:")
         items = list_skills(index_path=args.index)
-        for item in items:
-            print(f"  [{item['id']}] {item['display_name']:<20} | 分组: {item['group']:<18} | 声明名: {item['declared_skill_name']}")
-        print(f"总计: {len(items)} 项技能")
+        if args.json:
+            print(json.dumps(items, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print("Agnes Studio · 71 项生图 Skill 索引清单:")
+            for item in items:
+                print(f"  [{item['id']}] {item['display_name']:<20} | 分组: {item['group']:<18} | 声明名: {item['declared_skill_name']}")
+            print(f"总计: {len(items)} 项技能")
         return 0
 
     results = run_batch_skill_samples(
@@ -344,9 +362,25 @@ def main(argv: list[str] | None = None) -> int:
         size=args.size,
         force=args.force,
         dry_run=args.dry_run,
+        quiet=quiet,
     )
 
-    if results and all(not r.get("ok") for r in results):
+    summary = {
+        "total": len(results),
+        "ok": sum(1 for r in results if r.get("ok")),
+        "failed": sum(1 for r in results if not r.get("ok")),
+        "skipped": sum(1 for r in results if r.get("skipped")),
+        "dry_run": args.dry_run,
+        "results": results,
+    }
+
+    if args.json:
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+    if args.strict:
+        if any(not r.get("ok") for r in results):
+            return 1
+    elif results and all(not r.get("ok") for r in results):
         return 1
     return 0
 

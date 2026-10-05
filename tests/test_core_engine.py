@@ -433,6 +433,7 @@ from batch_skill71_samples import (
     list_skills as skill71_list_skills,
     one as skill71_one,
     classify_generation_error as skill71_classify_error,
+    build_arg_parser as build_skill71_samples_arg_parser,
 )
 import merge_skill71_gallery
 from merge_skill71_gallery import (
@@ -11183,6 +11184,149 @@ class TestBatchSkill71Samples(unittest.TestCase):
             res = skill71_one(sample_skill)
             self.assertEqual(res["id"], "TEST_ONE")
             mock_render.assert_called_once_with(sample_skill, out_dir=batch_skill71_samples.OUT)
+
+    def test_build_arg_parser(self):
+        parser = build_skill71_samples_arg_parser()
+        self.assertIsInstance(parser, argparse.ArgumentParser)
+        actions = {dest: a for a in parser._actions for dest in a.dest.split()}
+        self.assertIn("list_skills", actions)
+        self.assertIn("skills", actions)
+        self.assertIn("group", actions)
+        self.assertIn("limit", actions)
+        self.assertIn("out", actions)
+        self.assertIn("workers", actions)
+        self.assertIn("model", actions)
+        self.assertIn("size", actions)
+        self.assertIn("index", actions)
+        self.assertIn("base_subject", actions)
+        self.assertIn("force", actions)
+        self.assertIn("dry_run", actions)
+        self.assertIn("json", actions)
+        self.assertIn("quiet", actions)
+        self.assertIn("strict", actions)
+
+    def test_cli_list_skills_json(self):
+        from contextlib import redirect_stdout
+
+        dummy_index = self.tmp_path / "skills_test.json"
+        dummy_index.write_text(json.dumps({
+            "skills": [
+                {"id": "TST1", "display_name": "测试1", "group": "测试组", "declared_skill_name": "tst-1"},
+                {"id": "TST2", "display_name": "测试2", "group": "测试组", "declared_skill_name": "tst-2"},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = batch_skill71_samples.main(["--list-skills", "--index", str(dummy_index), "--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 2)
+        self.assertEqual(data[0]["id"], "TST1")
+        self.assertEqual(data[1]["id"], "TST2")
+        for item in data:
+            self.assertIn("id", item)
+            self.assertIn("display_name", item)
+            self.assertIn("group", item)
+            self.assertIn("declared_skill_name", item)
+
+    def test_cli_dry_run_json_output(self):
+        from contextlib import redirect_stdout
+
+        dummy_index = self.tmp_path / "skills_dry.json"
+        dummy_index.write_text(json.dumps({
+            "skills": [
+                {"id": "DRY01", "display_name": "演练1", "group": "测试组", "declared_skill_name": "dry-1"},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        cli_out = self.tmp_path / "cli_json_dry_skill71"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = batch_skill71_samples.main([
+                "--dry-run",
+                "--index", str(dummy_index),
+                "--out", str(cli_out),
+                "--json",
+            ])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertEqual(data["total"], 1)
+        self.assertEqual(data["ok"], 1)
+        self.assertEqual(data["failed"], 0)
+        self.assertTrue(data["dry_run"])
+        self.assertEqual(len(data["results"]), 1)
+        self.assertTrue((cli_out / "batch_report.json").is_file())
+
+    def test_cli_quiet_mode_suppresses_stdout(self):
+        from contextlib import redirect_stdout
+
+        dummy_index = self.tmp_path / "skills_quiet.json"
+        dummy_index.write_text(json.dumps({
+            "skills": [
+                {"id": "Q01", "display_name": "静默1", "group": "测试组", "declared_skill_name": "q-1"},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        cli_out = self.tmp_path / "cli_quiet_dry_skill71"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = batch_skill71_samples.main([
+                "--dry-run",
+                "--index", str(dummy_index),
+                "--out", str(cli_out),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_run_batch_quiet_mode(self):
+        from contextlib import redirect_stdout
+
+        dummy_index = self.tmp_path / "skills_batch_quiet.json"
+        dummy_index.write_text(json.dumps({
+            "skills": [
+                {"id": "BQ01", "display_name": "批处理静默1", "group": "测试组", "declared_skill_name": "bq-1"},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        def fake_gen(prompt, size, model, retries):
+            return {"ok": True}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"x" * 100)
+
+        out_dir = self.tmp_path / "batch_quiet_samples"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            results = skill71_run_batch(
+                index_path=dummy_index,
+                out_dir=out_dir,
+                generate_fn=fake_gen,
+                save_image_fn=fake_save,
+                quiet=True,
+            )
+        self.assertEqual(len(results), 1)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_cli_strict_mode_failure(self):
+        dummy_index = self.tmp_path / "skills_strict.json"
+        dummy_index.write_text(json.dumps({
+            "skills": [
+                {"id": "FAIL01", "display_name": "严格失败1", "group": "测试组", "declared_skill_name": "fail-1"},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        with patch("batch_skill71_samples.generate", None):
+            cli_out = self.tmp_path / "cli_strict_fail_skill71"
+            code = batch_skill71_samples.main([
+                "--index", str(dummy_index),
+                "--out", str(cli_out),
+                "--strict",
+                "--quiet",
+            ])
+            self.assertEqual(code, 1)
 
 
 class TestMergeSkill71Gallery(unittest.TestCase):
