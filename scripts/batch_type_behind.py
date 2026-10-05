@@ -414,38 +414,45 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  [{category.upper()}]: {', '.join(words)}")
         return 0
 
-    results = run_batch_type_behind(
-        words=args.words,
-        out_dir=args.out,
-        model=args.model,
-        size=args.size,
-        retries=args.retries,
-        force=args.force,
-        dry_run=args.dry_run,
-        primary=args.primary,
-        lang=args.lang,
-        ink_color=args.ink_color,
-        quiet=quiet,
-    )
+    try:
+        results = run_batch_type_behind(
+            words=args.words,
+            out_dir=args.out,
+            model=args.model,
+            size=args.size,
+            retries=args.retries,
+            force=args.force,
+            dry_run=args.dry_run,
+            primary=args.primary,
+            lang=args.lang,
+            ink_color=args.ink_color,
+            quiet=quiet,
+        )
 
-    summary = {
-        "total": len(results),
-        "ok": sum(1 for r in results if r.get("ok")),
-        "failed": sum(1 for r in results if not r.get("ok")),
-        "skipped": sum(1 for r in results if r.get("skipped")),
-        "dry_run": args.dry_run,
-        "results": results,
-    }
+        summary = {
+            "total": len(results),
+            "ok": sum(1 for r in results if r.get("ok")),
+            "failed": sum(1 for r in results if not r.get("ok")),
+            "skipped": sum(1 for r in results if r.get("skipped")),
+            "dry_run": args.dry_run,
+            "results": results,
+        }
 
-    if args.json:
-        print(json.dumps(summary, ensure_ascii=False, indent=2))
+        if args.json:
+            print(json.dumps(summary, ensure_ascii=False, indent=2))
 
-    if args.strict:
-        if any(not r.get("ok") for r in results):
+        if args.strict:
+            if any(not r.get("ok") for r in results):
+                return 1
+        elif results and all(not r.get("ok") for r in results):
             return 1
-    elif results and all(not r.get("ok") for r in results):
+        return 0
+    except Exception as e:
+        if not args.quiet and not args.json:
+            print(f"❌ 批量字在人后渲染失败: {e}", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
         return 1
-    return 0
 
 
 if __name__ == "__main__":

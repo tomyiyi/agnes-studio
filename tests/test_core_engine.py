@@ -10933,6 +10933,37 @@ class TestBatchTypeBehind(unittest.TestCase):
             ])
             self.assertEqual(code, 1)
 
+    def test_cli_exception_json_output(self):
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("batch_type_behind.run_batch_type_behind", side_effect=RuntimeError("Disk full")):
+            with redirect_stdout(buf):
+                code = batch_type_behind.main(["--words", "MODE", "--json"])
+            self.assertEqual(code, 1)
+            data = json.loads(buf.getvalue())
+            self.assertFalse(data["ok"])
+            self.assertEqual(data["error"], "Disk full")
+
+    def test_cli_exception_stderr_output(self):
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("batch_type_behind.run_batch_type_behind", side_effect=ValueError("Invalid parameters")):
+            with redirect_stderr(buf):
+                code = batch_type_behind.main(["--words", "MODE"])
+            self.assertEqual(code, 1)
+            self.assertIn("❌ 批量字在人后渲染失败: Invalid parameters", buf.getvalue())
+
+    def test_cli_exception_quiet_mode(self):
+        from contextlib import redirect_stderr, redirect_stdout
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("batch_type_behind.run_batch_type_behind", side_effect=RuntimeError("Silent failure")):
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                code = batch_type_behind.main(["--words", "MODE", "--quiet"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
 
 class TestBatchTypeBehindV154(unittest.TestCase):
     """测试「字在人后」v154-v159 未测维度生成引擎 batch_type_behind_v154"""
