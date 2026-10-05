@@ -10693,7 +10693,6 @@ class TestRenderVariantsVerify(unittest.TestCase):
             code = verify_variants_main([
                 "--variant", "v1",
                 "--src", str(sample_img),
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertIn("❌ 版式变体海报渲染失败: Simulated variant render crash", buf.getvalue())
@@ -10711,7 +10710,6 @@ class TestRenderVariantsVerify(unittest.TestCase):
                 "--variant", "v1",
                 "--src", str(sample_img),
                 "-q",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertEqual(out_buf.getvalue(), "")
