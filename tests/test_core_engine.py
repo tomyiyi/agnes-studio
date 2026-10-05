@@ -12861,9 +12861,11 @@ class TestBatchAgnesSamples(unittest.TestCase):
         self.assertEqual(agnes_samples_main(["--dry-run", "-n", "2", "-o", str(cli_out)]), 0)
         self.assertTrue((cli_out / "batch_report.json").is_file())
 
-        # 5. CLI 传递不存在的 lib 时抛出异常或返回非 0
-        with self.assertRaises(FileNotFoundError):
-            agnes_samples_main(["--lib", str(self.tmp_path / "not_there.json")])
+        # 5. CLI 传递不存在的 lib 时返回非 0 退出码 1
+        self.assertEqual(
+            agnes_samples_main(["--lib", str(self.tmp_path / "not_there.json")]),
+            1,
+        )
 
     def test_list_items_and_one_compat(self):
         items = agnes_samples_list_items()
@@ -13023,6 +13025,48 @@ class TestBatchAgnesSamples(unittest.TestCase):
                 "--quiet",
             ])
             self.assertEqual(code, 1)
+
+    def test_cli_exception_json_output(self):
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("batch_agnes_samples.run_batch_agnes_samples", side_effect=RuntimeError("Disk I/O error")):
+            with redirect_stdout(buf):
+                code = agnes_samples_main(["--json"])
+            self.assertEqual(code, 1)
+            data = json.loads(buf.getvalue())
+            self.assertFalse(data["ok"])
+            self.assertEqual(data["error"], "Disk I/O error")
+
+    def test_cli_exception_stderr_output(self):
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("batch_agnes_samples.run_batch_agnes_samples", side_effect=ValueError("Invalid preset item")):
+            with redirect_stderr(buf):
+                code = agnes_samples_main([])
+            self.assertEqual(code, 1)
+            self.assertIn("❌ GPT Image 样张批量生成失败: Invalid preset item", buf.getvalue())
+
+    def test_cli_exception_quiet_mode(self):
+        from contextlib import redirect_stderr, redirect_stdout
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("batch_agnes_samples.run_batch_agnes_samples", side_effect=RuntimeError("Silent failure")):
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                code = agnes_samples_main(["--quiet"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
+    def test_cli_list_items_exception_json_output(self):
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("batch_agnes_samples.list_items", side_effect=RuntimeError("Lib parse failure")):
+            with redirect_stdout(buf):
+                code = agnes_samples_main(["--list-items", "--json"])
+            self.assertEqual(code, 1)
+            data = json.loads(buf.getvalue())
+            self.assertFalse(data["ok"])
+            self.assertEqual(data["error"], "Lib parse failure")
 
 
 class TestInstallSkills71(unittest.TestCase):

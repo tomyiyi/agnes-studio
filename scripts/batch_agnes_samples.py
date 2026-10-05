@@ -313,48 +313,62 @@ def main(argv: list[str] | None = None) -> int:
     quiet = args.quiet or args.json
 
     if args.list_items:
-        items = list_items(lib_path=args.lib)
-        if args.json:
-            print(json.dumps(items, ensure_ascii=False, indent=2))
-        elif not args.quiet:
-            print("Agnes Studio · GPT Image 预设清单:")
-            for it in items:
-                print(f"  [{it['id']:<6}] {it['title']:<24} | 分类: {it['category']:<12} | 分辨率: {it['agnes_size']}")
-            print(f"总计: {len(items)} 项预设")
-        return 0
-
-    results = run_batch_agnes_samples(
-        ids=args.ids,
-        category=args.category,
-        limit=args.limit,
-        out_dir=args.out,
-        lib_path=args.lib,
-        workers=args.workers,
-        model=args.model,
-        default_size=args.size,
-        force=args.force,
-        dry_run=args.dry_run,
-        quiet=quiet,
-    )
-
-    summary = {
-        "total": len(results),
-        "ok": sum(1 for r in results if r.get("ok")),
-        "failed": sum(1 for r in results if not r.get("ok")),
-        "skipped": sum(1 for r in results if r.get("skipped")),
-        "dry_run": args.dry_run,
-        "results": results,
-    }
-
-    if args.json:
-        print(json.dumps(summary, ensure_ascii=False, indent=2))
-
-    if args.strict:
-        if any(not r.get("ok") for r in results):
+        try:
+            items = list_items(lib_path=args.lib)
+            if args.json:
+                print(json.dumps(items, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio · GPT Image 预设清单:")
+                for it in items:
+                    print(f"  [{it['id']:<6}] {it['title']:<24} | 分类: {it['category']:<12} | 分辨率: {it['agnes_size']}")
+                print(f"总计: {len(items)} 项预设")
+            return 0
+        except Exception as e:
+            if not args.quiet and not args.json:
+                print(f"❌ GPT Image 预设清单读取失败: {e}", file=sys.stderr)
+            elif args.json:
+                print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
             return 1
-    elif results and all(not r.get("ok") for r in results):
+
+    try:
+        results = run_batch_agnes_samples(
+            ids=args.ids,
+            category=args.category,
+            limit=args.limit,
+            out_dir=args.out,
+            lib_path=args.lib,
+            workers=args.workers,
+            model=args.model,
+            default_size=args.size,
+            force=args.force,
+            dry_run=args.dry_run,
+            quiet=quiet,
+        )
+
+        summary = {
+            "total": len(results),
+            "ok": sum(1 for r in results if r.get("ok")),
+            "failed": sum(1 for r in results if not r.get("ok")),
+            "skipped": sum(1 for r in results if r.get("skipped")),
+            "dry_run": args.dry_run,
+            "results": results,
+        }
+
+        if args.json:
+            print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+        if args.strict:
+            if any(not r.get("ok") for r in results):
+                return 1
+        elif results and all(not r.get("ok") for r in results):
+            return 1
+        return 0
+    except Exception as e:
+        if not args.quiet and not args.json:
+            print(f"❌ GPT Image 样张批量生成失败: {e}", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
         return 1
-    return 0
 
 
 if __name__ == "__main__":
