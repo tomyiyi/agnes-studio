@@ -198,6 +198,7 @@ def run_batch_gen(
     generate_fn: Callable[..., dict[str, Any]] | None = None,
     save_image_fn: Callable[..., Any] | None = None,
     report_name: str = DEFAULT_REPORT_NAME,
+    quiet: bool = False,
 ) -> dict[str, Any]:
     """批量出图并写入 _batch_report.json 报告。"""
     target_out = Path(out_dir) if out_dir is not None else OUT
@@ -210,7 +211,8 @@ def run_batch_gen(
         items = filter_items(items_to_run, ids=ids, category=category, limit=limit)
 
     total = len(items)
-    print(f"items={total} → {target_out}", flush=True)
+    if not quiet:
+        print(f"items={total} → {target_out}", flush=True)
 
     results: list[dict[str, Any]] = []
     t0 = time.time()
@@ -230,7 +232,8 @@ def run_batch_gen(
             rec = _worker(it)
             results.append(rec)
             status = "✓" if rec.get("ok") else "✗"
-            print(f"{status} [{i}/{total}] {rec['id']} {rec.get('file','')} {rec.get('kb', 0)}KB {rec.get('error','')[:80]}", flush=True)
+            if not quiet:
+                print(f"{status} [{i}/{total}] {rec['id']} {rec.get('file','')} {rec.get('kb', 0)}KB {rec.get('error','')[:80]}", flush=True)
     else:
         done = 0
         with ThreadPoolExecutor(max_workers=workers) as ex:
@@ -240,7 +243,8 @@ def run_batch_gen(
                 results.append(rec)
                 done += 1
                 status = "✓" if rec.get("ok") else "✗"
-                print(f"{status} [{done}/{total}] {rec['id']} {rec.get('file','')} {rec.get('kb', 0)}KB {rec.get('error','')[:80]}", flush=True)
+                if not quiet:
+                    print(f"{status} [{done}/{total}] {rec['id']} {rec.get('file','')} {rec.get('kb', 0)}KB {rec.get('error','')[:80]}", flush=True)
 
     order_map = {str(it.get("id")): i for i, it in enumerate(items)}
     results.sort(key=lambda r: order_map.get(str(r.get("id")), 9999))
@@ -256,7 +260,8 @@ def run_batch_gen(
         "results": results,
     }
     report_path.write_text(json.dumps(report_data, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"done ok={ok}/{len(results)} report={report_path}", flush=True)
+    if not quiet:
+        print(f"done ok={ok}/{len(results)} report={report_path}", flush=True)
 
     return report_data
 
@@ -287,6 +292,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("-f", "--force", action="store_true", help="强制重新生成已存在的文件")
     parser.add_argument("-d", "--dry-run", action="store_true", help="演练模式，不请求实际生图 API")
     parser.add_argument("--list-items", action="store_true", help="列出全部 Prompt 预设清单")
+    parser.add_argument("--json", action="store_true", help="以 JSON 格式输出预设清单或批量执行汇总报告")
+    parser.add_argument("-q", "--quiet", action="store_true", help="静默模式，减少控制台标准输出打印")
+    parser.add_argument("--strict", action="store_true", help="严格模式：存在任何失败项或执行异常时返回非零退出码 1")
     return parser
 
 
@@ -294,12 +302,17 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
 
+    quiet = args.quiet or args.json
+
     if args.list_items:
-        print("Agnes Studio · GPT Image 预设清单:")
         items = list_items(lib_path=args.lib)
-        for it in items:
-            print(f"  [{it['id']:<6}] {it['title']:<24} | 分类: {it['category']:<12} | 分辨率: {it['agnes_size']}")
-        print(f"总计: {len(items)} 项预设")
+        if args.json:
+            print(json.dumps(items, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print("Agnes Studio · GPT Image 预设清单:")
+            for it in items:
+                print(f"  [{it['id']:<6}] {it['title']:<24} | 分类: {it['category']:<12} | 分辨率: {it['agnes_size']}")
+            print(f"总计: {len(items)} 项预设")
         return 0
 
     target_ids: list[str] = []
@@ -320,12 +333,24 @@ def main(argv: list[str] | None = None) -> int:
             workers=args.workers,
             force=args.force,
             dry_run=args.dry_run,
+            quiet=quiet,
         )
     except Exception as exc:
-        print(f"Error during batch generation: {exc}", file=sys.stderr)
+        if args.json:
+            print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
+        elif not args.quiet:
+            print(f"Error during batch generation: {exc}", file=sys.stderr)
         return 1
 
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+
     results = report.get("results", [])
+    if args.strict:
+        if not results or any(not r.get("ok") for r in results):
+            return 1
+        return 0
+
     if results and all(not r.get("ok") for r in results):
         return 1
     return 0

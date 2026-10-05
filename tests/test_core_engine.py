@@ -12978,6 +12978,173 @@ class TestGenAgnesSamples(unittest.TestCase):
         ret = gen_agnes_main(["--lib", str(self.tmp_path / "non_existent.json")])
         self.assertEqual(ret, 1)
 
+    def test_build_arg_parser(self):
+        parser = gen_agnes_build_arg_parser()
+        self.assertIsInstance(parser, argparse.ArgumentParser)
+        actions = {dest: a for a in parser._actions for dest in a.dest.split()}
+        self.assertIn("list_items", actions)
+        self.assertIn("ids", actions)
+        self.assertIn("category", actions)
+        self.assertIn("limit", actions)
+        self.assertIn("out", actions)
+        self.assertIn("workers", actions)
+        self.assertIn("lib", actions)
+        self.assertIn("force", actions)
+        self.assertIn("dry_run", actions)
+        self.assertIn("json", actions)
+        self.assertIn("quiet", actions)
+        self.assertIn("strict", actions)
+
+    def test_cli_list_items_json(self):
+        from contextlib import redirect_stdout
+
+        dummy_lib = self.tmp_path / "lib_test.json"
+        dummy_lib.write_text(json.dumps({
+            "items": [
+                {"id": "G01", "title": "测试样张1", "category": "cat1", "agnes_size": "1024x1024", "agnes_prompt": "p" * 50},
+                {"id": "G02", "title": "测试样张2", "category": "cat2", "agnes_size": "800x1200", "agnes_prompt": "p" * 50},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = gen_agnes_main(["--list-items", "--lib", str(dummy_lib), "--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue().strip())
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 2)
+        self.assertEqual(data[0]["id"], "G01")
+        self.assertEqual(data[1]["id"], "G02")
+        for it in data:
+            self.assertIn("id", it)
+            self.assertIn("title", it)
+            self.assertIn("category", it)
+            self.assertIn("agnes_size", it)
+
+    def test_cli_dry_run_json_output(self):
+        from contextlib import redirect_stdout
+
+        dummy_lib = self.tmp_path / "lib_dry.json"
+        dummy_lib.write_text(json.dumps({
+            "items": [
+                {"id": "DRY01", "title": "演练样张1", "category": "cat1", "agnes_prompt": "prompt1" * 10},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        cli_out = self.tmp_path / "cli_json_dry_gen_agnes"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = gen_agnes_main([
+                "--dry-run",
+                "--lib", str(dummy_lib),
+                "-o", str(cli_out),
+                "--json",
+                "-w", "1",
+            ])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue().strip())
+        self.assertEqual(data["total"], 1)
+        self.assertEqual(data["ok"], 1)
+        self.assertIn("results", data)
+        self.assertEqual(len(data["results"]), 1)
+        self.assertTrue(data["results"][0]["dry_run"])
+        self.assertTrue((cli_out / "_batch_report.json").is_file())
+
+    def test_cli_quiet_mode_suppresses_stdout(self):
+        from contextlib import redirect_stdout
+
+        dummy_lib = self.tmp_path / "lib_quiet.json"
+        dummy_lib.write_text(json.dumps({
+            "items": [
+                {"id": "Q01", "title": "静默样张1", "category": "cat1", "agnes_prompt": "prompt1" * 10},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        # 1. --list-items -q 静默
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = gen_agnes_main(["--list-items", "--lib", str(dummy_lib), "--quiet"])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+        # 2. --dry-run -q 静默
+        cli_out = self.tmp_path / "cli_quiet_dry_gen_agnes"
+        buf2 = io.StringIO()
+        with redirect_stdout(buf2):
+            code = gen_agnes_main([
+                "--dry-run",
+                "--lib", str(dummy_lib),
+                "-o", str(cli_out),
+                "--quiet",
+                "-w", "1",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf2.getvalue().strip(), "")
+
+    def test_run_batch_quiet_mode(self):
+        from contextlib import redirect_stdout
+
+        dummy_lib = self.tmp_path / "lib_batch_quiet.json"
+        dummy_lib.write_text(json.dumps({
+            "items": [
+                {"id": "BQ01", "title": "批处理静默1", "category": "cat1", "agnes_prompt": "prompt1" * 10},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        def fake_gen(prompt, size, model, retries):
+            return {"ok": True}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"x" * 100)
+
+        out_dir = self.tmp_path / "batch_quiet_gen_agnes"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            report = gen_agnes_run_batch(
+                lib_path=dummy_lib,
+                out_dir=out_dir,
+                generate_fn=fake_gen,
+                save_image_fn=fake_save,
+                quiet=True,
+                workers=1,
+            )
+        self.assertEqual(report["total"], 1)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_cli_strict_mode_failure(self):
+        dummy_lib = self.tmp_path / "lib_strict.json"
+        dummy_lib.write_text(json.dumps({
+            "items": [
+                {"id": "FAIL01", "title": "严格失败1", "category": "cat1", "agnes_prompt": "prompt1" * 10},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        with patch("gen_agnes_samples.generate", None):
+            cli_out = self.tmp_path / "cli_strict_fail_gen_agnes"
+            code = gen_agnes_main([
+                "--lib", str(dummy_lib),
+                "-o", str(cli_out),
+                "--strict",
+                "--quiet",
+                "-w", "1",
+            ])
+            self.assertEqual(code, 1)
+
+    def test_cli_exception_json_error(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = gen_agnes_main([
+                "--lib", str(self.tmp_path / "non_existent_file.json"),
+                "--json",
+            ])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertIn("error", data)
+        self.assertIn("non_existent_file.json", data["error"])
+
 
 class TestGeminiIntegrationSuite(unittest.TestCase):
     """测试 Gemini 智能引擎与全链路排印管线自动化验证套件 test_gemini_integration"""
