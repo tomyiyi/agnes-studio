@@ -175,28 +175,35 @@ def main(argv: list[str] | None = None) -> int:
     target_files = [Path(p) for p in args.files] if args.files is not None else None
     expected_count = len(target_files) if target_files is not None else len(DEFAULT_TARGET_FILES)
 
-    results = analyze_poster_visual(
-        target_files=target_files,
-        output_path=args.out,
-        quiet=quiet,
-    )
+    try:
+        results = analyze_poster_visual(
+            target_files=target_files,
+            output_path=args.out,
+            quiet=quiet,
+        )
 
-    is_strict_failed = bool(args.strict and target_files is not None and len(results) != len(target_files))
+        is_strict_failed = bool(args.strict and target_files is not None and len(results) != len(target_files))
 
-    if args.json:
-        payload: dict[str, Any] = {
-            "ok": not is_strict_failed,
-            "total": len(results),
-            "expected": expected_count,
-            "results": results,
-        }
+        if args.json:
+            payload: dict[str, Any] = {
+                "ok": not is_strict_failed,
+                "total": len(results),
+                "expected": expected_count,
+                "results": results,
+            }
+            if is_strict_failed:
+                payload["error"] = f"部分文件解构失败 ({len(results)}/{expected_count})"
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+
         if is_strict_failed:
-            payload["error"] = f"部分文件解构失败 ({len(results)}/{expected_count})"
-        print(json.dumps(payload, ensure_ascii=False, indent=2))
-
-    if is_strict_failed:
+            return 1
+        return 0
+    except Exception as e:
+        if not args.quiet and not args.json:
+            print(f"❌ 海报视觉解构与学习失败: {e}", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False, indent=2))
         return 1
-    return 0
 
 
 if __name__ == "__main__":

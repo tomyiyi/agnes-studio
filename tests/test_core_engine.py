@@ -3544,6 +3544,40 @@ class TestPosterVisualLearner(unittest.TestCase):
         self.assertIn("error", data)
         self.assertIn("部分文件解构失败", data["error"])
 
+    @patch("poster_visual_learner.analyze_poster_visual", side_effect=RuntimeError("Learner crash disk error"))
+    def test_cli_main_exception_stderr_output(self, mock_analyze):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            rc = poster_learner_main(["--files", str(self.square_img)])
+        self.assertEqual(rc, 1)
+        self.assertIn("❌ 海报视觉解构与学习失败: Learner crash disk error", buf.getvalue())
+
+    @patch("poster_visual_learner.analyze_poster_visual", side_effect=RuntimeError("Learner json failure"))
+    def test_cli_main_exception_json_output(self, mock_analyze):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = poster_learner_main(["--files", str(self.square_img), "--json"])
+        self.assertEqual(rc, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["error"], "Learner json failure")
+
+    @patch("poster_visual_learner.analyze_poster_visual", side_effect=RuntimeError("Quiet failure"))
+    def test_cli_main_exception_quiet_mode(self, mock_analyze):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            rc = poster_learner_main(["--files", str(self.square_img), "-q"])
+        self.assertEqual(rc, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
 
 class TestWechatCoverAB(unittest.TestCase):
     """测试微信头图 2.35:1 对照实验与光栅化组件 (WeChat Cover A/B Suite)"""
