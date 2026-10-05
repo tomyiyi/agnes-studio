@@ -33,7 +33,7 @@ FONTS_DIR = ROOT / "public" / "fonts"
 
 CHROME_PATH = resolve_chrome_path()
 
-def get_base64_image(image_path):
+def get_base64_image(image_path, quiet=False):
     """读取本地图片并转为 base64 data URI，确保无头浏览器 100% 离线秒级加载"""
     if not image_path:
         return ""
@@ -51,10 +51,11 @@ def get_base64_image(image_path):
             mime = "image/jpeg"
         return f"data:{mime};base64,{base64.b64encode(data).decode('utf-8')}"
     except Exception as e:
-        print(f"⚠️ [Base64 Error] 读取图片失败 {image_path}: {e}")
+        if not quiet:
+            print(f"⚠️ [Base64 Error] 读取图片失败 {image_path}: {e}")
         return ""
 
-def render_html_to_poster(html_content, output_path, width=1200, height=1200, wait_timeout_ms=350):
+def render_html_to_poster(html_content, output_path, width=1200, height=1200, wait_timeout_ms=350, quiet=False):
     """通用无头 Chrome 渲染管线，1200x1200 亚像素级渲染"""
     if not html_content:
         raise ValueError("html_content cannot be empty")
@@ -77,8 +78,9 @@ def render_html_to_poster(html_content, output_path, width=1200, height=1200, wa
         else:
             page.screenshot(path=output_path, type="png")
         browser.close()
-    size_kb = os.path.getsize(output_path) // 1024
-    print(f"  ✓ 成功渲染: {os.path.basename(output_path)} ({size_kb} KB)")
+    if not quiet:
+        size_kb = os.path.getsize(output_path) // 1024
+        print(f"  ✓ 成功渲染: {os.path.basename(output_path)} ({size_kb} KB)")
     return output_path
 
 # =============================================================================
@@ -170,7 +172,7 @@ def build_swiss_01_html(bg_uri: str = "") -> str:
   </div>
 </body></html>"""
 
-def render_swiss_01(bg_img=None, out_img=None):
+def render_swiss_01(bg_img=None, out_img=None, quiet=False):
     """
     [架构1-示例A]《苏黎世秩序 · 12栏绝对非对称》 (poster_pro_swiss_01.png)
     设计要点：
@@ -182,13 +184,13 @@ def render_swiss_01(bg_img=None, out_img=None):
     is_default_out = out_img is None
     bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1789995698_9987.png")
     out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_swiss_01.png")
-    bg_uri = get_base64_image(bg_img)
+    bg_uri = get_base64_image(bg_img, quiet=quiet)
     html = build_swiss_01_html(bg_uri)
-    render_html_to_poster(html, out_img)
+    render_html_to_poster(html, out_img, quiet=quiet)
     # 兼容旧命名
     if is_default_out:
         compat_img = os.path.join(ASSETS_DIR, "poster_pro_swiss_grid.png")
-        render_html_to_poster(html, compat_img)
+        render_html_to_poster(html, compat_img, quiet=quiet)
     return out_img
 
 def build_swiss_02_html(bg_uri: str = "") -> str:
@@ -279,7 +281,7 @@ def build_swiss_02_html(bg_uri: str = "") -> str:
   </div>
 </body></html>"""
 
-def render_swiss_02(bg_img=None, out_img=None):
+def render_swiss_02(bg_img=None, out_img=None, quiet=False):
     """
     [架构1-示例B]《Musica Viva · 空间对角律动》 (poster_pro_swiss_02.png)
     致敬 1959/1961 年 Josef Müller-Brockmann 的经典同心圆/几何动势海报
@@ -291,9 +293,9 @@ def render_swiss_02(bg_img=None, out_img=None):
     """
     bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1790005541_735b258d.png")
     out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_swiss_02.png")
-    bg_uri = get_base64_image(bg_img)
+    bg_uri = get_base64_image(bg_img, quiet=quiet)
     html = build_swiss_02_html(bg_uri)
-    render_html_to_poster(html, out_img)
+    render_html_to_poster(html, out_img, quiet=quiet)
     return out_img
 
 # =============================================================================
@@ -411,7 +413,7 @@ def build_article_01_html(bg_uri: str = "") -> str:
   </div>
 </body></html>"""
 
-def render_article_01(bg_img=None, out_img=None):
+def render_article_01(bg_img=None, out_img=None, quiet=False):
     """
     [架构2-示例A]《深空洞察 · 暗夜科技 CNC 杂志特刊》 (poster_pro_article_01.png)
     吸收 article-poster-generator 的 dark-tech 风格：
@@ -422,9 +424,9 @@ def render_article_01(bg_img=None, out_img=None):
     """
     bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1790006749_b2b755da.png")
     out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_article_01.png")
-    bg_uri = get_base64_image(bg_img)
+    bg_uri = get_base64_image(bg_img, quiet=quiet)
     html = build_article_01_html(bg_uri)
-    render_html_to_poster(html, out_img)
+    render_html_to_poster(html, out_img, quiet=quiet)
     return out_img
 
 def build_article_02_html(bg_uri: str = "") -> str:
@@ -522,7 +524,7 @@ def build_article_02_html(bg_uri: str = "") -> str:
   </div>
 </body></html>"""
 
-def render_article_02(bg_img=None, out_img=None):
+def render_article_02(bg_img=None, out_img=None, quiet=False):
     """
     [架构2-示例B]《数字游民 · 极简生活志》 (poster_pro_article_02.png)
     吸收 article-poster-generator 的 minimal-biz 风格：
@@ -532,9 +534,9 @@ def render_article_02(bg_img=None, out_img=None):
     """
     bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1789997811_3773.png")
     out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_article_02.png")
-    bg_uri = get_base64_image(bg_img)
+    bg_uri = get_base64_image(bg_img, quiet=quiet)
     html = build_article_02_html(bg_uri)
-    render_html_to_poster(html, out_img)
+    render_html_to_poster(html, out_img, quiet=quiet)
     return out_img
 
 # =============================================================================
@@ -641,7 +643,7 @@ def build_cyber_01_html(bg_uri: str = "") -> str:
   </div>
 </body></html>"""
 
-def render_cyber_01(bg_img=None, out_img=None):
+def render_cyber_01(bg_img=None, out_img=None, quiet=False):
     """
     [架构3-示例A]《机能战术 · HUD 工业取景准心》 (poster_pro_cyber_01.png)
     设计要点：
@@ -652,12 +654,12 @@ def render_cyber_01(bg_img=None, out_img=None):
     is_default_out = out_img is None
     bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1789995703_1047.png")
     out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_cyber_01.png")
-    bg_uri = get_base64_image(bg_img)
+    bg_uri = get_base64_image(bg_img, quiet=quiet)
     html = build_cyber_01_html(bg_uri)
-    render_html_to_poster(html, out_img)
+    render_html_to_poster(html, out_img, quiet=quiet)
     if is_default_out:
         compat_img = os.path.join(ASSETS_DIR, "poster_pro_steampunk_tech.png")
-        render_html_to_poster(html, compat_img)
+        render_html_to_poster(html, compat_img, quiet=quiet)
     return out_img
 
 def build_cyber_02_html(bg_uri: str = "") -> str:
@@ -728,7 +730,7 @@ def build_cyber_02_html(bg_uri: str = "") -> str:
   </div>
 </body></html>"""
 
-def render_cyber_02(bg_img=None, out_img=None):
+def render_cyber_02(bg_img=None, out_img=None, quiet=False):
     """
     [架构3-示例B]《酸性霓虹 · Y2K 新野兽主义先锋》 (poster_pro_cyber_02.png)
     设计要点：
@@ -739,9 +741,9 @@ def render_cyber_02(bg_img=None, out_img=None):
     """
     bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1790005169_f77bd79b.png")
     out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_cyber_02.png")
-    bg_uri = get_base64_image(bg_img)
+    bg_uri = get_base64_image(bg_img, quiet=quiet)
     html = build_cyber_02_html(bg_uri)
-    render_html_to_poster(html, out_img)
+    render_html_to_poster(html, out_img, quiet=quiet)
     return out_img
 
 # =============================================================================
@@ -817,7 +819,7 @@ def build_chinese_01_html(bg_uri: str = "") -> str:
   </div>
 </body></html>"""
 
-def render_chinese_01(bg_img=None, out_img=None):
+def render_chinese_01(bg_img=None, out_img=None, quiet=False):
     """
     [架构4-示例A]《苏园惊鸿 · 对角双列错位拆字》 (poster_pro_chinese_01.png)
     设计要素：
@@ -828,12 +830,12 @@ def render_chinese_01(bg_img=None, out_img=None):
     is_default_out = out_img is None
     bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1789997327_7424.png")
     out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_chinese_01.png")
-    bg_uri = get_base64_image(bg_img)
+    bg_uri = get_base64_image(bg_img, quiet=quiet)
     html = build_chinese_01_html(bg_uri)
-    render_html_to_poster(html, out_img)
+    render_html_to_poster(html, out_img, quiet=quiet)
     if is_default_out:
         compat_img = os.path.join(ASSETS_DIR, "poster_pro_neochinese_poetics.png")
-        render_html_to_poster(html, compat_img)
+        render_html_to_poster(html, compat_img, quiet=quiet)
     return out_img
 
 def build_chinese_02_html(bg_uri: str = "") -> str:
@@ -904,7 +906,7 @@ def build_chinese_02_html(bg_uri: str = "") -> str:
   </div>
 </body></html>"""
 
-def render_chinese_02(bg_img=None, out_img=None):
+def render_chinese_02(bg_img=None, out_img=None, quiet=False):
     """
     [架构4-示例B]《墨韵山海 · 东方极简空灵金石》 (poster_pro_chinese_02.png)
     设计要点：
@@ -914,9 +916,9 @@ def render_chinese_02(bg_img=None, out_img=None):
     """
     bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1789997343_5762.png")
     out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_chinese_02.png")
-    bg_uri = get_base64_image(bg_img)
+    bg_uri = get_base64_image(bg_img, quiet=quiet)
     html = build_chinese_02_html(bg_uri)
-    render_html_to_poster(html, out_img)
+    render_html_to_poster(html, out_img, quiet=quiet)
     return out_img
 
 # =============================================================================
@@ -1006,7 +1008,7 @@ def build_cinema_01_html(bg_uri: str = "") -> str:
   </div>
 </body></html>"""
 
-def render_cinema_01(bg_img=None, out_img=None):
+def render_cinema_01(bg_img=None, out_img=None, quiet=False):
     """
     [架构5-示例A]《最后的地平线 · 史诗科幻巨制》 (poster_pro_cinema_01.png)
     设计要点：
@@ -1018,12 +1020,12 @@ def render_cinema_01(bg_img=None, out_img=None):
     is_default_out = out_img is None
     bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1789995702_9250.png")
     out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_cinema_01.png")
-    bg_uri = get_base64_image(bg_img)
+    bg_uri = get_base64_image(bg_img, quiet=quiet)
     html = build_cinema_01_html(bg_uri)
-    render_html_to_poster(html, out_img)
+    render_html_to_poster(html, out_img, quiet=quiet)
     if is_default_out:
         compat_img = os.path.join(ASSETS_DIR, "poster_pro_cinematic_letterbox.png")
-        render_html_to_poster(html, compat_img)
+        render_html_to_poster(html, compat_img, quiet=quiet)
     return out_img
 
 def build_cinema_02_html(bg_uri: str = "") -> str:
@@ -1119,7 +1121,7 @@ def build_cinema_02_html(bg_uri: str = "") -> str:
   </div>
 </body></html>"""
 
-def render_cinema_02(bg_img=None, out_img=None):
+def render_cinema_02(bg_img=None, out_img=None, quiet=False):
     """
     [架构5-示例B]《深渊回响 · 黑色悬疑大片》 (poster_pro_cinema_02.png)
     设计要点：
@@ -1129,9 +1131,9 @@ def render_cinema_02(bg_img=None, out_img=None):
     """
     bg_img = bg_img or os.path.join(ASSETS_DIR, "agnes_1790006257_2d6beb48.png")
     out_img = out_img or os.path.join(ASSETS_DIR, "poster_pro_cinema_02.png")
-    bg_uri = get_base64_image(bg_img)
+    bg_uri = get_base64_image(bg_img, quiet=quiet)
     html = build_cinema_02_html(bg_uri)
-    render_html_to_poster(html, out_img)
+    render_html_to_poster(html, out_img, quiet=quiet)
     return out_img
 
 # =============================================================================
@@ -1234,51 +1236,104 @@ def get_poster_preset(key):
         return None
     return POSTER_REGISTRY.get(key.strip().lower())
 
-def render_preset(key, bg_img=None, out_img=None):
+def render_preset(key, bg_img=None, out_img=None, quiet=False):
     """根据 key 渲染指定海报预设"""
     preset = get_poster_preset(key)
     if not preset:
         raise KeyError(f"Unknown poster preset key: {key}. Available: {list(POSTER_REGISTRY.keys())}")
-    return preset["func"](bg_img=bg_img, out_img=out_img)
+    return preset["func"](bg_img=bg_img, out_img=out_img, quiet=quiet)
 
-def run_all(output_dir=None):
-    print("======================================================================")
-    print("🚀 [Agnes Studio] 启动 5 大顶级设计架构 · 10 款商业大师级海报全量渲染管线")
-    print("======================================================================")
+def run_all(output_dir=None, quiet=False, category=None):
+    if not quiet:
+        cat_str = f" · {category} 流派" if category else ""
+        print("======================================================================")
+        print(f"🚀 [Agnes Studio] 启动商业大师级海报渲染管线{cat_str}")
+        print("======================================================================")
     start_time = time.time()
     rendered_count = 0
     results = {}
     
-    for key, item in POSTER_REGISTRY.items():
-        print(f"\n▶ 正在执行 [{key}]: {item['name']}...")
+    target_registry = {
+        k: v for k, v in POSTER_REGISTRY.items()
+        if not category or v.get("category", "").lower() == category.strip().lower()
+    }
+    if category and not target_registry:
+        if not quiet:
+            print(f"⚠️ 未找到匹配流派 '{category}' 的预设")
+        return results
+
+    for key, item in target_registry.items():
+        if not quiet:
+            print(f"\n▶ 正在执行 [{key}]: {item['name']}...")
         out_f = os.path.join(output_dir, item["file"]) if output_dir else None
-        results[key] = item["func"](out_img=out_f)
+        results[key] = item["func"](out_img=out_f, quiet=quiet)
         rendered_count += 1
         
     cost = round(time.time() - start_time, 2)
-    print(f"\n✨ [完成] {rendered_count} 款商业大师级海报全部光栅化渲染成功！总耗时: {cost} 秒")
+    if not quiet:
+        print(f"\n✨ [完成] {rendered_count} 款商业大师级海报全部光栅化渲染成功！总耗时: {cost} 秒")
     return results
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Agnes Studio Professional Poster Renderer")
-    parser.add_argument("--key", type=str, help="单个海报 key 执行")
-    parser.add_argument("--list", action="store_true", help="列出所有可用的海报流派预设")
-    parser.add_argument("--all", action="store_true", default=False, help="全量渲染所有预设")
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Agnes Studio - 专业商业海报排版引擎 (Professional Poster Suite)")
+    parser.add_argument("--key", "-k", type=str, default=None, help="单个海报 key 执行 (如 swiss_01, cinema_02)")
+    parser.add_argument("--category", "-c", type=str, default=None, help="按流派批量渲染 (swiss, article, cyber, chinese, cinema)")
+    parser.add_argument("--list", "-l", action="store_true", help="列出所有可用的海报流派预设")
+    parser.add_argument("--all", "-a", action="store_true", default=False, help="全量渲染所有预设")
+    parser.add_argument("--src", "--bg", "-i", default=None, help="自定义输入背景底图路径")
+    parser.add_argument("--out", "-o", default=None, help="自定义输出图片路径（单 key 渲染时生效）")
     parser.add_argument("--out-dir", type=str, default=None, help="自定义输出目录")
-    args = parser.parse_args()
-    
+    parser.add_argument("--quiet", "-q", action="store_true", help="静默模式，抑制控制台日志")
+    parser.add_argument("--strict", action="store_true", help="严格模式：遇到错误或未匹配预设时返回非零退出码 1")
+    args = parser.parse_args(argv)
+
     if args.list:
-        print("Agnes Studio 可用海报预设:")
-        for p in list_poster_presets():
-            print(f"  - [{p['key']}] {p['name']} -> {p['file']} ({p['category']})")
-        sys.exit(0)
+        if not args.quiet:
+            print("Agnes Studio 可用海报预设:")
+            for p in list_poster_presets():
+                print(f"  - [{p['key']}] {p['name']} -> {p['file']} ({p['category']})")
+        return 0
 
     if args.key:
-        if get_poster_preset(args.key):
-            out_f = os.path.join(args.out_dir, get_poster_preset(args.key)["file"]) if args.out_dir else None
-            render_preset(args.key, out_img=out_f)
-        else:
-            print(f"❌ 未知海报 key: {args.key}，可选: {list(POSTER_REGISTRY.keys())}")
-            sys.exit(1)
-    else:
-        run_all(output_dir=args.out_dir)
+        preset = get_poster_preset(args.key)
+        if not preset:
+            if not args.quiet:
+                print(f"❌ 未知海报 key: {args.key}，可选: {list(POSTER_REGISTRY.keys())}", file=sys.stderr)
+            return 1 if args.strict else 0
+        try:
+            out_file = args.out
+            if not out_file and args.out_dir:
+                out_file = os.path.join(args.out_dir, preset["file"])
+            render_preset(args.key, bg_img=args.src, out_img=out_file, quiet=args.quiet)
+            return 0
+        except Exception as e:
+            if not args.quiet:
+                print(f"❌ 渲染海报失败 [{args.key}]: {e}", file=sys.stderr)
+            return 1 if args.strict else 0
+
+    if args.category:
+        try:
+            results = run_all(output_dir=args.out_dir, quiet=args.quiet, category=args.category)
+            if not results and args.strict:
+                if not args.quiet:
+                    print(f"❌ 未匹配到任何预设: category={args.category}", file=sys.stderr)
+                return 1
+            return 0
+        except Exception as e:
+            if not args.quiet:
+                print(f"❌ 批量渲染流派海报失败 [{args.category}]: {e}", file=sys.stderr)
+            return 1 if args.strict else 0
+
+    # default or --all: run_all
+    try:
+        run_all(output_dir=args.out_dir, quiet=args.quiet)
+        return 0
+    except Exception as e:
+        if not args.quiet:
+            print(f"❌ 全量渲染海报失败: {e}", file=sys.stderr)
+        return 1 if args.strict else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

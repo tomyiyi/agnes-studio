@@ -149,6 +149,7 @@ from pro_poster_renderer import (
     get_poster_preset,
     render_preset,
     run_all as run_all_posters,
+    main as pro_poster_main,
 )
 import agnes_engine
 from agnes_engine import (
@@ -3636,6 +3637,96 @@ class TestProPosterRenderer(unittest.TestCase):
         for k in POSTER_REGISTRY.keys():
             self.assertIn(k, all_results)
             self.assertTrue(all_results[k].endswith(".png"))
+
+    @patch("pro_poster_renderer.render_html_to_poster")
+    def test_render_preset_and_run_all_quiet_mode(self, mock_render):
+        from contextlib import redirect_stdout
+
+        fake_bg = str(self.tmp_path / "fake_bg.png")
+        Path(fake_bg).write_bytes(b"fake_bg")
+        out_file = str(self.tmp_path / "out_preset.png")
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            render_preset("swiss_01", bg_img=fake_bg, out_img=out_file, quiet=True)
+            run_all_posters(output_dir=str(self.tmp_path / "batch_out"), quiet=True)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    @patch("pro_poster_renderer.render_html_to_poster")
+    def test_run_all_with_category_filter(self, mock_render):
+        results_cinema = run_all_posters(category="cinema", quiet=True)
+        self.assertEqual(set(results_cinema.keys()), {"cinema_01", "cinema_02"})
+
+        results_swiss = run_all_posters(category="swiss", quiet=True)
+        self.assertEqual(set(results_swiss.keys()), {"swiss_01", "swiss_02"})
+
+        results_none = run_all_posters(category="unknown_cat", quiet=True)
+        self.assertEqual(results_none, {})
+
+    def test_cli_main_list_mode(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = pro_poster_main(["--list"])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("Agnes Studio 可用海报预设:", out)
+        self.assertIn("swiss_01", out)
+        self.assertIn("cinema_01", out)
+
+    @patch("pro_poster_renderer.render_html_to_poster")
+    def test_cli_main_key_mode_with_custom_src_and_out(self, mock_render):
+        fake_bg = self.tmp_path / "custom_bg.png"
+        fake_bg.write_bytes(b"custom_bg")
+        out_file = self.tmp_path / "custom_out.png"
+
+        code = pro_poster_main([
+            "--key", "cinema_01",
+            "--src", str(fake_bg),
+            "--out", str(out_file),
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        mock_render.assert_called()
+        self.assertEqual(mock_render.call_args[0][1], str(out_file))
+
+    @patch("pro_poster_renderer.render_html_to_poster")
+    def test_cli_main_category_mode(self, mock_render):
+        out_dir = self.tmp_path / "cinema_posters"
+        code = pro_poster_main([
+            "--category", "cinema",
+            "--out-dir", str(out_dir),
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_render.call_count, 2)
+
+    def test_cli_main_invalid_key_strict_mode(self):
+        code = pro_poster_main(["--key", "nonexistent_key", "--strict", "--quiet"])
+        self.assertEqual(code, 1)
+
+        code_lenient = pro_poster_main(["--key", "nonexistent_key", "--quiet"])
+        self.assertEqual(code_lenient, 0)
+
+    @patch("pro_poster_renderer.render_html_to_poster")
+    def test_cli_main_quiet_mode_suppresses_stdout(self, mock_render):
+        from contextlib import redirect_stdout
+
+        fake_bg = self.tmp_path / "custom_bg.png"
+        fake_bg.write_bytes(b"custom_bg")
+        out_file = self.tmp_path / "custom_out.png"
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = pro_poster_main([
+                "--key", "swiss_01",
+                "--src", str(fake_bg),
+                "--out", str(out_file),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
 
 
 class TestGeminiEngine(unittest.TestCase):
