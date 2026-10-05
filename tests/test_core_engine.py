@@ -462,6 +462,7 @@ from batch_agnes_samples import (
     one as agnes_samples_one,
     main as agnes_samples_main,
     classify_generation_error as agnes_samples_classify_error,
+    build_arg_parser as build_agnes_samples_arg_parser,
 )
 import install_skills_71
 from install_skills_71 import (
@@ -11950,6 +11951,148 @@ class TestBatchAgnesSamples(unittest.TestCase):
         res = agnes_samples_render_single(mock_item, out_dir=self.tmp_path, dry_run=True)
         self.assertTrue(res["ok"])
         self.assertEqual(res["id"], "9999")
+
+    def test_build_arg_parser(self):
+        parser = build_agnes_samples_arg_parser()
+        self.assertIsInstance(parser, argparse.ArgumentParser)
+        actions = {dest: a for a in parser._actions for dest in a.dest.split()}
+        self.assertIn("list_items", actions)
+        self.assertIn("ids", actions)
+        self.assertIn("category", actions)
+        self.assertIn("limit", actions)
+        self.assertIn("out", actions)
+        self.assertIn("workers", actions)
+        self.assertIn("model", actions)
+        self.assertIn("size", actions)
+        self.assertIn("lib", actions)
+        self.assertIn("force", actions)
+        self.assertIn("dry_run", actions)
+        self.assertIn("json", actions)
+        self.assertIn("quiet", actions)
+        self.assertIn("strict", actions)
+
+    def test_cli_list_items_json(self):
+        from contextlib import redirect_stdout
+
+        dummy_lib = self.tmp_path / "lib_test.json"
+        dummy_lib.write_text(json.dumps({
+            "items": [
+                {"id": "L01", "title": "测试预设1", "category": "cat1", "agnes_size": "1024x1024", "agnes_prompt": "p" * 50},
+                {"id": "L02", "title": "测试预设2", "category": "cat2", "agnes_size": "800x1200", "agnes_prompt": "p" * 50},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = agnes_samples_main(["--list-items", "--lib", str(dummy_lib), "--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 2)
+        self.assertEqual(data[0]["id"], "L01")
+        self.assertEqual(data[1]["id"], "L02")
+        for it in data:
+            self.assertIn("id", it)
+            self.assertIn("title", it)
+            self.assertIn("category", it)
+            self.assertIn("agnes_size", it)
+
+    def test_cli_dry_run_json_output(self):
+        from contextlib import redirect_stdout
+
+        dummy_lib = self.tmp_path / "lib_dry.json"
+        dummy_lib.write_text(json.dumps({
+            "items": [
+                {"id": "DRY01", "title": "演练预设1", "category": "cat1", "agnes_prompt": "prompt1" * 10},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        cli_out = self.tmp_path / "cli_json_dry_agnes"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = agnes_samples_main([
+                "--dry-run",
+                "--lib", str(dummy_lib),
+                "-o", str(cli_out),
+                "--json",
+            ])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertEqual(data["total"], 1)
+        self.assertEqual(data["ok"], 1)
+        self.assertEqual(data["failed"], 0)
+        self.assertTrue(data["dry_run"])
+        self.assertEqual(len(data["results"]), 1)
+        self.assertTrue((cli_out / "batch_report.json").is_file())
+
+    def test_cli_quiet_mode_suppresses_stdout(self):
+        from contextlib import redirect_stdout
+
+        dummy_lib = self.tmp_path / "lib_quiet.json"
+        dummy_lib.write_text(json.dumps({
+            "items": [
+                {"id": "Q01", "title": "静默预设1", "category": "cat1", "agnes_prompt": "prompt1" * 10},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        cli_out = self.tmp_path / "cli_quiet_dry_agnes"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = agnes_samples_main([
+                "--dry-run",
+                "--lib", str(dummy_lib),
+                "-o", str(cli_out),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_run_batch_quiet_mode(self):
+        from contextlib import redirect_stdout
+
+        dummy_lib = self.tmp_path / "lib_batch_quiet.json"
+        dummy_lib.write_text(json.dumps({
+            "items": [
+                {"id": "BQ01", "title": "批处理静默1", "category": "cat1", "agnes_prompt": "prompt1" * 10},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        def fake_gen(prompt, size, model, retries):
+            return {"ok": True}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"x" * 100)
+
+        out_dir = self.tmp_path / "batch_quiet_agnes_samples"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            results = agnes_samples_run_batch(
+                lib_path=dummy_lib,
+                out_dir=out_dir,
+                generate_fn=fake_gen,
+                save_image_fn=fake_save,
+                quiet=True,
+            )
+        self.assertEqual(len(results), 1)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_cli_strict_mode_failure(self):
+        dummy_lib = self.tmp_path / "lib_strict.json"
+        dummy_lib.write_text(json.dumps({
+            "items": [
+                {"id": "FAIL01", "title": "严格失败1", "category": "cat1", "agnes_prompt": "prompt1" * 10},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        with patch("batch_agnes_samples.generate", None):
+            cli_out = self.tmp_path / "cli_strict_fail_agnes"
+            code = agnes_samples_main([
+                "--lib", str(dummy_lib),
+                "-o", str(cli_out),
+                "--strict",
+                "--quiet",
+            ])
+            self.assertEqual(code, 1)
 
 
 class TestInstallSkills71(unittest.TestCase):
