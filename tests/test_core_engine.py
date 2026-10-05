@@ -184,6 +184,9 @@ from pro_poster_renderer import (
     render_preset,
     run_all as run_all_posters,
     main as pro_poster_main,
+    build_arg_parser as pro_poster_build_arg_parser,
+    list_poster_categories as pro_poster_list_categories,
+    POSTER_CATEGORIES as PRO_POSTER_CATEGORIES,
 )
 import agnes_engine
 from agnes_engine import (
@@ -4888,6 +4891,99 @@ class TestProPosterRenderer(unittest.TestCase):
             ])
         self.assertEqual(code, 0)
         self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_list_poster_categories(self):
+        cats = pro_poster_list_categories()
+        self.assertEqual(len(cats), 5)
+        cat_ids = [c["category"] for c in cats]
+        for expected in ["swiss", "article", "cyber", "chinese", "cinema"]:
+            self.assertIn(expected, cat_ids)
+        self.assertEqual(cats, PRO_POSTER_CATEGORIES)
+
+    def test_build_arg_parser(self):
+        parser = pro_poster_build_arg_parser()
+        self.assertIsNotNone(parser)
+        parsed = parser.parse_args(["--list-categories", "--json"])
+        self.assertTrue(parsed.list_categories)
+        self.assertTrue(parsed.json)
+
+    def test_cli_main_list_categories_mode(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = pro_poster_main(["--list-categories"])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("Agnes Studio 可用海报流派分类:", out)
+        self.assertIn("swiss", out)
+        self.assertIn("瑞士国际主义网格", out)
+
+    def test_cli_main_json_list_and_categories(self):
+        from contextlib import redirect_stdout
+
+        # list categories json
+        buf_cat = io.StringIO()
+        with redirect_stdout(buf_cat):
+            code_cat = pro_poster_main(["--list-categories", "--json"])
+        self.assertEqual(code_cat, 0)
+        data_cat = json.loads(buf_cat.getvalue())
+        self.assertIsInstance(data_cat, list)
+        self.assertEqual(len(data_cat), 5)
+
+        # list presets json
+        buf_list = io.StringIO()
+        with redirect_stdout(buf_list):
+            code_list = pro_poster_main(["--list", "--json"])
+        self.assertEqual(code_list, 0)
+        data_list = json.loads(buf_list.getvalue())
+        self.assertIsInstance(data_list, list)
+        self.assertEqual(len(data_list), 10)
+
+    @patch("pro_poster_renderer.render_html_to_poster")
+    def test_cli_main_json_render_preset(self, mock_render):
+        fake_bg = self.tmp_path / "custom_bg.png"
+        fake_bg.write_bytes(b"custom_bg")
+        out_file = self.tmp_path / "custom_out.png"
+
+        def fake_render(html, out_path, **kwargs):
+            Path(out_path).write_bytes(b"12345")
+            return out_path
+
+        mock_render.side_effect = fake_render
+
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = pro_poster_main([
+                "--key", "swiss_01",
+                "--src", str(fake_bg),
+                "--out", str(out_file),
+                "--json",
+            ])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertTrue(data.get("ok"))
+        self.assertEqual(data.get("key"), "swiss_01")
+        self.assertEqual(data.get("bytes"), 5)
+
+    @patch("pro_poster_renderer.render_html_to_poster")
+    def test_cli_main_json_render_category(self, mock_render):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = pro_poster_main([
+                "--category", "cinema",
+                "--out-dir", str(self.tmp_path / "cinema_json"),
+                "--json",
+            ])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertTrue(data.get("ok"))
+        self.assertEqual(data.get("category"), "cinema")
+        self.assertEqual(data.get("total"), 2)
 
 
 class TestGeminiEngine(unittest.TestCase):

@@ -18,7 +18,9 @@ import sys
 import time
 import base64
 import argparse
+import json
 from pathlib import Path
+from typing import Any
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(SCRIPTS_DIR) not in sys.path:
@@ -1218,6 +1220,40 @@ POSTER_REGISTRY = {
     },
 }
 
+POSTER_CATEGORIES: list[dict[str, Any]] = [
+    {
+        "category": "swiss",
+        "name": "瑞士国际主义网格",
+        "description": "苏黎世理性秩序与 Musica Viva 对角律动，严格吸附数学字阶基线",
+    },
+    {
+        "category": "article",
+        "name": "长文现代信息图",
+        "description": "暗夜 CNC 科技杂志特刊与数字游民极简生活志，现代排印与阅读节奏",
+    },
+    {
+        "category": "cyber",
+        "name": "先锋酸性与赛博机能",
+        "description": "HUD 战术瞄准对焦与 Y2K 酸性霓虹先锋，高张力构图与先锋视觉符号",
+    },
+    {
+        "category": "chinese",
+        "name": "新中式避障排版",
+        "description": "苏园惊鸿智能避障拆字与墨韵山海金石印章，诗意留白与东方雅集",
+    },
+    {
+        "category": "cinema",
+        "name": "电影大片画幅",
+        "description": "2.35:1 宽银幕演职员表与深渊回响戛纳桂冠，院线级微排版与电影质感",
+    },
+]
+
+
+def list_poster_categories() -> list[dict[str, Any]]:
+    """返回所有已注册的海报流派分类元数据列表"""
+    return [dict(c) for c in POSTER_CATEGORIES]
+
+
 def list_poster_presets():
     """返回所有已注册的海报预设元数据列表"""
     return [
@@ -1275,62 +1311,119 @@ def run_all(output_dir=None, quiet=False, category=None):
     return results
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建专业商业海报排版引擎命令行参数解析器。"""
     parser = argparse.ArgumentParser(description="Agnes Studio - 专业商业海报排版引擎 (Professional Poster Suite)")
     parser.add_argument("--key", "-k", type=str, default=None, help="单个海报 key 执行 (如 swiss_01, cinema_02)")
     parser.add_argument("--category", "-c", type=str, default=None, help="按流派批量渲染 (swiss, article, cyber, chinese, cinema)")
     parser.add_argument("--list", "-l", action="store_true", help="列出所有可用的海报流派预设")
+    parser.add_argument("--list-categories", action="store_true", help="列出所有支持的海报流派分类元数据")
+    parser.add_argument("--json", action="store_true", help="以 JSON 格式输出预设/分类清单或渲染报告")
     parser.add_argument("--all", "-a", action="store_true", default=False, help="全量渲染所有预设")
     parser.add_argument("--src", "--bg", "-i", default=None, help="自定义输入背景底图路径")
     parser.add_argument("--out", "-o", default=None, help="自定义输出图片路径（单 key 渲染时生效）")
     parser.add_argument("--out-dir", type=str, default=None, help="自定义输出目录")
     parser.add_argument("--quiet", "-q", action="store_true", help="静默模式，抑制控制台日志")
     parser.add_argument("--strict", action="store_true", help="严格模式：遇到错误或未匹配预设时返回非零退出码 1")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
     args = parser.parse_args(argv)
 
+    quiet = args.quiet or args.json
+
+    if args.list_categories:
+        cats = list_poster_categories()
+        if args.json:
+            print(json.dumps(cats, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print("Agnes Studio 可用海报流派分类:")
+            for c in cats:
+                print(f"  - [{c['category']:<8}] {c['name']:<16} | {c['description']}")
+        return 0
+
     if args.list:
-        if not args.quiet:
+        presets = list_poster_presets()
+        if args.json:
+            print(json.dumps(presets, ensure_ascii=False, indent=2))
+        elif not args.quiet:
             print("Agnes Studio 可用海报预设:")
-            for p in list_poster_presets():
+            for p in presets:
                 print(f"  - [{p['key']}] {p['name']} -> {p['file']} ({p['category']})")
         return 0
 
     if args.key:
         preset = get_poster_preset(args.key)
         if not preset:
-            if not args.quiet:
-                print(f"❌ 未知海报 key: {args.key}，可选: {list(POSTER_REGISTRY.keys())}", file=sys.stderr)
+            err_msg = f"未知海报 key: {args.key}，可选: {list(POSTER_REGISTRY.keys())}"
+            if args.json:
+                print(json.dumps({"ok": False, "error": err_msg, "key": args.key}, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print(f"❌ {err_msg}", file=sys.stderr)
             return 1 if args.strict else 0
         try:
             out_file = args.out
             if not out_file and args.out_dir:
                 out_file = os.path.join(args.out_dir, preset["file"])
-            render_preset(args.key, bg_img=args.src, out_img=out_file, quiet=args.quiet)
+            res_path = render_preset(args.key, bg_img=args.src, out_img=out_file, quiet=quiet)
+            f_size = Path(res_path).stat().st_size if res_path and Path(res_path).exists() else 0
+            if args.json:
+                print(json.dumps({
+                    "ok": True,
+                    "key": args.key,
+                    "name": preset["name"],
+                    "out": str(res_path),
+                    "bytes": f_size,
+                }, ensure_ascii=False, indent=2))
             return 0
         except Exception as e:
-            if not args.quiet:
+            if args.json:
+                print(json.dumps({"ok": False, "error": str(e), "key": args.key}, ensure_ascii=False, indent=2))
+            elif not args.quiet:
                 print(f"❌ 渲染海报失败 [{args.key}]: {e}", file=sys.stderr)
             return 1 if args.strict else 0
 
     if args.category:
         try:
-            results = run_all(output_dir=args.out_dir, quiet=args.quiet, category=args.category)
+            results = run_all(output_dir=args.out_dir, quiet=quiet, category=args.category)
             if not results and args.strict:
-                if not args.quiet:
-                    print(f"❌ 未匹配到任何预设: category={args.category}", file=sys.stderr)
+                err_msg = f"未匹配到任何预设: category={args.category}"
+                if args.json:
+                    print(json.dumps({"ok": False, "error": err_msg, "category": args.category}, ensure_ascii=False, indent=2))
+                elif not args.quiet:
+                    print(f"❌ {err_msg}", file=sys.stderr)
                 return 1
+            if args.json:
+                print(json.dumps({
+                    "ok": len(results) > 0 or not args.strict,
+                    "category": args.category,
+                    "total": len(results),
+                    "results": results,
+                }, ensure_ascii=False, indent=2))
             return 0
         except Exception as e:
-            if not args.quiet:
+            if args.json:
+                print(json.dumps({"ok": False, "error": str(e), "category": args.category}, ensure_ascii=False, indent=2))
+            elif not args.quiet:
                 print(f"❌ 批量渲染流派海报失败 [{args.category}]: {e}", file=sys.stderr)
             return 1 if args.strict else 0
 
     # default or --all: run_all
     try:
-        run_all(output_dir=args.out_dir, quiet=args.quiet)
+        results = run_all(output_dir=args.out_dir, quiet=quiet)
+        if args.json:
+            print(json.dumps({
+                "ok": True,
+                "total": len(results),
+                "results": results,
+            }, ensure_ascii=False, indent=2))
         return 0
     except Exception as e:
-        if not args.quiet:
+        if args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False, indent=2))
+        elif not args.quiet:
             print(f"❌ 全量渲染海报失败: {e}", file=sys.stderr)
         return 1 if args.strict else 0
 
