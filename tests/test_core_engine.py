@@ -1179,6 +1179,36 @@ class TestTypographyRulesCLI(unittest.TestCase):
         self.assertEqual(roles["title_part_1"]["orientation"], "vertical")
         self.assertEqual(roles["title_part_2"]["orientation"], "vertical")
 
+    def test_cli_main_exception_stderr_output(self):
+        err_buf = io.StringIO()
+        with patch("typography_rules._run", side_effect=RuntimeError("Typography crash")), \
+             redirect_stderr(err_buf):
+            code = typography_main([])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 字体排印处理异常: Typography crash", err_buf.getvalue())
+
+    def test_cli_main_exception_quiet_mode(self):
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("typography_rules._run", side_effect=RuntimeError("Silent crash")), \
+             redirect_stderr(err_buf), redirect_stdout(out_buf):
+            code = typography_main(["-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(err_buf.getvalue(), "")
+        self.assertEqual(out_buf.getvalue(), "")
+
+    def test_cli_main_exception_json_mode(self):
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("typography_rules._run", side_effect=RuntimeError("JSON crash")), \
+             redirect_stderr(err_buf), redirect_stdout(out_buf):
+            code = typography_main(["--json"])
+        self.assertEqual(code, 1)
+        self.assertEqual(err_buf.getvalue(), "")
+        data = json.loads(out_buf.getvalue())
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["error"], "JSON crash")
+
 
 
 class TestCoverStyleResolver(unittest.TestCase):

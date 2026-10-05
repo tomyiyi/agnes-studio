@@ -587,12 +587,9 @@ def plan_to_serializable(plan: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def _run(args) -> int:
     import json
     import sys
-
-    parser = build_arg_parser()
-    args = parser.parse_args(argv)
 
     # 1. 查询比率清单
     if args.list_ratios:
@@ -781,6 +778,23 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"  [智能避障推导]: 模式={plan_demo['layout_style']}, 元素数={len(plan_demo['elements'])}")
 
     return 0
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    import json
+    import sys
+
+    parser = build_arg_parser()
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+
+    try:
+        return _run(args)
+    except Exception as e:
+        if getattr(args, "json", False):
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+        elif not getattr(args, "quiet", False):
+            sys.stderr.write(f"❌ 字体排印处理异常: {e}\n")
+        return 1
 
 
 if __name__ == "__main__":
