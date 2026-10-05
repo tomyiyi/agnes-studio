@@ -12197,6 +12197,37 @@ class TestBatchSkill71Samples(unittest.TestCase):
             ])
             self.assertEqual(code, 1)
 
+    def test_cli_exception_json_output(self):
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("batch_skill71_samples.run_batch_skill_samples", side_effect=RuntimeError("Disk I/O error")):
+            with redirect_stdout(buf):
+                code = batch_skill71_samples.main(["-s", "ST03", "--json"])
+            self.assertEqual(code, 1)
+            data = json.loads(buf.getvalue())
+            self.assertFalse(data["ok"])
+            self.assertEqual(data["error"], "Disk I/O error")
+
+    def test_cli_exception_stderr_output(self):
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("batch_skill71_samples.run_batch_skill_samples", side_effect=ValueError("Invalid skill identifier")):
+            with redirect_stderr(buf):
+                code = batch_skill71_samples.main(["-s", "ST03"])
+            self.assertEqual(code, 1)
+            self.assertIn("❌ 71 项生图 Skill 批量样张生成失败: Invalid skill identifier", buf.getvalue())
+
+    def test_cli_exception_quiet_mode(self):
+        from contextlib import redirect_stderr, redirect_stdout
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("batch_skill71_samples.run_batch_skill_samples", side_effect=RuntimeError("Silent failure")):
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                code = batch_skill71_samples.main(["-s", "ST03", "--quiet"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
 
 class TestMergeSkill71Gallery(unittest.TestCase):
     """测试 71 项生图 Skill 画廊合并脚本 merge_skill71_gallery"""

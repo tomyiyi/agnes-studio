@@ -339,50 +339,57 @@ def main(argv: list[str] | None = None) -> int:
 
     quiet = args.quiet or args.json
 
-    if args.list_skills:
-        items = list_skills(index_path=args.index)
+    try:
+        if args.list_skills:
+            items = list_skills(index_path=args.index)
+            if args.json:
+                print(json.dumps(items, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio · 71 项生图 Skill 索引清单:")
+                for item in items:
+                    print(f"  [{item['id']}] {item['display_name']:<20} | 分组: {item['group']:<18} | 声明名: {item['declared_skill_name']}")
+                print(f"总计: {len(items)} 项技能")
+            return 0
+
+        results = run_batch_skill_samples(
+            skills=args.skills,
+            group=args.group,
+            limit=args.limit,
+            out_dir=args.out,
+            index_path=args.index,
+            workers=args.workers,
+            base_subject=args.base_subject,
+            model=args.model,
+            size=args.size,
+            force=args.force,
+            dry_run=args.dry_run,
+            quiet=quiet,
+        )
+
+        summary = {
+            "total": len(results),
+            "ok": sum(1 for r in results if r.get("ok")),
+            "failed": sum(1 for r in results if not r.get("ok")),
+            "skipped": sum(1 for r in results if r.get("skipped")),
+            "dry_run": args.dry_run,
+            "results": results,
+        }
+
         if args.json:
-            print(json.dumps(items, ensure_ascii=False, indent=2))
-        elif not args.quiet:
-            print("Agnes Studio · 71 项生图 Skill 索引清单:")
-            for item in items:
-                print(f"  [{item['id']}] {item['display_name']:<20} | 分组: {item['group']:<18} | 声明名: {item['declared_skill_name']}")
-            print(f"总计: {len(items)} 项技能")
-        return 0
+            print(json.dumps(summary, ensure_ascii=False, indent=2))
 
-    results = run_batch_skill_samples(
-        skills=args.skills,
-        group=args.group,
-        limit=args.limit,
-        out_dir=args.out,
-        index_path=args.index,
-        workers=args.workers,
-        base_subject=args.base_subject,
-        model=args.model,
-        size=args.size,
-        force=args.force,
-        dry_run=args.dry_run,
-        quiet=quiet,
-    )
-
-    summary = {
-        "total": len(results),
-        "ok": sum(1 for r in results if r.get("ok")),
-        "failed": sum(1 for r in results if not r.get("ok")),
-        "skipped": sum(1 for r in results if r.get("skipped")),
-        "dry_run": args.dry_run,
-        "results": results,
-    }
-
-    if args.json:
-        print(json.dumps(summary, ensure_ascii=False, indent=2))
-
-    if args.strict:
-        if any(not r.get("ok") for r in results):
+        if args.strict:
+            if any(not r.get("ok") for r in results):
+                return 1
+        elif results and all(not r.get("ok") for r in results):
             return 1
-    elif results and all(not r.get("ok") for r in results):
+        return 0
+    except Exception as e:
+        if not args.quiet and not args.json:
+            print(f"❌ 71 项生图 Skill 批量样张生成失败: {e}", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
         return 1
-    return 0
 
 
 if __name__ == "__main__":
