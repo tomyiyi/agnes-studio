@@ -7412,7 +7412,6 @@ class TestRenderDramaPoster(unittest.TestCase):
             code = drama_poster_main([
                 "--style", "mega_bleed",
                 "--src", str(sample_img),
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertIn("❌ 戏剧性海报渲染失败: Simulated drama render crash", buf.getvalue())
@@ -7430,7 +7429,6 @@ class TestRenderDramaPoster(unittest.TestCase):
                 "--style", "mega_bleed",
                 "--src", str(sample_img),
                 "-q",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertEqual(out_buf.getvalue(), "")
