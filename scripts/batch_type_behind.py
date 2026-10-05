@@ -259,6 +259,7 @@ def run_batch_type_behind(
     primary: str | None = None,
     lang: str | None = None,
     ink_color: str = DEFAULT_INK_COLOR,
+    quiet: bool = False,
 ) -> list[dict[str, Any]]:
     """批量生成「字在人后」海报并输出批处理摘要报告。"""
     target_dir = Path(out_dir)
@@ -272,7 +273,8 @@ def run_batch_type_behind(
         words_list = [str(w).strip() for w in words if str(w).strip()]
 
     results: list[dict[str, Any]] = []
-    print(f"Agnes Studio · 字在人后批量渲染: 共 {len(words_list)} 个字设目标")
+    if not quiet:
+        print(f"Agnes Studio · 字在人后批量渲染: 共 {len(words_list)} 个字设目标")
 
     for idx, w in enumerate(words_list, 1):
         res = generate_type_behind(
@@ -290,11 +292,12 @@ def run_batch_type_behind(
             ink_color=ink_color,
         )
         results.append(res)
-        if res.get("ok"):
-            status_tag = "SKIP" if res.get("skipped") else ("DRY" if res.get("dry_run") else "OK")
-            print(f"[{idx}/{len(words_list)}] {status_tag} {w} -> {res.get('path', '')}")
-        else:
-            print(f"[{idx}/{len(words_list)}] FAIL {w} -> {res.get('err', '')[:80]}")
+        if not quiet:
+            if res.get("ok"):
+                status_tag = "SKIP" if res.get("skipped") else ("DRY" if res.get("dry_run") else "OK")
+                print(f"[{idx}/{len(words_list)}] {status_tag} {w} -> {res.get('path', '')}")
+            else:
+                print(f"[{idx}/{len(words_list)}] FAIL {w} -> {res.get('err', '')[:80]}")
 
     summary = {
         "total": len(results),
@@ -314,8 +317,8 @@ def run_batch_type_behind(
     return results
 
 
-def main(argv: list[str] | None = None) -> int:
-    """CLI 入口函数。"""
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建字在人后海报批量生成工具命令行参数解析器"""
     parser = argparse.ArgumentParser(
         description="Agnes Studio · 字在人后 (Type Behind Person) 时尚海报批量生成工具"
     )
@@ -376,13 +379,39 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="显式指定提示词语言模式 (en/cn)",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出预设词库清单或批量执行汇总报告",
+    )
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="静默模式，减少标准输出打印",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格模式：存在任何失败项或执行异常时返回非零退出码 1",
+    )
+    return parser
 
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI 入口函数。"""
+    parser = build_arg_parser()
     args = parser.parse_args(argv)
 
+    quiet = args.quiet or args.json
+
     if args.list_presets:
-        print("Agnes Studio · 字在人后经典预设词库:")
-        for category, words in PRESET_WORDS.items():
-            print(f"  [{category.upper()}]: {', '.join(words)}")
+        if args.json:
+            print(json.dumps(PRESET_WORDS, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print("Agnes Studio · 字在人后经典预设词库:")
+            for category, words in PRESET_WORDS.items():
+                print(f"  [{category.upper()}]: {', '.join(words)}")
         return 0
 
     results = run_batch_type_behind(
@@ -396,9 +425,25 @@ def main(argv: list[str] | None = None) -> int:
         primary=args.primary,
         lang=args.lang,
         ink_color=args.ink_color,
+        quiet=quiet,
     )
 
-    if results and all(not r.get("ok") for r in results):
+    summary = {
+        "total": len(results),
+        "ok": sum(1 for r in results if r.get("ok")),
+        "failed": sum(1 for r in results if not r.get("ok")),
+        "skipped": sum(1 for r in results if r.get("skipped")),
+        "dry_run": args.dry_run,
+        "results": results,
+    }
+
+    if args.json:
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+    if args.strict:
+        if any(not r.get("ok") for r in results):
+            return 1
+    elif results and all(not r.get("ok") for r in results):
         return 1
     return 0
 

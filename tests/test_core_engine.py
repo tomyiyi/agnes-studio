@@ -395,6 +395,7 @@ from batch_type_behind import (
     generate_type_behind,
     run_batch_type_behind,
     classify_generation_error as type_behind_classify_error,
+    build_arg_parser as build_type_behind_arg_parser,
 )
 import batch_type_behind_v154
 from batch_type_behind_v154 import (
@@ -10051,6 +10052,107 @@ class TestBatchTypeBehind(unittest.TestCase):
         ])
         self.assertEqual(ret_dry, 0)
         self.assertTrue((cli_out / "batch_report.json").is_file())
+
+    def test_build_arg_parser(self):
+        parser = build_type_behind_arg_parser()
+        self.assertIsInstance(parser, argparse.ArgumentParser)
+        actions = {dest: a for a in parser._actions for dest in a.dest.split()}
+        self.assertIn("words", actions)
+        self.assertIn("out", actions)
+        self.assertIn("model", actions)
+        self.assertIn("size", actions)
+        self.assertIn("retries", actions)
+        self.assertIn("force", actions)
+        self.assertIn("dry_run", actions)
+        self.assertIn("primary", actions)
+        self.assertIn("ink_color", actions)
+        self.assertIn("lang", actions)
+        self.assertIn("list_presets", actions)
+        self.assertIn("json", actions)
+        self.assertIn("quiet", actions)
+        self.assertIn("strict", actions)
+
+    def test_cli_list_presets_json(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = batch_type_behind.main(["--list-presets", "--json"])
+        self.assertEqual(code, 0)
+        presets = json.loads(buf.getvalue())
+        self.assertIsInstance(presets, dict)
+        self.assertIn("fashion", presets)
+        self.assertIn("zen", presets)
+        self.assertIn("cinema", presets)
+        self.assertIn("MODE", presets["fashion"])
+
+    def test_cli_dry_run_json_output(self):
+        from contextlib import redirect_stdout
+
+        cli_out = self.tmp_path / "cli_json_dry"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = batch_type_behind.main([
+                "--dry-run",
+                "--words", "MODE,留白",
+                "--out", str(cli_out),
+                "--json",
+            ])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertEqual(data["total"], 2)
+        self.assertEqual(data["ok"], 2)
+        self.assertEqual(data["failed"], 0)
+        self.assertTrue(data["dry_run"])
+        self.assertEqual(len(data["results"]), 2)
+
+    def test_cli_quiet_mode_suppresses_stdout(self):
+        from contextlib import redirect_stdout
+
+        cli_out = self.tmp_path / "cli_quiet_dry"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = batch_type_behind.main([
+                "--dry-run",
+                "--words", "MODE",
+                "--out", str(cli_out),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_run_batch_quiet_mode(self):
+        from contextlib import redirect_stdout
+
+        def fake_gen(prompt, size, model, retries):
+            return {"ok": True}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"x" * 100)
+
+        out_dir = self.tmp_path / "batch_quiet"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            results = run_batch_type_behind(
+                words=["MODE"],
+                out_dir=out_dir,
+                generate_fn=fake_gen,
+                save_image_fn=fake_save,
+                quiet=True,
+            )
+        self.assertEqual(len(results), 1)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_cli_strict_mode_failure(self):
+        with patch("batch_type_behind.generate", None):
+            cli_out = self.tmp_path / "cli_strict_fail"
+            code = batch_type_behind.main([
+                "--words", "FAIL_WORD",
+                "--out", str(cli_out),
+                "--strict",
+                "--quiet",
+            ])
+            self.assertEqual(code, 1)
 
 
 class TestBatchTypeBehindV154(unittest.TestCase):
