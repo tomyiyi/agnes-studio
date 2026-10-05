@@ -3814,6 +3814,40 @@ class TestWechatCoverAB(unittest.TestCase):
         code = wechat_cover_ab.main(["--src", str(missing), "--out-dir", str(self.tmp_path), "-q"])
         self.assertEqual(code, 1)
 
+    @patch("wechat_cover_ab.run_wechat_cover_ab", side_effect=RuntimeError("Cover crash disk error"))
+    def test_main_cli_exception_stderr_output(self, mock_run):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = wechat_cover_ab.main(["--src", str(self.dummy_src)])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 运行失败: Cover crash disk error", buf.getvalue())
+
+    @patch("wechat_cover_ab.run_wechat_cover_ab", side_effect=RuntimeError("Cover json error"))
+    def test_main_cli_exception_json_output(self, mock_run):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = wechat_cover_ab.main(["--src", str(self.dummy_src), "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["error"], "Cover json error")
+
+    @patch("wechat_cover_ab.run_wechat_cover_ab", side_effect=RuntimeError("Cover quiet error"))
+    def test_main_cli_exception_quiet_mode(self, mock_run):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            code = wechat_cover_ab.main(["--src", str(self.dummy_src), "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
 
 class TestAgnesGateway(unittest.TestCase):
     """测试 Agnes 生图网关与本地轮换机制 (Agnes Gateway Suite)"""

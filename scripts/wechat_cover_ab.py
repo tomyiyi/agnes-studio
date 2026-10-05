@@ -465,33 +465,33 @@ def main(argv: list[str] | None = None) -> int:
 
     quiet = args.quiet or args.json
 
-    if args.list:
-        matrix = get_experiment_matrix()
-        if args.json:
-            print(json.dumps(matrix, ensure_ascii=False, indent=2))
-        elif not args.quiet:
-            print("Agnes Studio · H1/H3 微信头图对照实验清单:")
-            for item in matrix:
-                print(f"  [{item['id']:<10}] {item['name']:<18} | {item['format']:<12} | {item['description']}")
-        return 0
-
-    if args.check:
-        prereqs = check_prerequisites(args.src)
-        if args.json:
-            print(json.dumps(prereqs, ensure_ascii=False, indent=2))
-        elif not args.quiet:
-            print("Agnes Studio · H1/H3 对照实验前置条件巡检:")
-            print(f"  底图源文件: {'✓ 存在' if prereqs['src_exists'] else '❌ 缺失'} ({prereqs['src_path']})")
-            print(f"  SmileySans: {'✓ 存在' if prereqs['font_exists'] else '❌ 缺失'} ({prereqs['font_path']})")
-            print(f"  Chrome内核: {'✓ 存在' if prereqs['chrome_exists'] else '❌ 缺失'} ({prereqs['chrome_path']})")
-            print(f"  Playwright: {'✓ 就绪' if prereqs['playwright_available'] else '❌ 缺失'}")
-            print(f"  总体就绪度: {'✓ PASS' if prereqs['all_ok'] else '⚠️ WARNING'}")
-
-        if args.strict and not prereqs["all_ok"]:
-            return 1
-        return 0
-
     try:
+        if args.list:
+            matrix = get_experiment_matrix()
+            if args.json:
+                print(json.dumps(matrix, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio · H1/H3 微信头图对照实验清单:")
+                for item in matrix:
+                    print(f"  [{item['id']:<10}] {item['name']:<18} | {item['format']:<12} | {item['description']}")
+            return 0
+
+        if args.check:
+            prereqs = check_prerequisites(args.src)
+            if args.json:
+                print(json.dumps(prereqs, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio · H1/H3 对照实验前置条件巡检:")
+                print(f"  底图源文件: {'✓ 存在' if prereqs['src_exists'] else '❌ 缺失'} ({prereqs['src_path']})")
+                print(f"  SmileySans: {'✓ 存在' if prereqs['font_exists'] else '❌ 缺失'} ({prereqs['font_path']})")
+                print(f"  Chrome内核: {'✓ 存在' if prereqs['chrome_exists'] else '❌ 缺失'} ({prereqs['chrome_path']})")
+                print(f"  Playwright: {'✓ 就绪' if prereqs['playwright_available'] else '❌ 缺失'}")
+                print(f"  总体就绪度: {'✓ PASS' if prereqs['all_ok'] else '⚠️ WARNING'}")
+
+            if args.strict and not prereqs["all_ok"]:
+                return 1
+            return 0
+
         report = run_wechat_cover_ab(
             src=args.src,
             out_dir=args.out_dir,
@@ -502,8 +502,10 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, ensure_ascii=False, indent=2))
         return 0
     except Exception as e:
-        if not quiet:
+        if not args.quiet and not args.json:
             print(f"❌ 运行失败: {e}", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False, indent=2))
         return 1
 
 
