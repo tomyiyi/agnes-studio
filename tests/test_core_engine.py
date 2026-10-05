@@ -8596,7 +8596,6 @@ class TestRenderLayoutPoster(unittest.TestCase):
             code = layout_poster_main([
                 "--style", "swiss_asym",
                 "--src", str(sample_img),
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertIn("❌ 设计排版海报渲染失败: Simulated layout render crash", buf.getvalue())
@@ -8614,7 +8613,6 @@ class TestRenderLayoutPoster(unittest.TestCase):
                 "--style", "swiss_asym",
                 "--src", str(sample_img),
                 "-q",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertEqual(out_buf.getvalue(), "")
