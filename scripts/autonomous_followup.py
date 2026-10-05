@@ -37,10 +37,14 @@ INBOX_FILE = Path.home() / ".omarchy-evolution" / "inbox" / "events.ndjson"
 REPORTS_DIR = DIR / "docs" / "reports"
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-def log(msg, kind="INFO", log_file=None):
+QUIET_MODE = False
+
+def log(msg, kind="INFO", log_file=None, quiet=None):
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{now_str}] [{kind}] {msg}"
-    print(line)
+    is_quiet = QUIET_MODE if quiet is None else quiet
+    if not is_quiet:
+        print(line)
     target_file = Path(log_file) if log_file is not None else LOG_FILE
     try:
         target_file.parent.mkdir(parents=True, exist_ok=True)
@@ -360,7 +364,7 @@ def generate_morning_report(history, report_file=None, now=None):
     post_event("morning_report_delivered", {"report_path": str(target_file)})
     return str(target_file)
 
-def main(argv: list[str] | None = None) -> int:
+def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Agnes Studio 24/7 Autonomous Follow-up Daemon & Morning Reporter"
     )
@@ -395,55 +399,91 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Custom output path for morning report markdown",
     )
+    parser.add_argument(
+        "--quiet", "-q",
+        action="store_true",
+        help="静默模式，减少控制台标准输出打印",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出结果",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
     args = parser.parse_args(argv)
 
-    if args.report_now:
-        log("📢 触发即时生成晨报...", "REPORT")
-        report_path = generate_morning_report([], report_file=args.out_report)
-        log(f"✓ 晨报已即时输出至: {report_path}", "REPORT")
+    global QUIET_MODE
+    QUIET_MODE = bool(args.quiet or args.json)
+
+    try:
+        if args.report_now:
+            log("📢 触发即时生成晨报...", "REPORT")
+            report_path = generate_morning_report([], report_file=args.out_report)
+            log(f"✓ 晨报已即时输出至: {report_path}", "REPORT")
+            if args.json:
+                print(json.dumps({"ok": True, "action": "report_now", "report_path": str(report_path)}, ensure_ascii=False))
+            return 0
+
+        log("🚀 [Agnes Studio] 24/7 自主跟进守护引擎已启动，目标持续跟进至早上 08:00...")
+        post_event("daemon_started", {"target_time": "08:00:00", "dir": str(DIR)})
+
+        cycle_counter = 0
+        history = []
+
+        while True:
+            now = datetime.datetime.now()
+            # 检查是否已达到早上 8:00 (例如 08:00 - 08:10 之间且未生成晨报)
+            if not args.once and now.hour == 8 and 0 <= now.minute <= 10:
+                log("⏰ 已到达早上 08:00，正在汇总全夜数据生成晨报...", "REPORT")
+                report_path = generate_morning_report(history, report_file=args.out_report)
+                if args.json:
+                    print(json.dumps({"ok": True, "action": "morning_report", "report_path": str(report_path), "cycles": cycle_counter}, ensure_ascii=False))
+                break
+
+            cycle_counter += 1
+            log(f"--- 巡检巡视 Cycle #{cycle_counter} (当前时间: {now.strftime('%H:%M:%S')}) ---")
+
+            # 1. 检查并同步 Git 提交
+            if not args.no_sync:
+                check_and_sync_git()
+
+            # 2. 检查并自愈服务
+            check_and_heal_server(auto_heal=not args.no_heal)
+
+            # 3. 运行自主海报演进流水线
+            if not args.no_pipeline:
+                # 持续守护模式下每 2 个周期跑一次，--once 单次运行模式下直接跑一次
+                if args.once or cycle_counter % 2 == 1:
+                    res = run_creative_pipeline_cycle(cycle_counter)
+                    if res:
+                        history.append(res)
+
+            if args.once:
+                log(f"✓ --once 单次巡检演进周期 Cycle #{cycle_counter} 执行完成", "INFO")
+                if args.json:
+                    print(json.dumps({
+                        "ok": True,
+                        "action": "once_cycle",
+                        "cycle": cycle_counter,
+                        "pipeline_results_count": len(history),
+                    }, ensure_ascii=False))
+                break
+
+            # 睡眠等待下一个周期 (600 秒 = 10 分钟)
+            log("本轮巡检完毕，将在 10 分钟后执行下一轮巡检...", "WAIT")
+            time.sleep(600)
+
         return 0
-
-    log("🚀 [Agnes Studio] 24/7 自主跟进守护引擎已启动，目标持续跟进至早上 08:00...")
-    post_event("daemon_started", {"target_time": "08:00:00", "dir": str(DIR)})
-
-    cycle_counter = 0
-    history = []
-
-    while True:
-        now = datetime.datetime.now()
-        # 检查是否已达到早上 8:00 (例如 08:00 - 08:10 之间且未生成晨报)
-        if not args.once and now.hour == 8 and 0 <= now.minute <= 10:
-            log("⏰ 已到达早上 08:00，正在汇总全夜数据生成晨报...", "REPORT")
-            generate_morning_report(history, report_file=args.out_report)
-            break
-
-        cycle_counter += 1
-        log(f"--- 巡检巡视 Cycle #{cycle_counter} (当前时间: {now.strftime('%H:%M:%S')}) ---")
-
-        # 1. 检查并同步 Git 提交
-        if not args.no_sync:
-            check_and_sync_git()
-
-        # 2. 检查并自愈服务
-        check_and_heal_server(auto_heal=not args.no_heal)
-
-        # 3. 运行自主海报演进流水线
-        if not args.no_pipeline:
-            # 持续守护模式下每 2 个周期跑一次，--once 单次运行模式下直接跑一次
-            if args.once or cycle_counter % 2 == 1:
-                res = run_creative_pipeline_cycle(cycle_counter)
-                if res:
-                    history.append(res)
-
-        if args.once:
-            log(f"✓ --once 单次巡检演进周期 Cycle #{cycle_counter} 执行完成", "INFO")
-            break
-
-        # 睡眠等待下一个周期 (600 秒 = 10 分钟)
-        log("本轮巡检完毕，将在 10 分钟后执行下一轮巡检...", "WAIT")
-        time.sleep(600)
-
-    return 0
+    except Exception as e:
+        if not args.quiet and not args.json:
+            print(f"❌ 24/7 自主守护引擎运行失败: {e}", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+        return 1
 
 
 if __name__ == "__main__":

@@ -155,6 +155,7 @@ from autonomous_followup import (
     check_and_heal_server,
     run_creative_pipeline_cycle,
     generate_morning_report,
+    build_arg_parser as followup_build_arg_parser,
     main as followup_main,
 )
 import pro_poster_renderer
@@ -4862,6 +4863,103 @@ class TestAutonomousFollowup(unittest.TestCase):
         mock_sync.assert_not_called()
         mock_heal.assert_called_once_with(auto_heal=False)
         mock_pipeline.assert_called_once_with(1)
+
+    def test_cli_build_arg_parser_options(self):
+        parser = followup_build_arg_parser()
+        actions = {opt for a in parser._actions for opt in a.option_strings}
+        self.assertIn("--quiet", actions)
+        self.assertIn("-q", actions)
+        self.assertIn("--json", actions)
+        self.assertIn("--once", actions)
+        self.assertIn("--report-now", actions)
+        self.assertIn("--no-heal", actions)
+        self.assertIn("--no-sync", actions)
+        self.assertIn("--no-pipeline", actions)
+        self.assertIn("--out-report", actions)
+
+    def test_cli_main_report_now_json_mode(self):
+        import io
+        from contextlib import redirect_stdout
+        report_file = self.tmp_path / "cli_report_now.md"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            exit_code = followup_main(["--report-now", "--out-report", str(report_file), "--json"])
+        self.assertEqual(exit_code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["action"], "report_now")
+        self.assertEqual(data["report_path"], str(report_file))
+
+    @patch("autonomous_followup.run_creative_pipeline_cycle")
+    @patch("autonomous_followup.check_and_heal_server")
+    @patch("autonomous_followup.check_and_sync_git")
+    def test_cli_main_once_json_mode(self, mock_sync, mock_heal, mock_pipeline):
+        import io
+        from contextlib import redirect_stdout
+        mock_sync.return_value = (False, "up_to_date")
+        mock_heal.return_value = (True, True)
+        mock_pipeline.return_value = {"title": "T", "score": 90}
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            exit_code = followup_main(["--once", "--json"])
+        self.assertEqual(exit_code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["action"], "once_cycle")
+        self.assertEqual(data["cycle"], 1)
+        self.assertEqual(data["pipeline_results_count"], 1)
+
+    @patch("autonomous_followup.run_creative_pipeline_cycle")
+    @patch("autonomous_followup.check_and_heal_server")
+    @patch("autonomous_followup.check_and_sync_git")
+    def test_cli_main_quiet_mode(self, mock_sync, mock_heal, mock_pipeline):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        mock_sync.return_value = (False, "up_to_date")
+        mock_heal.return_value = (True, True)
+
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            exit_code = followup_main(["--once", "--no-pipeline", "-q"])
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
+    @patch("autonomous_followup.generate_morning_report", side_effect=RuntimeError("Report write error"))
+    def test_cli_main_exception_stderr_output(self, mock_report):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            exit_code = followup_main(["--report-now"])
+        self.assertEqual(exit_code, 1)
+        self.assertIn("❌ 24/7 自主守护引擎运行失败: Report write error", buf.getvalue())
+
+    @patch("autonomous_followup.generate_morning_report", side_effect=RuntimeError("Report json failure"))
+    def test_cli_main_exception_json_output(self, mock_report):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            exit_code = followup_main(["--report-now", "--json"])
+        self.assertEqual(exit_code, 1)
+        data = json.loads(buf.getvalue())
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["error"], "Report json failure")
+
+    @patch("autonomous_followup.generate_morning_report", side_effect=RuntimeError("Quiet failure"))
+    def test_cli_main_exception_quiet_mode(self, mock_report):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            exit_code = followup_main(["--report-now", "-q"])
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
 
 
 class TestProPosterRenderer(unittest.TestCase):
