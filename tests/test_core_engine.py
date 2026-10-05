@@ -102,6 +102,10 @@ from film_cover_engine import (
     render_shusheng_side_yellow,
     render_shusheng_top_green,
     render_shusheng_letterbox,
+    FILM_COVER_STYLES,
+    list_film_cover_styles,
+    render_film_cover_style,
+    main as film_cover_main,
 )
 from poster_visual_learner import (
     extract_poster_features,
@@ -1927,6 +1931,107 @@ class TestFilmCoverEngine(unittest.TestCase):
             author_cn=None,
         )
         self.assertTrue(Path(ret).exists())
+
+    def test_render_styles_quiet_mode(self):
+        from contextlib import redirect_stdout
+
+        out_file = self.tmp_path / "quiet_cover.png"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = render_shusheng_capsule_green(self.dummy_bg, out_file, quiet=True)
+            render_shusheng_letterbox(self.dummy_bg, out_file, quiet=True)
+        self.assertEqual(ret, str(out_file))
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_list_and_render_film_cover_style(self):
+        styles = list_film_cover_styles()
+        self.assertEqual(len(styles), 5)
+        keys = {s["key"] for s in styles}
+        self.assertEqual(keys, {"capsule_green", "split_red", "side_yellow", "top_green", "letterbox"})
+
+        out_path = self.tmp_path / "dispatch_test.png"
+        res = render_film_cover_style(
+            style="split_red",
+            bg_image_path=self.dummy_bg,
+            output_path=out_path,
+            title="铜钟蒸汽",
+            quiet=True,
+        )
+        self.assertEqual(res, str(out_path))
+        self.assertTrue(out_path.exists())
+
+        with self.assertRaises(KeyError):
+            render_film_cover_style("unknown_style", self.dummy_bg, out_path)
+
+    def test_cli_main_list_mode(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = film_cover_main(["--list"])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("Agnes Studio 可用电影感封面版式:", out)
+        self.assertIn("capsule_green", out)
+        self.assertIn("letterbox", out)
+
+    def test_cli_main_single_style_with_custom_src_and_out(self):
+        out_file = self.tmp_path / "cli_single.png"
+        code = film_cover_main([
+            "--style", "top_green",
+            "--src", str(self.dummy_bg),
+            "--out", str(out_file),
+            "--title", "测试电影感标题",
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertTrue(out_file.exists())
+
+    def test_cli_main_all_mode(self):
+        out_base = self.tmp_path / "bundle.png"
+        code = film_cover_main([
+            "--style", "all",
+            "--src", str(self.dummy_bg),
+            "--out", str(out_base),
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        for st in FILM_COVER_STYLES.keys():
+            expected_file = self.tmp_path / f"bundle_{st}.png"
+            self.assertTrue(expected_file.exists(), f"Missing output: {expected_file}")
+
+    def test_cli_main_missing_src_strict_mode(self):
+        missing_src = self.tmp_path / "does_not_exist.png"
+        code = film_cover_main([
+            "--style", "letterbox",
+            "--src", str(missing_src),
+            "--strict",
+            "--quiet",
+        ])
+        self.assertEqual(code, 1)
+
+        code_lenient = film_cover_main([
+            "--style", "letterbox",
+            "--src", str(missing_src),
+            "--quiet",
+        ])
+        self.assertEqual(code_lenient, 0)
+
+    def test_cli_main_quiet_mode_suppresses_stdout(self):
+        from contextlib import redirect_stdout
+
+        out_file = self.tmp_path / "quiet_cli.png"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = film_cover_main([
+                "--style", "side_yellow",
+                "--src", str(self.dummy_bg),
+                "--out", str(out_file),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertTrue(out_file.exists())
+        self.assertEqual(buf.getvalue().strip(), "")
 
 
 class TestPosterComposer(unittest.TestCase):

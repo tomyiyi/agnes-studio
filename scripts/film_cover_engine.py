@@ -62,7 +62,8 @@ def render_shusheng_capsule_green(
     sub_1="一张照片",
     sub_2="六种排法",
     author_en="AGNES DESIGN",
-    author_cn="书生视觉"
+    author_cn="书生视觉",
+    quiet=False,
 ):
     bg_p, out_p = _prepare_io(bg_image_path, output_path)
     title = str(title or "")
@@ -71,7 +72,8 @@ def render_shusheng_capsule_green(
     author_en = str(author_en or "")
     author_cn = str(author_cn or "")
 
-    print("🎬 [Capsule Green] 正在渲染【绿色刊头胶囊排版】封面...")
+    if not quiet:
+        print("🎬 [Capsule Green] 正在渲染【绿色刊头胶囊排版】封面...")
     base_img = Image.open(bg_p).convert("RGBA")
     w, h = base_img.size
     scale = w / 1024.0
@@ -139,7 +141,8 @@ def render_shusheng_capsule_green(
 
     final_img = Image.alpha_composite(base_img, overlay).convert("RGB")
     final_img.save(str(out_p), quality=95)
-    print(f"✅ 绿色刊头胶囊封面生成成功: {out_p}")
+    if not quiet:
+        print(f"✅ 绿色刊头胶囊封面生成成功: {out_p}")
     return str(out_p)
 
 
@@ -152,7 +155,8 @@ def render_shusheng_split_red(
     chars_left="铜钟",    # 前二字
     chars_right="蒸汽",   # 后二字
     sub_1="一张人物自拍",
-    sub_2="也能排成电影海报"
+    sub_2="也能排成电影海报",
+    quiet=False,
 ):
     bg_p, out_p = _prepare_io(bg_image_path, output_path)
     chars_left = str(chars_left or "")
@@ -160,7 +164,8 @@ def render_shusheng_split_red(
     sub_1 = str(sub_1 or "")
     sub_2 = str(sub_2 or "")
 
-    print("🎬 [Split Red] 正在渲染【红色错位竖排夹击】封面...")
+    if not quiet:
+        print("🎬 [Split Red] 正在渲染【红色错位竖排夹击】封面...")
     base_img = Image.open(bg_p).convert("RGBA")
     w, h = base_img.size
     scale = w / 1024.0
@@ -217,7 +222,8 @@ def render_shusheng_split_red(
 
     final_img = Image.alpha_composite(base_img, overlay).convert("RGB")
     final_img.save(str(out_p), quality=95)
-    print(f"✅ 红色错位竖排封面生成成功: {out_p}")
+    if not quiet:
+        print(f"✅ 红色错位竖排封面生成成功: {out_p}")
     return str(out_p)
 
 
@@ -229,14 +235,16 @@ def render_shusheng_side_yellow(
     output_path,
     title_top="电影感",
     title_bottom="封面",
-    sub="一张照片 · 八种排法"
+    sub="一张照片 · 八种排法",
+    quiet=False,
 ):
     bg_p, out_p = _prepare_io(bg_image_path, output_path)
     title_top = str(title_top or "")
     title_bottom = str(title_bottom or "")
     sub = str(sub or "")
 
-    print("🎬 [Side Yellow] 正在渲染【侧边黄色贯穿带】封面...")
+    if not quiet:
+        print("🎬 [Side Yellow] 正在渲染【侧边黄色贯穿带】封面...")
     base_img = Image.open(bg_p).convert("RGBA")
     w, h = base_img.size
     scale = w / 1024.0
@@ -277,7 +285,8 @@ def render_shusheng_side_yellow(
 
     final_img = Image.alpha_composite(base_img, overlay).convert("RGB")
     final_img.save(str(out_p), quality=95)
-    print(f"✅ 侧边黄色贯穿带封面生成成功: {out_p}")
+    if not quiet:
+        print(f"✅ 侧边黄色贯穿带封面生成成功: {out_p}")
     return str(out_p)
 
 
@@ -289,14 +298,16 @@ def render_shusheng_top_green(
     output_path,
     title="电 影 感 封 面",
     sub="一张照片 · 八种排法",
-    en_sub="ONE PHOTO · EIGHT MOODS"
+    en_sub="ONE PHOTO · EIGHT MOODS",
+    quiet=False,
 ):
     bg_p, out_p = _prepare_io(bg_image_path, output_path)
     title = str(title or "")
     sub = str(sub or "")
     en_sub = str(en_sub or "")
 
-    print("🎬 [Top Green] 正在渲染【绿底上下 1/3 分割】封面...")
+    if not quiet:
+        print("🎬 [Top Green] 正在渲染【绿底上下 1/3 分割】封面...")
     base_img = Image.open(bg_p).convert("RGBA")
     w, h = base_img.size
     scale = w / 1024.0
@@ -357,7 +368,8 @@ def render_shusheng_letterbox(
     title="电影感封面",
     subtitle="THE CINEMATIC STILL",
     quote="一张照片 · 六种排法",
-    meta="2.35:1 LETTERBOX // AGNES STUDIO"
+    meta="2.35:1 LETTERBOX // AGNES STUDIO",
+    quiet=False,
 ):
     bg_p, out_p = _prepare_io(bg_image_path, output_path)
     title = str(title or "")
@@ -365,7 +377,8 @@ def render_shusheng_letterbox(
     quote = str(quote or "")
     meta = str(meta or "")
 
-    print("🎬 [Letterbox] 正在渲染【电影宽银幕 2.35:1】封面...")
+    if not quiet:
+        print("🎬 [Letterbox] 正在渲染【电影宽银幕 2.35:1】封面...")
     base_img = Image.open(bg_p).convert("RGBA")
     w, h = base_img.size
     scale = w / 1024.0
@@ -413,57 +426,200 @@ def render_shusheng_letterbox(
 
     final_img = Image.alpha_composite(base_img, overlay).convert("RGB")
     final_img.save(str(out_p), quality=95)
-    print(f"✅ 电影宽银幕遮幅封面生成成功: {out_p}")
+    if not quiet:
+        print(f"✅ 电影宽银幕遮幅封面生成成功: {out_p}")
     return str(out_p)
 
 
+# =============================================================================
+# 风格注册表与多风格派发器
+# =============================================================================
+
+FILM_COVER_STYLES = {
+    "capsule_green": {
+        "name": "绿色刊头胶囊 (Capsule Green Banner)",
+        "func": render_shusheng_capsule_green,
+        "default_file": "cover_shusheng_capsule_green.png",
+    },
+    "split_red": {
+        "name": "红色错位夹击 (Split Red Columns)",
+        "func": render_shusheng_split_red,
+        "default_file": "cover_shusheng_split_red.png",
+    },
+    "side_yellow": {
+        "name": "侧边明黄贯穿 (Side Yellow Ribbon)",
+        "func": render_shusheng_side_yellow,
+        "default_file": "cover_shusheng_side_yellow.png",
+    },
+    "top_green": {
+        "name": "绿底上下分割 (Top Green 1/3 Split)",
+        "func": render_shusheng_top_green,
+        "default_file": "cover_shusheng_top_green.png",
+    },
+    "letterbox": {
+        "name": "电影宽银幕 (Letterbox 2.35:1)",
+        "func": render_shusheng_letterbox,
+        "default_file": "cover_shusheng_letterbox.png",
+    },
+}
+
+
+def list_film_cover_styles() -> list[dict[str, str]]:
+    """列出所有已注册的电影感封面版式"""
+    return [
+        {"key": k, "name": v["name"], "default_file": v["default_file"]}
+        for k, v in FILM_COVER_STYLES.items()
+    ]
+
+
+def render_film_cover_style(
+    style: str,
+    bg_image_path: str | Path,
+    output_path: str | Path,
+    title: str | None = None,
+    quiet: bool = False,
+    **kwargs,
+) -> str:
+    """按风格名称派发渲染对应的电影感封面"""
+    key = style.strip().lower()
+    if key not in FILM_COVER_STYLES:
+        raise KeyError(f"Unknown film cover style: '{style}'. Available: {list(FILM_COVER_STYLES.keys())}")
+    style_meta = FILM_COVER_STYLES[key]
+    func = style_meta["func"]
+
+    call_kwargs = dict(kwargs)
+    call_kwargs["quiet"] = quiet
+    if title is not None:
+        if key == "split_red":
+            clean_t = title.replace(" ", "")
+            if len(clean_t) >= 4:
+                call_kwargs.setdefault("chars_left", clean_t[: len(clean_t) // 2])
+                call_kwargs.setdefault("chars_right", clean_t[len(clean_t) // 2 :])
+            elif len(clean_t) >= 2:
+                call_kwargs.setdefault("chars_left", clean_t[:1])
+                call_kwargs.setdefault("chars_right", clean_t[1:])
+            else:
+                call_kwargs.setdefault("chars_left", clean_t)
+                call_kwargs.setdefault("chars_right", "")
+        elif key == "side_yellow":
+            clean_t = title.replace(" ", "")
+            if len(clean_t) >= 4:
+                call_kwargs.setdefault("title_top", clean_t[: len(clean_t) // 2])
+                call_kwargs.setdefault("title_bottom", clean_t[len(clean_t) // 2 :])
+            else:
+                call_kwargs.setdefault("title_top", title)
+        else:
+            call_kwargs["title"] = title
+
+    return func(bg_image_path, output_path, **call_kwargs)
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Agnes Studio · 电影感封面排版引擎 (Cinematic Cover Engine)")
+    parser.add_argument(
+        "--style",
+        "-s",
+        default="all",
+        choices=["capsule_green", "split_red", "side_yellow", "top_green", "letterbox", "all"],
+        help="排版版式: capsule_green | split_red | side_yellow | top_green | letterbox | all (默认: all)",
+    )
+    parser.add_argument(
+        "--src",
+        "--image",
+        "-i",
+        default=None,
+        help="输入背景底图路径（未指定时使用默认素材）",
+    )
+    parser.add_argument(
+        "--out",
+        "-o",
+        default=None,
+        help="输出封面图片路径（在 style=all 且指定 out 时自动附加风格后缀）",
+    )
+    parser.add_argument(
+        "--title",
+        "-t",
+        default=None,
+        help="自定义主标题",
+    )
+    parser.add_argument(
+        "--list",
+        "-l",
+        action="store_true",
+        help="列出所有可用的电影感封面版式预设",
+    )
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="静默模式，抑制控制台日志",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格模式：遇到文件缺失或排版异常时返回非零退出码 1",
+    )
+    args = parser.parse_args(argv)
+
+    if args.list:
+        if not args.quiet:
+            print("Agnes Studio 可用电影感封面版式:")
+            for s in list_film_cover_styles():
+                print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
+        return 0
+
+    # 确定输入源
+    resolved_src = None
+    if args.src:
+        p = Path(args.src)
+        if not p.is_file():
+            if not args.quiet:
+                print(f"❌ 找不到输入底图: {args.src}", file=sys.stderr)
+            return 1 if args.strict else 0
+        resolved_src = p
+    else:
+        candidates = [
+            Path(ASSETS_DIR) / "agnes_1790006749_b2b755da.png",
+            Path(ASSETS_DIR) / "agnes_1789995999_1670.png",
+            Path(ASSETS_DIR) / "cover_cinematic_split_green.png",
+            Path(ASSETS_DIR) / "poster_style_smiley.png",
+        ]
+        for c in candidates:
+            if c.is_file():
+                resolved_src = c
+                break
+
+    if resolved_src is None:
+        if not args.quiet:
+            print("❌ 未指定 --src 且未发现默认候选底图资产", file=sys.stderr)
+        return 1 if args.strict else 0
+
+    target_styles = list(FILM_COVER_STYLES.keys()) if args.style == "all" else [args.style]
+
+    try:
+        for st in target_styles:
+            if args.out:
+                out_path = Path(args.out)
+                if args.style == "all":
+                    out_path = out_path.with_name(f"{out_path.stem}_{st}{out_path.suffix or '.png'}")
+            else:
+                out_path = Path(ASSETS_DIR) / FILM_COVER_STYLES[st]["default_file"]
+
+            render_film_cover_style(
+                style=st,
+                bg_image_path=resolved_src,
+                output_path=out_path,
+                title=args.title,
+                quiet=args.quiet,
+            )
+        return 0
+    except Exception as e:
+        if not args.quiet:
+            print(f"❌ 电影感封面排版失败: {e}", file=sys.stderr)
+        return 1 if args.strict else 0
+
+
 if __name__ == "__main__":
-    src_anime = os.path.join(ASSETS_DIR, "agnes_1790006749_b2b755da.png")
-    src_beauty = os.path.join(ASSETS_DIR, "agnes_1789995999_1670.png")
-    src_macro = os.path.join(ASSETS_DIR, "macro_beauty_02.png")
-
-    print("🚀 启动书生经典海报排版引擎...")
-
-    if os.path.exists(src_anime):
-        # 1. 绿色刊头胶囊
-        render_shusheng_capsule_green(
-            src_anime,
-            os.path.join(ASSETS_DIR, "cover_shusheng_capsule_green.png"),
-            title="铜钟与蒸汽城",
-            sub_1="她修时间",
-            sub_2="也修人心",
-            author_en="AGNES STUDIO // FILM",
-            author_cn="书生视觉排版"
-        )
-
-        # 2. 红色错位夹击竖排
-        render_shusheng_split_red(
-            src_anime,
-            os.path.join(ASSETS_DIR, "cover_shusheng_split_red.png"),
-            chars_left="铜钟",
-            chars_right="蒸汽",
-            sub_1="普通自拍照",
-            sub_2="也能排成电影大片"
-        )
-
-    if os.path.exists(src_beauty):
-        # 3. 侧边黄色贯穿色带
-        render_shusheng_side_yellow(
-            src_beauty,
-            os.path.join(ASSETS_DIR, "cover_shusheng_side_yellow.png"),
-            title_top="电影感",
-            title_bottom="封面",
-            sub="一张自拍 · 八种排法"
-        )
-
-    if os.path.exists(src_macro):
-        # 4. 绿底上下 1/3 色块
-        render_shusheng_top_green(
-            src_macro,
-            os.path.join(ASSETS_DIR, "cover_shusheng_top_green.png"),
-            title="电影感人像写真",
-            sub="高审美视觉 · 矢量排版",
-            en_sub="AGNES STUDIO // SHU SHENG COVER 02"
-        )
-
-    print("✨ 全套书生经典封面已成功渲染并落地！")
+    raise SystemExit(main())
