@@ -4456,6 +4456,40 @@ class TestUpstreamSentinel(unittest.TestCase):
         data = json.loads(buf.getvalue())
         self.assertEqual(data["gateway"]["status"], "unhealthy")
 
+    @patch("check_upstream_updates.run_lifecycle_monitor", side_effect=RuntimeError("Lifecycle monitor crash"))
+    def test_cli_exception_stderr_output(self, mock_run):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = monitor_main(["--no-save"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 上游生命周期与网关监控运行失败: Lifecycle monitor crash", buf.getvalue())
+
+    @patch("check_upstream_updates.run_lifecycle_monitor", side_effect=RuntimeError("Silent monitor crash"))
+    def test_cli_exception_quiet_mode(self, mock_run):
+        import io
+        from contextlib import redirect_stderr, redirect_stdout
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with redirect_stderr(err_buf), redirect_stdout(out_buf):
+            code = monitor_main(["-q", "--no-save"])
+        self.assertEqual(code, 1)
+        self.assertEqual(err_buf.getvalue(), "")
+        self.assertEqual(out_buf.getvalue(), "")
+
+    @patch("check_upstream_updates.run_lifecycle_monitor", side_effect=RuntimeError("JSON monitor crash"))
+    def test_cli_exception_json_output(self, mock_run):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = monitor_main(["--json", "--no-save"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue())
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["error"], "JSON monitor crash")
+
 
 class TestAutonomousFollowup(unittest.TestCase):
     """测试 24/7 自主跟进守护与晨报生成引擎"""

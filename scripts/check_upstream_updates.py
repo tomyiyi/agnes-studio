@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -319,18 +320,25 @@ def main(argv: list[str] | None = None) -> int:
     if args.quiet or args.json:
         monitor_kwargs["quiet"] = True
 
-    summary = run_lifecycle_monitor(**monitor_kwargs)
-    if args.json:
-        print(json.dumps(summary, ensure_ascii=False, indent=2))
+    try:
+        summary = run_lifecycle_monitor(**monitor_kwargs)
+        if args.json:
+            print(json.dumps(summary, ensure_ascii=False, indent=2))
 
-    if args.strict:
-        gw_status = (summary.get("gateway") or {}).get("status")
-        if gw_status != "healthy":
-            return 1
-        for r in summary.get("upstream_repositories") or []:
-            if isinstance(r, dict) and r.get("status") in ("invalid_repo", "error"):
+        if args.strict:
+            gw_status = (summary.get("gateway") or {}).get("status")
+            if gw_status != "healthy":
                 return 1
-    return 0
+            for r in summary.get("upstream_repositories") or []:
+                if isinstance(r, dict) and r.get("status") in ("invalid_repo", "error"):
+                    return 1
+        return 0
+    except Exception as e:
+        if not args.quiet and not args.json:
+            print(f"❌ 上游生命周期与网关监控运行失败: {e}", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+        return 1
 
 
 if __name__ == "__main__":
