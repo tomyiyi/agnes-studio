@@ -403,6 +403,7 @@ def run_batch_layout_variants(
     save_image_fn: Callable[..., Any] | None = None,
     write_report: bool = True,
     word: str | None = None,
+    quiet: bool = False,
 ) -> list[dict[str, Any]]:
     """批量执行版式生成任务并持久化写入 batch_report.json。"""
     target_dir = Path(out_dir)
@@ -436,13 +437,14 @@ def run_batch_layout_variants(
         )
         report.append(res)
 
-        if res.get("skipped"):
-            print("SKIP", stem)
-        elif res.get("ok"):
-            sz = res.get("size_kb", 0)
-            print("OK", stem, sz if sz else "(dry_run)" if dry_run else "")
-        else:
-            print("FAIL", stem, res.get("err", "")[:100])
+        if not quiet:
+            if res.get("skipped"):
+                print("SKIP", stem)
+            elif res.get("ok"):
+                sz = res.get("size_kb", 0)
+                print("OK", stem, sz if sz else "(dry_run)" if dry_run else "")
+            else:
+                print("FAIL", stem, res.get("err", "")[:100])
 
     if write_report:
         report_path = target_dir / "batch_report.json"
@@ -451,22 +453,41 @@ def run_batch_layout_variants(
                 json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
             )
         except OSError as e:
-            print(f"WARN: Failed to write {report_path}: {e}", file=sys.stderr)
+            if not quiet:
+                print(f"WARN: Failed to write {report_path}: {e}", file=sys.stderr)
 
     ok_count = sum(1 for x in report if x.get("ok"))
-    print(f"DONE {ok_count} / {len(report)}")
+    if not quiet:
+        print(f"DONE {ok_count} / {len(report)}")
     return report
 
 
-def main(argv: list[str] | None = None) -> int:
-    """命令行主执行入口。"""
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建命令行参数解析器。"""
     parser = argparse.ArgumentParser(
         description="Agnes Studio · 12 款经典构图版式编号册生成器 (L1 级版式变体)"
     )
     parser.add_argument(
+        "-l",
         "--list",
         action="store_true",
         help="列出所有 12 种构图版式与主词",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出结果 (版式清单或批处理报告)",
+    )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="静默模式，抑制进度与诊断输出",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格质检模式，若有任何一项失败或未生成成功则返回非零退出码",
     )
     parser.add_argument(
         "--stems",
@@ -511,18 +532,30 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="覆盖主文字符串（针对单个版式）",
     )
+    return parser
 
+
+def main(argv: list[str] | None = None) -> int:
+    """命令行主执行入口。"""
+    parser = build_arg_parser()
     args = parser.parse_args(argv)
 
     if args.list:
-        print("Agnes Studio · 12 款经典构图版式清单:")
-        for item in get_layout_variants_catalog():
-            print(f"  [{item['index']:02d}] {item['stem']:<20} | {item['word']:<8} | {item['name']}")
+        catalog = get_layout_variants_catalog()
+        if args.json:
+            print(json.dumps(catalog, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print("Agnes Studio · 12 款经典构图版式清单:")
+            for item in catalog:
+                print(f"  [{item['index']:02d}] {item['stem']:<20} | {item['word']:<8} | {item['name']}")
         return 0
 
     stems_list = None
     if args.stems:
         stems_list = [x.strip() for x in args.stems.split(",") if x.strip()]
+
+    # 在 --json 模式下自动静默内部打印，避免污染标准输出
+    quiet = args.quiet or args.json
 
     report = run_batch_layout_variants(
         out_dir=args.out,
@@ -533,13 +566,22 @@ def main(argv: list[str] | None = None) -> int:
         force=args.force,
         dry_run=args.dry_run,
         word=args.word,
+        quiet=quiet,
     )
 
-    # 只要存在成功或跳过即视为正常；如全部失败则返回 1
-    if report and all(not x.get("ok") for x in report):
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+
+    if args.strict:
+        if not report or any(not x.get("ok") for x in report):
+            return 1
+        return 0
+
+    # 常规模式：只要存在成功或跳过即视为正常；如全部失败或为空则返回 1
+    if not report or all(not x.get("ok") for x in report):
         return 1
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main(sys.argv[1:]))

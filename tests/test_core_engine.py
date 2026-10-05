@@ -12,6 +12,7 @@ Automated regression tests covering:
 6. Data integrity & JSON syntax across all configuration files
 """
 
+import argparse
 import datetime
 import io
 import json
@@ -375,6 +376,7 @@ from batch_layout_variants import (
     generate_layout_variant,
     run_batch_layout_variants,
     classify_generation_error as layout_variants_classify_error,
+    build_arg_parser as build_layout_variants_arg_parser,
 )
 import batch_type_behind
 from batch_type_behind import (
@@ -8607,6 +8609,135 @@ class TestBatchLayoutVariants(unittest.TestCase):
         self.assertTrue(report_file.is_file())
         loaded = json.loads(report_file.read_text(encoding="utf-8"))
         self.assertEqual(len(loaded), 2)
+
+    def test_build_layout_variants_arg_parser(self):
+        parser = build_layout_variants_arg_parser()
+        self.assertIsInstance(parser, argparse.ArgumentParser)
+
+        # 默认解析
+        args = parser.parse_args([])
+        self.assertFalse(args.list)
+        self.assertFalse(args.json)
+        self.assertFalse(args.quiet)
+        self.assertFalse(args.strict)
+        self.assertIsNone(args.stems)
+        self.assertFalse(args.dry_run)
+
+        # 短选项与长选项解析
+        args_flags = parser.parse_args([
+            "-l",
+            "--json",
+            "-q",
+            "--strict",
+            "--stems", "01,02",
+            "--word", "CUSTOM",
+            "--dry-run",
+        ])
+        self.assertTrue(args_flags.list)
+        self.assertTrue(args_flags.json)
+        self.assertTrue(args_flags.quiet)
+        self.assertTrue(args_flags.strict)
+        self.assertEqual(args_flags.stems, "01,02")
+        self.assertEqual(args_flags.word, "CUSTOM")
+        self.assertTrue(args_flags.dry_run)
+
+    def test_cli_list_catalog_text_and_json(self):
+        # 1. -l / --list 文本输出
+        buf_text = io.StringIO()
+        with redirect_stdout(buf_text):
+            ret_list = batch_layout_variants.main(["-l"])
+        self.assertEqual(ret_list, 0)
+        output_text = buf_text.getvalue()
+        self.assertIn("12 款经典构图版式清单", output_text)
+        self.assertIn("01_swiss_asym", output_text)
+        self.assertIn("12_giant_minimal", output_text)
+
+        # 2. --list --json 结构化输出
+        buf_json = io.StringIO()
+        with redirect_stdout(buf_json):
+            ret_json = batch_layout_variants.main(["--list", "--json"])
+        self.assertEqual(ret_json, 0)
+        catalog = json.loads(buf_json.getvalue())
+        self.assertIsInstance(catalog, list)
+        self.assertEqual(len(catalog), 12)
+        self.assertEqual(catalog[0]["stem"], "01_swiss_asym")
+        self.assertEqual(catalog[0]["word"], "FORM")
+        self.assertIn("category", catalog[0])
+        self.assertIn("prompt", catalog[0])
+
+        # 3. -l -q 静默清单输出
+        buf_quiet = io.StringIO()
+        with redirect_stdout(buf_quiet):
+            ret_quiet = batch_layout_variants.main(["-l", "-q"])
+        self.assertEqual(ret_quiet, 0)
+        self.assertEqual(buf_quiet.getvalue().strip(), "")
+
+    def test_cli_json_batch_output(self):
+        cli_out = self.tmp_path / "cli_json_out"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = batch_layout_variants.main([
+                "--dry-run",
+                "--stems", "01,02",
+                "--out", str(cli_out),
+                "--json",
+            ])
+        self.assertEqual(ret, 0)
+        # 验证 stdout 是纯净有效的 JSON，无 SKIP/OK 等控制台文本干扰
+        raw_output = buf.getvalue().strip()
+        report = json.loads(raw_output)
+        self.assertIsInstance(report, list)
+        self.assertEqual(len(report), 2)
+        self.assertTrue(report[0]["ok"])
+        self.assertTrue(report[0]["dry_run"])
+        self.assertEqual(report[0]["stem"], "01_swiss_asym")
+        self.assertEqual(report[1]["stem"], "02_swiss_asym")
+        self.assertTrue((cli_out / "batch_report.json").is_file())
+
+    def test_cli_quiet_mode(self):
+        cli_out = self.tmp_path / "cli_quiet_out"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = batch_layout_variants.main([
+                "--dry-run",
+                "--stems", "01",
+                "--out", str(cli_out),
+                "-q",
+            ])
+        self.assertEqual(ret, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
+        self.assertTrue((cli_out / "batch_report.json").is_file())
+
+    def test_cli_strict_mode(self):
+        # 1. 全成功场景在 --strict 模式下返回 0
+        cli_out = self.tmp_path / "cli_strict_ok"
+        ret_ok = batch_layout_variants.main([
+            "--dry-run",
+            "--stems", "01,02",
+            "--out", str(cli_out),
+            "--strict",
+            "-q",
+        ])
+        self.assertEqual(ret_ok, 0)
+
+        # 2. 包含未知/失败项时，常规模式只要有成功即返回 0，而 --strict 返回 1
+        cli_out_mixed = self.tmp_path / "cli_strict_mixed"
+        ret_normal = batch_layout_variants.main([
+            "--dry-run",
+            "--stems", "01,999_invalid",
+            "--out", str(cli_out_mixed),
+            "-q",
+        ])
+        self.assertEqual(ret_normal, 0)  # 常规模式允许部分成功
+
+        ret_strict = batch_layout_variants.main([
+            "--dry-run",
+            "--stems", "01,999_invalid",
+            "--out", str(cli_out_mixed),
+            "--strict",
+            "-q",
+        ])
+        self.assertEqual(ret_strict, 1)  # strict 模式严格拦截失败
 
     def test_main_cli_execution(self):
         # 1. --list 命令
