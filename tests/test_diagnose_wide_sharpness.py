@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from diagnose_wide_sharpness import diagnose, main
+from diagnose_wide_sharpness import diagnose, main, build_arg_parser, DEFAULT_ROI
 
 class TestDiagnoseWideSharpness(unittest.TestCase):
     def test_preserves_input_and_reports_roi(self):
@@ -114,6 +114,68 @@ class TestDiagnoseWideSharpness(unittest.TestCase):
             self.assertTrue(report.exists())
             payload = json.loads(report.read_text())
             self.assertEqual(payload["count"], 1)
+
+    def test_default_roi_constant(self):
+        self.assertEqual(len(DEFAULT_ROI), 4)
+        self.assertEqual(DEFAULT_ROI, (0.20, 0.15, 0.80, 0.90))
+
+    def test_build_arg_parser(self):
+        parser = build_arg_parser()
+        self.assertIsNotNone(parser)
+        parsed = parser.parse_args(["img.png", "--strict", "-q", "-o", "out.json"])
+        self.assertTrue(parsed.strict)
+        self.assertTrue(parsed.quiet)
+        self.assertEqual(str(parsed.out), "out.json")
+        self.assertEqual(parsed.roi, list(DEFAULT_ROI))
+
+    def test_cli_main_error_resilience_non_strict(self):
+        import io
+        import contextlib
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            valid_img = root / "valid.png"
+            Image.new("RGB", (1000, 500), "white").save(valid_img)
+            missing_img = root / "missing.png"
+
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = main([str(valid_img), str(missing_img)])
+            self.assertEqual(code, 0)
+            payload = json.loads(buf.getvalue())
+            self.assertEqual(payload["count"], 2)
+            self.assertEqual(payload["rows"][0]["file"], str(valid_img))
+            self.assertTrue(payload["rows"][0]["input_unchanged"])
+            self.assertEqual(payload["rows"][1]["file"], str(missing_img))
+            self.assertFalse(payload["rows"][1]["ok"])
+            self.assertIn("error", payload["rows"][1])
+
+    def test_cli_main_strict_mode_failure(self):
+        import io
+        import contextlib
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            missing_img = root / "missing.png"
+
+            err_buf = io.StringIO()
+            with contextlib.redirect_stderr(err_buf):
+                code = main([str(missing_img), "--strict"])
+            self.assertEqual(code, 1)
+            err_data = json.loads(err_buf.getvalue())
+            self.assertFalse(err_data["ok"])
+            self.assertEqual(err_data["file"], str(missing_img))
+
+    def test_cli_main_strict_mode_quiet(self):
+        import io
+        import contextlib
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            missing_img = root / "missing.png"
+
+            err_buf = io.StringIO()
+            with contextlib.redirect_stderr(err_buf):
+                code = main([str(missing_img), "--strict", "--quiet"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
 
 
 if __name__ == "__main__": unittest.main()
