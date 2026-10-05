@@ -531,43 +531,43 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """CLI 入口函数。"""
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     quiet = args.quiet or args.json
 
-    if args.list_experiments:
-        versions = list_versions()
-        if args.json:
-            exp_data = []
-            for ver in versions:
-                meta = VERSION_METADATA.get(ver, {})
-                items = list_experiments(ver)
-                exp_data.append({
-                    "version": ver,
-                    "title": meta.get("title", ver),
-                    "description": meta.get("desc", ""),
-                    "count": len(items),
-                    "experiments": [
-                        {"stem": stem, "prompt": prompt}
-                        for _, stem, prompt in items
-                    ],
-                })
-            print(json.dumps(exp_data, ensure_ascii=False, indent=2))
-        elif not args.quiet:
-            print("Agnes Studio · 字在人后 v154-v159 实验矩阵清单:")
-            for ver in versions:
-                meta = VERSION_METADATA.get(ver, {})
-                title = meta.get("title", ver)
-                desc = meta.get("desc", "")
-                items = list_experiments(ver)
-                print(f"\n[{ver.upper()}] {title} (共 {len(items)} 组)")
-                if desc:
-                    print(f"  设计目标: {desc}")
-                for _, stem, _ in items:
-                    print(f"    - {stem}")
-        return 0
-
     try:
+        if args.list_experiments:
+            versions = list_versions()
+            if args.json:
+                exp_data = []
+                for ver in versions:
+                    meta = VERSION_METADATA.get(ver, {})
+                    items = list_experiments(ver)
+                    exp_data.append({
+                        "version": ver,
+                        "title": meta.get("title", ver),
+                        "description": meta.get("desc", ""),
+                        "count": len(items),
+                        "experiments": [
+                            {"stem": stem, "prompt": prompt}
+                            for _, stem, prompt in items
+                        ],
+                    })
+                print(json.dumps(exp_data, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio · 字在人后 v154-v159 实验矩阵清单:")
+                for ver in versions:
+                    meta = VERSION_METADATA.get(ver, {})
+                    title = meta.get("title", ver)
+                    desc = meta.get("desc", "")
+                    items = list_experiments(ver)
+                    print(f"\n[{ver.upper()}] {title} (共 {len(items)} 组)")
+                    if desc:
+                        print(f"  设计目标: {desc}")
+                    for _, stem, _ in items:
+                        print(f"    - {stem}")
+            return 0
+
         results = run_batch_v154(
             versions=args.version,
             stems=args.stems,
@@ -600,10 +600,10 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return 0
     except Exception as e:
-        if not args.quiet and not args.json:
-            print(f"❌ 批量字在人后 v154-v159 渲染失败: {e}", file=sys.stderr)
-        elif args.json:
+        if args.json:
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+        elif not args.quiet:
+            print(f"❌ 批量字在人后 v154-v159 渲染失败: {e}", file=sys.stderr)
         return 1
 
 
