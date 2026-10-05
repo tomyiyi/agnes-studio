@@ -575,52 +575,53 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
 
-    if args.list:
-        styles = list_film_cover_styles()
-        if args.json:
-            print(json.dumps(styles, indent=2, ensure_ascii=False))
-        elif not args.quiet:
-            print("Agnes Studio 可用电影感封面版式:")
-            for s in styles:
-                print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
-        return 0
+    suppress_log = args.quiet or args.json
 
-    # 确定输入源
-    resolved_src = None
-    if args.src:
-        p = Path(args.src)
-        if not p.is_file():
-            err_msg = f"找不到输入底图: {args.src}"
+    try:
+        if args.list:
+            styles = list_film_cover_styles()
+            if args.json:
+                print(json.dumps(styles, indent=2, ensure_ascii=False))
+            elif not args.quiet:
+                print("Agnes Studio 可用电影感封面版式:")
+                for s in styles:
+                    print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
+            return 0
+
+        # 确定输入源
+        resolved_src = None
+        if args.src:
+            p = Path(args.src)
+            if not p.is_file():
+                err_msg = f"找不到输入底图: {args.src}"
+                if args.json:
+                    print(json.dumps({"ok": False, "error": err_msg}, indent=2, ensure_ascii=False))
+                elif not args.quiet:
+                    print(f"❌ {err_msg}", file=sys.stderr)
+                return 1 if args.strict else 0
+            resolved_src = p
+        else:
+            candidates = [
+                Path(ASSETS_DIR) / "agnes_1790006749_b2b755da.png",
+                Path(ASSETS_DIR) / "agnes_1789995999_1670.png",
+                Path(ASSETS_DIR) / "cover_cinematic_split_green.png",
+                Path(ASSETS_DIR) / "poster_style_smiley.png",
+            ]
+            for c in candidates:
+                if c.is_file():
+                    resolved_src = c
+                    break
+
+        if resolved_src is None:
+            err_msg = "未指定 --src 且未发现默认候选底图资产"
             if args.json:
                 print(json.dumps({"ok": False, "error": err_msg}, indent=2, ensure_ascii=False))
             elif not args.quiet:
                 print(f"❌ {err_msg}", file=sys.stderr)
             return 1 if args.strict else 0
-        resolved_src = p
-    else:
-        candidates = [
-            Path(ASSETS_DIR) / "agnes_1790006749_b2b755da.png",
-            Path(ASSETS_DIR) / "agnes_1789995999_1670.png",
-            Path(ASSETS_DIR) / "cover_cinematic_split_green.png",
-            Path(ASSETS_DIR) / "poster_style_smiley.png",
-        ]
-        for c in candidates:
-            if c.is_file():
-                resolved_src = c
-                break
 
-    if resolved_src is None:
-        err_msg = "未指定 --src 且未发现默认候选底图资产"
-        if args.json:
-            print(json.dumps({"ok": False, "error": err_msg}, indent=2, ensure_ascii=False))
-        elif not args.quiet:
-            print(f"❌ {err_msg}", file=sys.stderr)
-        return 1 if args.strict else 0
+        target_styles = list(FILM_COVER_STYLES.keys()) if args.style == "all" else [args.style]
 
-    target_styles = list(FILM_COVER_STYLES.keys()) if args.style == "all" else [args.style]
-    suppress_log = args.quiet or args.json
-
-    try:
         results = []
         for st in target_styles:
             if args.out:

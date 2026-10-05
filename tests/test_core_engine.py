@@ -2763,6 +2763,51 @@ class TestFilmCoverEngine(unittest.TestCase):
         self.assertIn("error", err_report)
         self.assertIn("Simulated cover render crash", err_report["error"])
 
+    @patch("film_cover_engine.render_film_cover_style", side_effect=RuntimeError("Cover disk render error"))
+    def test_main_cli_exception_stderr_output(self, mock_render):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = film_cover_main([
+                "--style", "top_green",
+                "--src", str(self.dummy_bg),
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 电影感封面排版失败: Cover disk render error", buf.getvalue())
+
+    @patch("film_cover_engine.render_film_cover_style", side_effect=RuntimeError("Cover quiet render error"))
+    def test_main_cli_exception_quiet_mode(self, mock_render):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            code = film_cover_main([
+                "--style", "top_green",
+                "--src", str(self.dummy_bg),
+                "-q",
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
+    def test_main_cli_missing_src_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        missing_src = self.tmp_path / "non_existent_film_bg.png"
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = film_cover_main([
+                "--style", "top_green",
+                "--src", str(missing_src),
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 找不到输入底图", buf.getvalue())
+
 
 class TestPosterComposer(unittest.TestCase):
     """测试商业海报合成引擎 (Poster Composer)"""
