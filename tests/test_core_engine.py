@@ -126,6 +126,7 @@ from film_cover_engine import (
     FILM_COVER_STYLES,
     list_film_cover_styles,
     render_film_cover_style,
+    build_arg_parser as build_film_cover_arg_parser,
     main as film_cover_main,
 )
 from poster_visual_learner import (
@@ -2433,13 +2434,16 @@ class TestFilmCoverEngine(unittest.TestCase):
     def test_render_styles_quiet_mode(self):
         from contextlib import redirect_stdout
 
-        out_file = self.tmp_path / "quiet_cover.png"
         buf = io.StringIO()
         with redirect_stdout(buf):
-            ret = render_shusheng_capsule_green(self.dummy_bg, out_file, quiet=True)
-            render_shusheng_letterbox(self.dummy_bg, out_file, quiet=True)
-        self.assertEqual(ret, str(out_file))
+            ret1 = render_shusheng_capsule_green(self.dummy_bg, self.tmp_path / "q1.png", quiet=True)
+            ret2 = render_shusheng_split_red(self.dummy_bg, self.tmp_path / "q2.png", quiet=True)
+            ret3 = render_shusheng_side_yellow(self.dummy_bg, self.tmp_path / "q3.png", quiet=True)
+            ret4 = render_shusheng_top_green(self.dummy_bg, self.tmp_path / "q4.png", quiet=True)
+            ret5 = render_shusheng_letterbox(self.dummy_bg, self.tmp_path / "q5.png", quiet=True)
         self.assertEqual(buf.getvalue().strip(), "")
+        for ret in (ret1, ret2, ret3, ret4, ret5):
+            self.assertTrue(Path(ret).exists())
 
     def test_list_and_render_film_cover_style(self):
         styles = list_film_cover_styles()
@@ -2530,6 +2534,110 @@ class TestFilmCoverEngine(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertTrue(out_file.exists())
         self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_build_arg_parser(self):
+        parser = build_film_cover_arg_parser()
+        self.assertIsInstance(parser, argparse.ArgumentParser)
+        parsed = parser.parse_args(["--style", "capsule_green", "--json", "-q", "--strict"])
+        self.assertEqual(parsed.style, "capsule_green")
+        self.assertTrue(parsed.json)
+        self.assertTrue(parsed.quiet)
+        self.assertTrue(parsed.strict)
+
+    def test_cli_main_list_json(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = film_cover_main(["--list", "--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue().strip())
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 5)
+        keys = [item["key"] for item in data]
+        self.assertEqual(keys, ["capsule_green", "split_red", "side_yellow", "top_green", "letterbox"])
+        for item in data:
+            self.assertIn("name", item)
+            self.assertIn("default_file", item)
+
+    def test_cli_main_single_style_json(self):
+        from contextlib import redirect_stdout
+
+        out_file = self.tmp_path / "cli_json_single.png"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = film_cover_main([
+                "--style", "capsule_green",
+                "--src", str(self.dummy_bg),
+                "--out", str(out_file),
+                "--json",
+            ])
+        self.assertEqual(code, 0)
+        self.assertTrue(out_file.exists())
+        report = json.loads(buf.getvalue().strip())
+        self.assertTrue(report.get("ok"))
+        self.assertEqual(report.get("total"), 1)
+        self.assertEqual(report.get("styles"), ["capsule_green"])
+        self.assertEqual(report.get("src"), str(self.dummy_bg))
+        self.assertEqual(len(report.get("results", [])), 1)
+        self.assertEqual(report["results"][0]["style"], "capsule_green")
+        self.assertEqual(report["results"][0]["output"], str(out_file))
+
+    def test_cli_main_all_mode_json(self):
+        from contextlib import redirect_stdout
+
+        out_base = self.tmp_path / "bundle_json.png"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = film_cover_main([
+                "--style", "all",
+                "--src", str(self.dummy_bg),
+                "--out", str(out_base),
+                "--json",
+            ])
+        self.assertEqual(code, 0)
+        report = json.loads(buf.getvalue().strip())
+        self.assertTrue(report.get("ok"))
+        self.assertEqual(report.get("total"), 5)
+        self.assertEqual(len(report.get("results", [])), 5)
+        for st in FILM_COVER_STYLES.keys():
+            expected = self.tmp_path / f"bundle_json_{st}.png"
+            self.assertTrue(expected.exists())
+
+    def test_cli_main_missing_src_json_error(self):
+        from contextlib import redirect_stdout
+
+        missing_src = self.tmp_path / "non_existent_img.png"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = film_cover_main([
+                "--src", str(missing_src),
+                "--json",
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        err_report = json.loads(buf.getvalue().strip())
+        self.assertFalse(err_report.get("ok"))
+        self.assertIn("error", err_report)
+        self.assertIn("找不到输入底图", err_report["error"])
+
+    def test_cli_main_exception_json_error(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with patch("film_cover_engine.render_film_cover_style", side_effect=RuntimeError("Simulated cover render crash")):
+            with redirect_stdout(buf):
+                code = film_cover_main([
+                    "--style", "top_green",
+                    "--src", str(self.dummy_bg),
+                    "--json",
+                    "--strict",
+                ])
+        self.assertEqual(code, 1)
+        err_report = json.loads(buf.getvalue().strip())
+        self.assertFalse(err_report.get("ok"))
+        self.assertIn("error", err_report)
+        self.assertIn("Simulated cover render crash", err_report["error"])
 
 
 class TestPosterComposer(unittest.TestCase):

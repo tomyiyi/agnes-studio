@@ -12,6 +12,8 @@ Agnes Studio · 电影感封面排版引擎 (Cinematic Cover Engine)
 
 import os
 import sys
+import json
+import argparse
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -355,7 +357,8 @@ def render_shusheng_top_green(
 
     final_img = Image.alpha_composite(base_img, overlay).convert("RGB")
     final_img.save(str(out_p), quality=95)
-    print(f"✅ 绿底上下 1/3 分割封面生成成功: {out_p}")
+    if not quiet:
+        print(f"✅ 绿底上下 1/3 分割封面生成成功: {out_p}")
     return str(out_p)
 
 
@@ -514,9 +517,8 @@ def render_film_cover_style(
     return func(bg_image_path, output_path, **call_kwargs)
 
 
-def main(argv: list[str] | None = None) -> int:
-    import argparse
-
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建电影感封面排版引擎 CLI 参数解析器"""
     parser = argparse.ArgumentParser(description="Agnes Studio · 电影感封面排版引擎 (Cinematic Cover Engine)")
     parser.add_argument(
         "--style",
@@ -551,6 +553,11 @@ def main(argv: list[str] | None = None) -> int:
         help="列出所有可用的电影感封面版式预设",
     )
     parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出结果或预设清单",
+    )
+    parser.add_argument(
         "--quiet",
         "-q",
         action="store_true",
@@ -561,12 +568,20 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="严格模式：遇到文件缺失或排版异常时返回非零退出码 1",
     )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
     args = parser.parse_args(argv)
 
     if args.list:
-        if not args.quiet:
+        styles = list_film_cover_styles()
+        if args.json:
+            print(json.dumps(styles, indent=2, ensure_ascii=False))
+        elif not args.quiet:
             print("Agnes Studio 可用电影感封面版式:")
-            for s in list_film_cover_styles():
+            for s in styles:
                 print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
         return 0
 
@@ -575,8 +590,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.src:
         p = Path(args.src)
         if not p.is_file():
-            if not args.quiet:
-                print(f"❌ 找不到输入底图: {args.src}", file=sys.stderr)
+            err_msg = f"找不到输入底图: {args.src}"
+            if args.json:
+                print(json.dumps({"ok": False, "error": err_msg}, indent=2, ensure_ascii=False))
+            elif not args.quiet:
+                print(f"❌ {err_msg}", file=sys.stderr)
             return 1 if args.strict else 0
         resolved_src = p
     else:
@@ -592,13 +610,18 @@ def main(argv: list[str] | None = None) -> int:
                 break
 
     if resolved_src is None:
-        if not args.quiet:
-            print("❌ 未指定 --src 且未发现默认候选底图资产", file=sys.stderr)
+        err_msg = "未指定 --src 且未发现默认候选底图资产"
+        if args.json:
+            print(json.dumps({"ok": False, "error": err_msg}, indent=2, ensure_ascii=False))
+        elif not args.quiet:
+            print(f"❌ {err_msg}", file=sys.stderr)
         return 1 if args.strict else 0
 
     target_styles = list(FILM_COVER_STYLES.keys()) if args.style == "all" else [args.style]
+    suppress_log = args.quiet or args.json
 
     try:
+        results = []
         for st in target_styles:
             if args.out:
                 out_path = Path(args.out)
@@ -607,16 +630,29 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 out_path = Path(ASSETS_DIR) / FILM_COVER_STYLES[st]["default_file"]
 
-            render_film_cover_style(
+            rendered_file = render_film_cover_style(
                 style=st,
                 bg_image_path=resolved_src,
                 output_path=out_path,
                 title=args.title,
-                quiet=args.quiet,
+                quiet=suppress_log,
             )
+            results.append({"style": st, "output": str(rendered_file), "ok": True})
+
+        if args.json:
+            report = {
+                "ok": True,
+                "total": len(results),
+                "styles": target_styles,
+                "src": str(resolved_src),
+                "results": results,
+            }
+            print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0
     except Exception as e:
-        if not args.quiet:
+        if args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, indent=2, ensure_ascii=False))
+        elif not args.quiet:
             print(f"❌ 电影感封面排版失败: {e}", file=sys.stderr)
         return 1 if args.strict else 0
 
