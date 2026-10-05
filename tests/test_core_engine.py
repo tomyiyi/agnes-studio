@@ -287,6 +287,11 @@ from render_title_refined import (
     REFINED_TITLE_REGISTRY,
     render_refined_variant,
     render_all_refined_titles,
+    REFINED_TITLE_STYLES,
+    normalize_refined_style_key,
+    list_refined_title_styles,
+    render_refined_title_style,
+    main as refined_title_main,
 )
 import render_variants_verify
 from render_variants_verify import (
@@ -6722,6 +6727,183 @@ class TestRenderTitleRefined(unittest.TestCase):
     def test_main_missing_input_returns_nonzero(self):
         ret = render_title_refined.main(["--input", str(self.tmp_path / "does_not_exist.png")])
         self.assertEqual(ret, 1)
+
+    def test_render_html_quiet_mode(self):
+        from contextlib import redirect_stdout
+        out_p = self.tmp_path / "dummy_render.png"
+        out_p.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        with patch("playwright.sync_api.sync_playwright") as mock_pw:
+            mock_browser = MagicMock()
+            mock_page = MagicMock()
+            mock_pw.return_value.__enter__.return_value.chromium.launch.return_value = mock_browser
+            mock_browser.new_page.return_value = mock_page
+
+            # quiet=True 应完全抑制标准输出
+            buf_quiet = io.StringIO()
+            with redirect_stdout(buf_quiet):
+                refined_render_html("<html>test</html>", out_p, quiet=True)
+            self.assertEqual(buf_quiet.getvalue().strip(), "")
+
+            # quiet=False 应打印生成日志
+            buf_loud = io.StringIO()
+            with redirect_stdout(buf_loud):
+                refined_render_html("<html>test</html>", out_p, quiet=False)
+            self.assertIn("✓", buf_loud.getvalue())
+
+    @patch("render_title_refined.render_html")
+    def test_render_styles_quiet_mode(self, mock_render):
+        sample_img = self.tmp_path / "base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out.png"
+        mock_render.side_effect = lambda html, out, **kw: Path(out)
+
+        # 验证 5 大高级字设函数透传 quiet 标志位
+        funcs = [
+            render_r1_oriental_center,
+            render_r2_left_big,
+            render_r3_vertical_spine,
+            render_r4_sky_field,
+            render_r5_film_bottom,
+        ]
+        for fn in funcs:
+            mock_render.reset_mock()
+            fn(sample_img, out_p, quiet=True)
+            self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+    def test_normalize_refined_style_key_and_list_styles(self):
+        # 1. 验证别名解析与数字映射
+        self.assertEqual(normalize_refined_style_key("1"), "r1_oriental_center")
+        self.assertEqual(normalize_refined_style_key("r1"), "r1_oriental_center")
+        self.assertEqual(normalize_refined_style_key("oriental"), "r1_oriental_center")
+        self.assertEqual(normalize_refined_style_key("2"), "r2_left_big")
+        self.assertEqual(normalize_refined_style_key("left_big"), "r2_left_big")
+        self.assertEqual(normalize_refined_style_key("3"), "r3_vertical_spine")
+        self.assertEqual(normalize_refined_style_key("spine"), "r3_vertical_spine")
+        self.assertEqual(normalize_refined_style_key("4"), "r4_sky_field")
+        self.assertEqual(normalize_refined_style_key("sky"), "r4_sky_field")
+        self.assertEqual(normalize_refined_style_key("5"), "r5_film_bottom")
+        self.assertEqual(normalize_refined_style_key("film_bottom"), "r5_film_bottom")
+
+        # 2. 未知变体抛出 KeyError
+        with self.assertRaises(KeyError):
+            normalize_refined_style_key("invalid_style")
+
+        # 3. 验证清单查询接口
+        styles = list_refined_title_styles()
+        self.assertEqual(len(styles), 5)
+        keys = [s["key"] for s in styles]
+        self.assertIn("r1_oriental_center", keys)
+        self.assertIn("r2_left_big", keys)
+        self.assertIn("r3_vertical_spine", keys)
+        self.assertIn("r4_sky_field", keys)
+        self.assertIn("r5_film_bottom", keys)
+
+    @patch("render_title_refined.render_html")
+    def test_render_refined_title_style_dispatch(self, mock_render):
+        sample_img = self.tmp_path / "base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out.png"
+        mock_render.side_effect = lambda html, out, **kw: Path(out)
+
+        # 1. 派发成功
+        res = render_refined_title_style("1", sample_img, out_p, quiet=True)
+        self.assertEqual(res, out_p)
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+        # 2. r4_sky_field 标题分词逻辑验证
+        mock_render.reset_mock()
+        render_refined_title_style("sky", sample_img, out_p, title="夜航", quiet=True)
+        call_html = mock_render.call_args[0][0]
+        self.assertIn("夜 航", call_html)
+
+        # 3. 未知风格抛出 KeyError
+        with self.assertRaises(KeyError):
+            render_refined_title_style("unknown", sample_img, out_p)
+
+    def test_cli_main_list_mode(self):
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = refined_title_main(["--list"])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("r1_oriental_center", out)
+        self.assertIn("r2_left_big", out)
+        self.assertIn("r3_vertical_spine", out)
+        self.assertIn("r4_sky_field", out)
+        self.assertIn("r5_film_bottom", out)
+
+    @patch("render_title_refined.render_html")
+    def test_cli_main_single_style_with_custom_src_and_out(self, mock_render):
+        sample_img = self.tmp_path / "title_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "single_out.png"
+        mock_render.return_value = out_p
+
+        code = refined_title_main([
+            "--style", "r1_oriental_center",
+            "--src", str(sample_img),
+            "--out", str(out_p),
+            "--title", "极简宋体",
+            "--latin", "MINIMAL SERIF",
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_render.call_count, 1)
+
+    @patch("render_title_refined.render_html")
+    def test_cli_main_all_mode(self, mock_render):
+        sample_img = self.tmp_path / "title_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_base = self.tmp_path / "bundle.png"
+        mock_render.return_value = self.tmp_path / "out.png"
+
+        code = refined_title_main([
+            "--style", "all",
+            "--src", str(sample_img),
+            "--out", str(out_base),
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_render.call_count, 5)
+
+    def test_cli_main_missing_src_strict_mode(self):
+        missing_src = self.tmp_path / "does_not_exist.png"
+        code_strict = refined_title_main([
+            "--style", "r1_oriental_center",
+            "--src", str(missing_src),
+            "--strict",
+            "--quiet",
+        ])
+        self.assertEqual(code_strict, 1)
+
+        code_lenient = refined_title_main([
+            "--style", "r1_oriental_center",
+            "--src", str(missing_src),
+            "--quiet",
+        ])
+        self.assertEqual(code_lenient, 0)
+
+    @patch("render_title_refined.render_html")
+    def test_cli_main_quiet_mode_suppresses_stdout(self, mock_render):
+        from contextlib import redirect_stdout
+
+        sample_img = self.tmp_path / "title_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "quiet_out.png"
+        mock_render.return_value = out_p
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = refined_title_main([
+                "--style", "r1_oriental_center",
+                "--src", str(sample_img),
+                "--out", str(out_p),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
 
 
 class TestRenderVariantsVerify(unittest.TestCase):

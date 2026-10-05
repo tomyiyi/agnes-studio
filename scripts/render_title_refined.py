@@ -289,7 +289,13 @@ def build_r5_film_bottom_html(
 
 # ---------- 渲染与对外输出接口 ----------
 
-def render_html(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 550) -> Path:
+def render_html(
+    html: str,
+    out: str | Path,
+    size=(864, 1152),
+    timeout_ms: int = 550,
+    quiet: bool = False,
+) -> Path:
     """使用 Playwright 渲染 HTML 为高清海报 PNG。"""
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -308,14 +314,21 @@ def render_html(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 
             page.wait_for_timeout(timeout_ms)
         page.screenshot(path=str(out_path), type="png")
         browser.close()
-    size_kb = out_path.stat().st_size // 1024 if out_path.exists() else 0
-    print(f"  ✓ {out_path.name} ({size_kb} KB)")
+    if not quiet:
+        size_kb = out_path.stat().st_size // 1024 if out_path.exists() else 0
+        print(f"  ✓ {out_path.name} ({size_kb} KB)")
     return out_path
 
 
-def shot(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 550) -> Path:
+def shot(
+    html: str,
+    out: str | Path,
+    size=(864, 1152),
+    timeout_ms: int = 550,
+    quiet: bool = False,
+) -> Path:
     """向下兼容别名，调用 render_html。"""
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_r1_oriental_center(
@@ -328,6 +341,7 @@ def render_r1_oriental_center(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 550,
+    quiet: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_r1_oriental_center_html(
@@ -338,7 +352,7 @@ def render_r1_oriental_center(
         seal_text=seal_text,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_r2_left_big(
@@ -350,6 +364,7 @@ def render_r2_left_big(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 550,
+    quiet: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_r2_left_big_html(
@@ -359,7 +374,7 @@ def render_r2_left_big(
         slogan=slogan,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_r3_vertical_spine(
@@ -371,6 +386,7 @@ def render_r3_vertical_spine(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 550,
+    quiet: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_r3_vertical_spine_html(
@@ -380,7 +396,7 @@ def render_r3_vertical_spine(
         slogan=slogan,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_r4_sky_field(
@@ -392,6 +408,7 @@ def render_r4_sky_field(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 550,
+    quiet: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_r4_sky_field_html(
@@ -401,7 +418,7 @@ def render_r4_sky_field(
         slogan=slogan,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_r5_film_bottom(
@@ -413,6 +430,7 @@ def render_r5_film_bottom(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 550,
+    quiet: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_r5_film_bottom_html(
@@ -422,16 +440,158 @@ def render_r5_film_bottom(
         slogan=slogan,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
-REFINED_TITLE_REGISTRY = {
-    "r1_oriental_center": render_r1_oriental_center,
-    "r2_left_big": render_r2_left_big,
-    "r3_vertical_spine": render_r3_vertical_spine,
-    "r4_sky_field": render_r4_sky_field,
-    "r5_film_bottom": render_r5_film_bottom,
+# =============================================================================
+# 风格注册表与多风格派发器
+# =============================================================================
+
+REFINED_TITLE_STYLES = {
+    "r1_oriental_center": {
+        "name": "东方院线居中 (Oriental Center)",
+        "func": render_r1_oriental_center,
+        "default_file": "r1_oriental_center.png",
+        "default_latin": "Night Voyage",
+        "default_slogan": "她把城市调成静音",
+    },
+    "r2_left_big": {
+        "name": "黑宋大标偏左 (Left Big Black Serif)",
+        "func": render_r2_left_big,
+        "default_file": "r2_left_big.png",
+        "default_latin": "Night Voyage",
+        "default_slogan": "她把城市调成静音",
+    },
+    "r3_vertical_spine": {
+        "name": "竖排书脊标题 (Vertical Spine Book)",
+        "func": render_r3_vertical_spine,
+        "default_file": "r3_vertical_spine.png",
+        "default_latin": "Night Voyage · Agnes",
+        "default_slogan": "她把城市调成静音",
+    },
+    "r4_sky_field": {
+        "name": "负空间天幕 (Sky Field Negative Space)",
+        "func": render_r4_sky_field,
+        "default_file": "r4_sky_field.png",
+        "default_latin": "Night Voyage",
+        "default_slogan": "她把城市调成静音",
+    },
+    "r5_film_bottom": {
+        "name": "院线主从排布 (Film Bottom Hierarchy)",
+        "func": render_r5_film_bottom,
+        "default_file": "r5_film_bottom.png",
+        "default_latin": "Night Voyage",
+        "default_slogan": "她把城市调成静音",
+    },
 }
+
+REFINED_TITLE_REGISTRY = {k: v["func"] for k, v in REFINED_TITLE_STYLES.items()}
+
+
+def normalize_refined_style_key(style: str) -> str:
+    """标准化高级字设范式键名，支持别名与数字缩写。"""
+    raw = str(style or "").strip().lower()
+    mapping = {
+        "1": "r1_oriental_center",
+        "r1": "r1_oriental_center",
+        "r1_oriental_center": "r1_oriental_center",
+        "oriental_center": "r1_oriental_center",
+        "oriental": "r1_oriental_center",
+        "2": "r2_left_big",
+        "r2": "r2_left_big",
+        "r2_left_big": "r2_left_big",
+        "left_big": "r2_left_big",
+        "3": "r3_vertical_spine",
+        "r3": "r3_vertical_spine",
+        "r3_vertical_spine": "r3_vertical_spine",
+        "vertical_spine": "r3_vertical_spine",
+        "spine": "r3_vertical_spine",
+        "4": "r4_sky_field",
+        "r4": "r4_sky_field",
+        "r4_sky_field": "r4_sky_field",
+        "sky_field": "r4_sky_field",
+        "sky": "r4_sky_field",
+        "5": "r5_film_bottom",
+        "r5": "r5_film_bottom",
+        "r5_film_bottom": "r5_film_bottom",
+        "film_bottom": "r5_film_bottom",
+    }
+    if raw in mapping:
+        return mapping[raw]
+    if raw in REFINED_TITLE_STYLES:
+        return raw
+    raise KeyError(f"Unknown refined title style: '{style}'. Available: {list(REFINED_TITLE_STYLES.keys())}")
+
+
+def list_refined_title_styles() -> list[dict[str, str]]:
+    """列出所有已注册的高级中文海报标题字设范式预设。"""
+    return [
+        {"key": k, "name": v["name"], "default_file": v["default_file"]}
+        for k, v in REFINED_TITLE_STYLES.items()
+    ]
+
+
+def render_refined_title_style(
+    style: str,
+    image: str | Path,
+    out: str | Path,
+    title: str = "夜航",
+    latin: str | None = None,
+    slogan: str | None = None,
+    seal_text: str = "航",
+    extra_css: str = "",
+    size=(864, 1152),
+    timeout_ms: int = 550,
+    quiet: bool = False,
+    **kwargs,
+) -> Path:
+    """按高级字设范式名称派发渲染对应的海报。"""
+    norm_key = normalize_refined_style_key(style)
+    meta = REFINED_TITLE_STYLES[norm_key]
+    func = meta["func"]
+    eff_latin = latin if latin is not None else meta["default_latin"]
+    eff_slogan = slogan if slogan is not None else meta["default_slogan"]
+
+    if norm_key == "r1_oriental_center":
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            latin=eff_latin,
+            slogan=eff_slogan,
+            seal_text=seal_text,
+            extra_css=extra_css,
+            size=size,
+            timeout_ms=timeout_ms,
+            quiet=quiet,
+        )
+    elif norm_key == "r4_sky_field":
+        t = title
+        if t == "夜航":
+            t = "夜 航"
+        return func(
+            image=image,
+            out=out,
+            title=t,
+            latin=eff_latin,
+            slogan=eff_slogan,
+            extra_css=extra_css,
+            size=size,
+            timeout_ms=timeout_ms,
+            quiet=quiet,
+        )
+    else:
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            latin=eff_latin,
+            slogan=eff_slogan,
+            extra_css=extra_css,
+            size=size,
+            timeout_ms=timeout_ms,
+            quiet=quiet,
+        )
 
 
 def render_refined_variant(
@@ -445,23 +605,28 @@ def render_refined_variant(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 550,
+    quiet: bool = False,
 ) -> Path:
-    """根据变体名称渲染指定的精致字设海报。"""
-    key = str(variant or "").strip().lower()
-    if key not in REFINED_TITLE_REGISTRY:
+    """根据变体名称渲染指定的精致字设海报（向后兼容）。"""
+    raw_key = str(variant or "").strip().lower()
+    try:
+        norm_key = normalize_refined_style_key(raw_key)
+    except KeyError:
         raise ValueError(f"Unknown refined title variant '{variant}'. Available: {list(REFINED_TITLE_REGISTRY.keys())}")
-    renderer = REFINED_TITLE_REGISTRY[key]
-    kwargs = {
-        "title": title,
-        "latin": latin,
-        "slogan": slogan,
-        "extra_css": extra_css,
-        "size": size,
-        "timeout_ms": timeout_ms,
-    }
-    if key == "r1_oriental_center":
-        kwargs["seal_text"] = seal_text
-    return renderer(image, out, **kwargs)
+
+    return render_refined_title_style(
+        style=norm_key,
+        image=image,
+        out=out,
+        title=title,
+        latin=latin,
+        slogan=slogan,
+        seal_text=seal_text,
+        extra_css=extra_css,
+        size=size,
+        timeout_ms=timeout_ms,
+        quiet=quiet,
+    )
 
 
 def render_all_refined_titles(
@@ -472,6 +637,7 @@ def render_all_refined_titles(
     slogan: str = "她把城市调成静音",
     seal_text: str = "航",
     timeout_ms: int = 550,
+    quiet: bool = False,
 ) -> dict[str, Path]:
     """批量渲染所有 5 大高级字设范式海报。"""
     target_dir = Path(out_dir) if out_dir else (ROOT / "outputs" / "title_refined")
@@ -479,73 +645,183 @@ def render_all_refined_titles(
 
     results = {}
     results["r1_oriental_center"] = render_r1_oriental_center(
-        image, target_dir / "r1_oriental_center.png", title=title, latin=latin, slogan=slogan, seal_text=seal_text, timeout_ms=timeout_ms
+        image, target_dir / "r1_oriental_center.png", title=title, latin=latin, slogan=slogan, seal_text=seal_text, timeout_ms=timeout_ms, quiet=quiet
     )
     results["r2_left_big"] = render_r2_left_big(
-        image, target_dir / "r2_left_big.png", title=title, latin=latin, slogan=slogan, timeout_ms=timeout_ms
+        image, target_dir / "r2_left_big.png", title=title, latin=latin, slogan=slogan, timeout_ms=timeout_ms, quiet=quiet
     )
     results["r3_vertical_spine"] = render_r3_vertical_spine(
-        image, target_dir / "r3_vertical_spine.png", title=title, latin=f"{latin} · Agnes", slogan=slogan, timeout_ms=timeout_ms
+        image, target_dir / "r3_vertical_spine.png", title=title, latin=f"{latin} · Agnes", slogan=slogan, timeout_ms=timeout_ms, quiet=quiet
     )
     results["r4_sky_field"] = render_r4_sky_field(
-        image, target_dir / "r4_sky_field.png", title=f"{title[0]} {title[1:]}" if len(title) > 1 else title, latin=latin, slogan=slogan, timeout_ms=timeout_ms
+        image, target_dir / "r4_sky_field.png", title=f"{title[0]} {title[1:]}" if len(title) > 1 else title, latin=latin, slogan=slogan, timeout_ms=timeout_ms, quiet=quiet
     )
     results["r5_film_bottom"] = render_r5_film_bottom(
-        image, target_dir / "r5_film_bottom.png", title=title, latin=latin, slogan=slogan, timeout_ms=timeout_ms
+        image, target_dir / "r5_film_bottom.png", title=title, latin=latin, slogan=slogan, timeout_ms=timeout_ms, quiet=quiet
     )
     return results
 
 
-def main(argv=None) -> int:
+def main(argv: list[str] | None = None) -> int:
+    """高级中文海报标题字设渲染引擎规范化 CLI 入口。"""
     import argparse
-    parser = argparse.ArgumentParser(description="高级中文海报标题字设（Refined Title Typography）渲染器")
-    parser.add_argument("--input", "-i", type=str, default=None, help="底图路径")
-    parser.add_argument("--out-dir", "-o", type=str, default=None, help="输出目录")
-    parser.add_argument("--variant", "-v", type=str, default=None, choices=list(REFINED_TITLE_REGISTRY.keys()) + ["all"], help="指定渲染的范式")
-    parser.add_argument("--title", type=str, default="夜航", help="主标题")
-    parser.add_argument("--latin", type=str, default="Night Voyage", help="西文大标")
-    parser.add_argument("--slogan", type=str, default="她把城市调成静音", help="文案副标")
-    parser.add_argument("--seal", type=str, default="航", help="印章字")
-    args = parser.parse_args(argv)
 
-    if args.input:
-        base = Path(args.input)
+    parser = argparse.ArgumentParser(description="高级中文海报标题字设（Refined Title Typography）渲染引擎")
+    parser.add_argument(
+        "--variant",
+        "--style",
+        "-v",
+        "-s",
+        dest="style",
+        type=str,
+        default="all",
+        help="指定字设范式（r1-r5 或 all，默认: all）",
+    )
+    parser.add_argument(
+        "--src",
+        "--image",
+        type=str,
+        default=None,
+        help="输入底图路径",
+    )
+    parser.add_argument(
+        "--input",
+        "-i",
+        type=str,
+        default=None,
+        help="向下兼容底图输入路径",
+    )
+    parser.add_argument(
+        "--out",
+        "-o",
+        type=str,
+        default=None,
+        help="输出海报路径（单风格或 all 附加后缀）",
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=str,
+        default=None,
+        help="输出目录（未指定 --out 时默认保存至该目录）",
+    )
+    parser.add_argument(
+        "--title",
+        "-t",
+        type=str,
+        default="夜航",
+        help="主标题 (默认: 夜航)",
+    )
+    parser.add_argument(
+        "--latin",
+        "-l",
+        type=str,
+        default=None,
+        help="西文大标 (默认根据各版式预设提供)",
+    )
+    parser.add_argument(
+        "--slogan",
+        type=str,
+        default="她把城市调成静音",
+        help="文案副标 (默认: 她把城市调成静音)",
+    )
+    parser.add_argument(
+        "--seal",
+        type=str,
+        default="航",
+        help="印章字符 (默认: 航)",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="列出所有可用的高级字设范式预设",
+    )
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="静默模式，抑制控制台日志",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格模式：遇到底图缺失或渲染异常时返回非零退出码 1",
+    )
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+
+    if args.list:
+        if not args.quiet:
+            print("Agnes Studio 可用高级字设范式预设:")
+            for s in list_refined_title_styles():
+                print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
+        return 0
+
+    # 确定输入源
+    resolved_src = None
+    input_path_arg = args.src or args.input
+    if input_path_arg:
+        p = Path(input_path_arg)
+        if not p.is_file():
+            if not args.quiet:
+                print(f"❌ 找不到输入底图: {input_path_arg}", file=sys.stderr)
+            return 1 if (args.strict or args.input) else 0
+        resolved_src = p
     else:
-        base = ROOT / "outputs" / "epic_compare" / "clean_base.png"
-        if not base.exists():
-            base = ROOT / "public" / "assets" / "agnes_1789995698_9987.png"
+        candidates = [
+            ROOT / "outputs" / "epic_compare" / "clean_base.png",
+            ROOT / "public" / "assets" / "agnes_1789995698_9987.png",
+            ROOT / "assets" / "agnes_1790006749_b2b755da.png",
+            ROOT / "assets" / "agnes_1789995999_1670.png",
+        ]
+        for c in candidates:
+            if c.is_file():
+                resolved_src = c
+                break
 
-    if not base.exists():
-        print(f"⚠️ 未找到可用底图: {base}")
-        return 1
+    if resolved_src is None:
+        if not args.quiet:
+            print("❌ 未指定底图且未发现默认候选底图资产", file=sys.stderr)
+        return 1 if args.strict else 0
 
-    out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "title_refined")
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    if args.variant and args.variant != "all":
-        out_p = out_dir / f"{args.variant}.png"
-        render_refined_variant(
-            args.variant,
-            base,
-            out_p,
-            title=args.title,
-            latin=args.latin,
-            slogan=args.slogan,
-            seal_text=args.seal,
-        )
-        print("done", out_p)
+    raw_style = (args.style or "all").strip().lower()
+    if raw_style == "all":
+        target_styles = list(REFINED_TITLE_STYLES.keys())
     else:
-        render_all_refined_titles(
-            base,
-            out_dir=out_dir,
-            title=args.title,
-            latin=args.latin,
-            slogan=args.slogan,
-            seal_text=args.seal,
-        )
-        print("done", out_dir)
-    return 0
+        try:
+            target_styles = [normalize_refined_style_key(raw_style)]
+        except KeyError as e:
+            if not args.quiet:
+                print(f"❌ {e}", file=sys.stderr)
+            return 1 if args.strict else 0
+
+    try:
+        default_out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "title_refined")
+        for st in target_styles:
+            if args.out:
+                out_path = Path(args.out)
+                if raw_style == "all":
+                    out_path = out_path.with_name(f"{out_path.stem}_{st}{out_path.suffix or '.png'}")
+            else:
+                default_out_dir.mkdir(parents=True, exist_ok=True)
+                out_path = default_out_dir / REFINED_TITLE_STYLES[st]["default_file"]
+
+            render_refined_title_style(
+                style=st,
+                image=resolved_src,
+                out=out_path,
+                title=args.title,
+                latin=args.latin,
+                slogan=args.slogan,
+                seal_text=args.seal,
+                quiet=args.quiet,
+            )
+        if not args.quiet:
+            print("done")
+        return 0
+    except Exception as e:
+        if not args.quiet:
+            print(f"❌ 高级字设海报渲染失败: {e}", file=sys.stderr)
+        return 1 if args.strict else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main(sys.argv[1:]))
