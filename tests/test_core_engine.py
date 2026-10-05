@@ -417,6 +417,7 @@ from batch_skill71_hifi_p0 import (
     render_single_hifi,
     run_batch_hifi,
     classify_generation_error as hifi_classify_error,
+    build_arg_parser as build_skill71_hifi_p0_arg_parser,
 )
 import batch_skill71_samples
 from batch_skill71_samples import (
@@ -10782,6 +10783,116 @@ class TestBatchSkill71HifiP0(unittest.TestCase):
         ])
         self.assertEqual(ret_dry, 0)
         self.assertTrue((cli_out / "hifi_report.json").is_file())
+
+    def test_build_arg_parser(self):
+        parser = build_skill71_hifi_p0_arg_parser()
+        self.assertIsInstance(parser, argparse.ArgumentParser)
+        actions = {dest: a for a in parser._actions for dest in a.dest.split()}
+        self.assertIn("list_presets", actions)
+        self.assertIn("skills", actions)
+        self.assertIn("limit", actions)
+        self.assertIn("out", actions)
+        self.assertIn("model", actions)
+        self.assertIn("size", actions)
+        self.assertIn("retries", actions)
+        self.assertIn("force", actions)
+        self.assertIn("dry_run", actions)
+        self.assertIn("json", actions)
+        self.assertIn("quiet", actions)
+        self.assertIn("strict", actions)
+
+    def test_cli_list_presets_json(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = batch_skill71_hifi_p0.main(["--list-presets", "--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 8)
+        ids = {item["id"] for item in data}
+        self.assertEqual(ids, {"S05", "S07", "S09", "S15", "S11", "N01", "S04", "S02"})
+        for item in data:
+            self.assertIn("id", item)
+            self.assertIn("name", item)
+            self.assertIn("size", item)
+            self.assertIn("prompt_length", item)
+            self.assertIn("prompt", item)
+            self.assertEqual(item["prompt_length"], len(item["prompt"]))
+
+    def test_cli_dry_run_json_output(self):
+        from contextlib import redirect_stdout
+
+        cli_out = self.tmp_path / "cli_json_dry_hifi"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = batch_skill71_hifi_p0.main([
+                "--dry-run",
+                "-s", "S05,S09",
+                "-n", "2",
+                "--out", str(cli_out),
+                "--json",
+            ])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertEqual(data["total"], 2)
+        self.assertEqual(data["ok"], 2)
+        self.assertEqual(data["failed"], 0)
+        self.assertTrue(data["dry_run"])
+        self.assertEqual(len(data["results"]), 2)
+        self.assertTrue((cli_out / "hifi_report.json").is_file())
+
+    def test_cli_quiet_mode_suppresses_stdout(self):
+        from contextlib import redirect_stdout
+
+        cli_out = self.tmp_path / "cli_quiet_dry_hifi"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = batch_skill71_hifi_p0.main([
+                "--dry-run",
+                "-s", "S05",
+                "-n", "1",
+                "--out", str(cli_out),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_run_batch_quiet_mode(self):
+        from contextlib import redirect_stdout
+
+        def fake_gen(prompt, size, model, retries):
+            return {"ok": True}
+
+        def fake_save(res, out_file):
+            Path(out_file).write_bytes(b"x" * 100)
+
+        out_dir = self.tmp_path / "batch_quiet_hifi"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            results = run_batch_hifi(
+                skills="S05",
+                limit=1,
+                out_dir=out_dir,
+                generate_fn=fake_gen,
+                save_image_fn=fake_save,
+                quiet=True,
+            )
+        self.assertEqual(len(results), 1)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_cli_strict_mode_failure(self):
+        with patch("batch_skill71_hifi_p0.generate", None):
+            cli_out = self.tmp_path / "cli_strict_fail_hifi"
+            code = batch_skill71_hifi_p0.main([
+                "-s", "S05",
+                "-n", "1",
+                "--out", str(cli_out),
+                "--strict",
+                "--quiet",
+            ])
+            self.assertEqual(code, 1)
 
 
 class TestBatchSkill71Samples(unittest.TestCase):

@@ -333,6 +333,7 @@ def run_batch_hifi(
     dry_run: bool = False,
     generate_fn: Callable[..., dict[str, Any]] | None = None,
     save_image_fn: Callable[..., Any] | None = None,
+    quiet: bool = False,
 ) -> list[dict[str, Any]]:
     """批量渲染 P0 高保真样张并生成汇总报告。"""
     target_base = Path(out_dir)
@@ -350,7 +351,8 @@ def run_batch_hifi(
     if limit is not None and limit > 0:
         target_keys = target_keys[:limit]
 
-    print(f"Agnes Studio · P0 高保真样张批量执行: 共 {len(target_keys)} 组预设", flush=True)
+    if not quiet:
+        print(f"Agnes Studio · P0 高保真样张批量执行: 共 {len(target_keys)} 组预设", flush=True)
 
     results: list[dict[str, Any]] = []
     total = len(target_keys)
@@ -370,13 +372,14 @@ def run_batch_hifi(
             save_image_fn=save_image_fn,
         )
         results.append(res)
-        tag = "OK" if res.get("ok") else "FAIL"
-        if res.get("dry_run"):
-            tag = "DRY"
-        elif res.get("skipped"):
-            tag = "SKIP"
-        p_name = Path(res.get("path", "")).name
-        print(f"[{idx}/{total}] {tag} {sid} -> {p_name}", flush=True)
+        if not quiet:
+            tag = "OK" if res.get("ok") else "FAIL"
+            if res.get("dry_run"):
+                tag = "DRY"
+            elif res.get("skipped"):
+                tag = "SKIP"
+            p_name = Path(res.get("path", "")).name
+            print(f"[{idx}/{total}] {tag} {sid} -> {p_name}", flush=True)
 
     ok_cnt = sum(1 for r in results if r.get("ok"))
     report = {
@@ -391,7 +394,8 @@ def run_batch_hifi(
     return results
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建 P0 八套高保真样张批量生成引擎命令行参数解析器"""
     parser = argparse.ArgumentParser(description="Agnes Studio · P0 八套高保真样张批量生成引擎")
     parser.add_argument("--list-presets", action="store_true", help="列出全部 P0 高保真预设清单")
     parser.add_argument("-s", "--skills", default=None, help="筛选执行的特定 Skill 标识 (逗号分隔，如 S05,S07)")
@@ -402,13 +406,36 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--retries", type=int, default=DEFAULT_RETRIES, help=f"失败重试次数 (默认: {DEFAULT_RETRIES})")
     parser.add_argument("-f", "--force", action="store_true", help="强制重新生成已存在的文件")
     parser.add_argument("-d", "--dry-run", action="store_true", help="演练模式，不请求实际生图 API")
+    parser.add_argument("--json", action="store_true", help="以 JSON 格式输出预设清单或批量执行汇总报告")
+    parser.add_argument("-q", "--quiet", action="store_true", help="静默模式，减少标准输出打印")
+    parser.add_argument("--strict", action="store_true", help="严格模式：存在任何失败项或执行异常时返回非零退出码 1")
+    return parser
 
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
     args = parser.parse_args(argv)
 
+    quiet = args.quiet or args.json
+
     if args.list_presets:
-        print("Agnes Studio · P0 八套高保真样张预设清单:")
-        for sid, name, sz, prompt in list_hifi_presets():
-            print(f"  [{sid}] {name:<30} | {sz} | 提示词长: {len(prompt)}")
+        presets = list_hifi_presets()
+        if args.json:
+            presets_data = [
+                {
+                    "id": sid,
+                    "name": name,
+                    "size": sz,
+                    "prompt_length": len(prompt),
+                    "prompt": prompt,
+                }
+                for sid, name, sz, prompt in presets
+            ]
+            print(json.dumps(presets_data, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print("Agnes Studio · P0 八套高保真样张预设清单:")
+            for sid, name, sz, prompt in presets:
+                print(f"  [{sid}] {name:<30} | {sz} | 提示词长: {len(prompt)}")
         return 0
 
     results = run_batch_hifi(
@@ -420,9 +447,25 @@ def main(argv: list[str] | None = None) -> int:
         retries=args.retries,
         force=args.force,
         dry_run=args.dry_run,
+        quiet=quiet,
     )
 
-    if results and all(not r.get("ok") for r in results):
+    summary = {
+        "total": len(results),
+        "ok": sum(1 for r in results if r.get("ok")),
+        "failed": sum(1 for r in results if not r.get("ok")),
+        "skipped": sum(1 for r in results if r.get("skipped")),
+        "dry_run": args.dry_run,
+        "results": results,
+    }
+
+    if args.json:
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+    if args.strict:
+        if any(not r.get("ok") for r in results):
+            return 1
+    elif results and all(not r.get("ok") for r in results):
         return 1
     return 0
 
