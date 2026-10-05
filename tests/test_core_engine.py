@@ -218,6 +218,10 @@ from render_cn_type_poster import (
     style_puhui_mega,
     build_vertical_epic_html,
     style_vertical_epic,
+    CN_TYPE_POSTER_STYLES,
+    list_cn_type_poster_styles,
+    render_cn_type_poster_style,
+    main as cn_type_poster_main,
 )
 import render_layout_poster
 from render_layout_poster import (
@@ -5358,6 +5362,158 @@ class TestRenderCnTypePoster(unittest.TestCase):
     def test_main_missing_input_returns_nonzero(self):
         ret = render_cn_type_poster.main(["--input", str(self.tmp_path / "does_not_exist.png")])
         self.assertEqual(ret, 1)
+
+    @patch("playwright.sync_api.sync_playwright")
+    def test_render_html_quiet_mode(self, mock_playwright):
+        from contextlib import redirect_stdout
+
+        fake_page = MagicMock()
+        fake_browser = MagicMock()
+        fake_browser.new_page.return_value = fake_page
+        mock_p_inst = MagicMock()
+        mock_p_inst.chromium.launch.return_value = fake_browser
+        mock_playwright.return_value.__enter__.return_value = mock_p_inst
+
+        out_p = self.tmp_path / "shot_quiet.png"
+        out_p.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = cn_render_html("<html></html>", out_p, quiet=True)
+        self.assertEqual(ret, out_p)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    @patch("render_cn_type_poster.render_html")
+    def test_render_styles_quiet_mode(self, mock_render):
+        sample_img = self.tmp_path / "cn_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out.png"
+        mock_render.return_value = out_p
+
+        res_m = style_monument(sample_img, out_p, quiet=True)
+        self.assertEqual(res_m, out_p)
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+        res_p = style_puhui_mega(sample_img, out_p, quiet=True)
+        self.assertEqual(res_p, out_p)
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+        res_v = style_vertical_epic(sample_img, out_p, quiet=True)
+        self.assertEqual(res_v, out_p)
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+    @patch("render_cn_type_poster.render_html")
+    def test_list_and_render_cn_type_poster_style(self, mock_render):
+        styles = list_cn_type_poster_styles()
+        self.assertEqual(len(styles), 3)
+        keys = {s["key"] for s in styles}
+        self.assertEqual(keys, {"monument", "puhui_mega", "vertical_epic"})
+
+        sample_img = self.tmp_path / "cn_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "dispatched.png"
+        mock_render.return_value = out_p
+
+        ret = render_cn_type_poster_style(
+            "vertical_epic",
+            sample_img,
+            out_p,
+            title="戏曲夜航",
+            latin="OPERA NIGHT",
+            slogan="千山暮雪",
+            seal="印",
+            quiet=True,
+        )
+        self.assertEqual(ret, out_p)
+        mock_render.assert_called()
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+        with self.assertRaises(KeyError):
+            render_cn_type_poster_style("unknown_style", sample_img, out_p)
+
+    def test_cli_main_list_mode(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = cn_type_poster_main(["--list"])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("Agnes Studio 可用纪念碑字排风格预设:", out)
+        self.assertIn("monument", out)
+        self.assertIn("puhui_mega", out)
+        self.assertIn("vertical_epic", out)
+
+    @patch("render_cn_type_poster.render_html")
+    def test_cli_main_single_style_with_custom_src_and_out(self, mock_render):
+        sample_img = self.tmp_path / "cn_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "single_out.png"
+        mock_render.return_value = out_p
+
+        code = cn_type_poster_main([
+            "--style", "puhui_mega",
+            "--src", str(sample_img),
+            "--out", str(out_p),
+            "--title", "巨字测试",
+            "--latin", "MEGA TEST",
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_render.call_count, 1)
+
+    @patch("render_cn_type_poster.render_html")
+    def test_cli_main_all_mode(self, mock_render):
+        sample_img = self.tmp_path / "cn_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_base = self.tmp_path / "bundle.png"
+        mock_render.return_value = self.tmp_path / "out.png"
+
+        code = cn_type_poster_main([
+            "--style", "all",
+            "--src", str(sample_img),
+            "--out", str(out_base),
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_render.call_count, 3)
+
+    def test_cli_main_missing_src_strict_mode(self):
+        missing_src = self.tmp_path / "does_not_exist.png"
+        code_strict = cn_type_poster_main([
+            "--style", "monument",
+            "--src", str(missing_src),
+            "--strict",
+            "--quiet",
+        ])
+        self.assertEqual(code_strict, 1)
+
+        code_lenient = cn_type_poster_main([
+            "--style", "monument",
+            "--src", str(missing_src),
+            "--quiet",
+        ])
+        self.assertEqual(code_lenient, 0)
+
+    @patch("render_cn_type_poster.render_html")
+    def test_cli_main_quiet_mode_suppresses_stdout(self, mock_render):
+        from contextlib import redirect_stdout
+
+        sample_img = self.tmp_path / "cn_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "quiet_out.png"
+        mock_render.return_value = out_p
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = cn_type_poster_main([
+                "--style", "monument",
+                "--src", str(sample_img),
+                "--out", str(out_p),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
 
 
 class TestRenderLayoutPoster(unittest.TestCase):
