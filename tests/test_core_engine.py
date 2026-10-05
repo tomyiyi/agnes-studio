@@ -3029,6 +3029,154 @@ class TestWechatCoverAB(unittest.TestCase):
         self.assertIn("bottom:8%; left:6%;", html_bot)
         self.assertIn("bottom:28%; left:6%;", html_bot)
 
+    def test_get_experiment_matrix(self):
+        matrix = wechat_cover_ab.get_experiment_matrix()
+        self.assertEqual(len(matrix), 6)
+        ids = [item["id"] for item in matrix]
+        self.assertIn("H1_top", ids)
+        self.assertIn("H1_bot", ids)
+        self.assertIn("H3_png", ids)
+        self.assertIn("H3_jpg", ids)
+        self.assertIn("H3_png_sim", ids)
+        self.assertIn("H3_jpg_sim", ids)
+        for item in matrix:
+            self.assertIn("group", item)
+            self.assertIn("name", item)
+            self.assertIn("filename", item)
+            self.assertIn("format", item)
+            self.assertIn("description", item)
+
+    def test_check_prerequisites(self):
+        prereqs = wechat_cover_ab.check_prerequisites(self.dummy_src)
+        self.assertTrue(prereqs["src_exists"])
+        self.assertEqual(prereqs["src_path"], str(self.dummy_src))
+        self.assertIn("font_exists", prereqs)
+        self.assertIn("chrome_exists", prereqs)
+        self.assertIn("playwright_available", prereqs)
+
+        missing = self.tmp_path / "missing.png"
+        missing_prereqs = wechat_cover_ab.check_prerequisites(missing)
+        self.assertFalse(missing_prereqs["src_exists"])
+        self.assertFalse(missing_prereqs["all_ok"])
+
+    def test_build_arg_parser(self):
+        parser = wechat_cover_ab.build_arg_parser()
+        self.assertIsNotNone(parser)
+        parsed_list = parser.parse_args(["--list"])
+        self.assertTrue(parsed_list.list)
+        parsed_check = parser.parse_args(["--check", "--strict"])
+        self.assertTrue(parsed_check.check)
+        self.assertTrue(parsed_check.strict)
+        parsed_custom = parser.parse_args(["--src", "a.png", "-o", "/tmp/out", "--dry-run", "--json", "-q"])
+        self.assertEqual(parsed_custom.src, "a.png")
+        self.assertEqual(parsed_custom.out_dir, "/tmp/out")
+        self.assertTrue(parsed_custom.dry_run)
+        self.assertTrue(parsed_custom.json)
+        self.assertTrue(parsed_custom.quiet)
+
+    def test_run_wechat_cover_ab_dry_run(self):
+        out_target = self.tmp_path / "dry_out"
+        report = wechat_cover_ab.run_wechat_cover_ab(
+            src=self.dummy_src,
+            out_dir=out_target,
+            dry_run=True,
+            quiet=True,
+        )
+        self.assertTrue(report["ok"])
+        self.assertTrue(report["dry_run"])
+        self.assertEqual(report["artifacts_count"], 6)
+        self.assertEqual(len(report["artifacts"]), 6)
+        self.assertTrue((out_target / "_bg_subject_235x100.png").exists())
+        # 在 dry-run 下不生成真实的 HTML 渲染海报或 README
+        self.assertFalse((out_target / "README.md").exists())
+
+    def test_run_wechat_cover_ab_custom_render_fn(self):
+        out_target = self.tmp_path / "custom_render_out"
+
+        def mock_render(html: str, out_p: Path | str, fmt: str = "png") -> Path:
+            p = Path(out_p)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            img = Image.new("RGB", (2350, 1000), color=(120, 60, 40))
+            if fmt == "jpeg":
+                img.save(p, "JPEG")
+            else:
+                img.save(p, "PNG")
+            return p
+
+        report = wechat_cover_ab.run_wechat_cover_ab(
+            src=self.dummy_src,
+            out_dir=out_target,
+            dry_run=False,
+            write_readme=True,
+            render_fn=mock_render,
+            quiet=True,
+        )
+        self.assertTrue(report["ok"])
+        self.assertFalse(report["dry_run"])
+        self.assertEqual(report["artifacts_count"], 6)
+        self.assertTrue((out_target / "H1_title_top_safe.png").exists())
+        self.assertTrue((out_target / "H1_title_bottom_risk.png").exists())
+        self.assertTrue((out_target / "H3_export_png24.png").exists())
+        self.assertTrue((out_target / "H3_export_jpeg_q90.jpg").exists())
+        self.assertTrue((out_target / "H3_png24_after_wechat_sim.jpg").exists())
+        self.assertTrue((out_target / "H3_jpeg_q90_after_wechat_sim.jpg").exists())
+        self.assertTrue((out_target / "README.md").exists())
+
+    def test_run_wechat_cover_ab_missing_src(self):
+        missing = self.tmp_path / "not_found.png"
+        with self.assertRaises(FileNotFoundError):
+            wechat_cover_ab.run_wechat_cover_ab(src=missing, out_dir=self.tmp_path)
+
+    def test_main_cli_list(self):
+        with io.StringIO() as buf, redirect_stdout(buf):
+            code = wechat_cover_ab.main(["--list"])
+            self.assertEqual(code, 0)
+            output = buf.getvalue()
+            self.assertIn("H1/H3 微信头图对照实验清单", output)
+            self.assertIn("H1_top", output)
+
+        with io.StringIO() as buf, redirect_stdout(buf):
+            code = wechat_cover_ab.main(["--list", "--json"])
+            self.assertEqual(code, 0)
+            data = json.loads(buf.getvalue())
+            self.assertEqual(len(data), 6)
+
+    def test_main_cli_check(self):
+        with io.StringIO() as buf, redirect_stdout(buf):
+            code = wechat_cover_ab.main(["--check", "--src", str(self.dummy_src)])
+            self.assertEqual(code, 0)
+            self.assertIn("H1/H3 对照实验前置条件巡检", buf.getvalue())
+
+        with io.StringIO() as buf, redirect_stdout(buf):
+            code = wechat_cover_ab.main(["--check", "--src", str(self.dummy_src), "--json"])
+            self.assertEqual(code, 0)
+            data = json.loads(buf.getvalue())
+            self.assertTrue(data["src_exists"])
+
+        missing = self.tmp_path / "missing_bg.png"
+        code_strict = wechat_cover_ab.main(["--check", "--src", str(missing), "--strict", "-q"])
+        self.assertEqual(code_strict, 1)
+
+    def test_main_cli_dry_run(self):
+        target = self.tmp_path / "cli_dry_out"
+        with io.StringIO() as buf, redirect_stdout(buf):
+            code = wechat_cover_ab.main([
+                "--dry-run",
+                "--src", str(self.dummy_src),
+                "--out-dir", str(target),
+                "--json",
+            ])
+            self.assertEqual(code, 0)
+            res = json.loads(buf.getvalue())
+            self.assertTrue(res["ok"])
+            self.assertTrue(res["dry_run"])
+            self.assertEqual(res["artifacts_count"], 6)
+
+    def test_main_cli_missing_src(self):
+        missing = self.tmp_path / "missing_bg.png"
+        code = wechat_cover_ab.main(["--src", str(missing), "--out-dir", str(self.tmp_path), "-q"])
+        self.assertEqual(code, 1)
+
 
 class TestAgnesGateway(unittest.TestCase):
     """测试 Agnes 生图网关与本地轮换机制 (Agnes Gateway Suite)"""
