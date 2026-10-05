@@ -12573,6 +12573,83 @@ class TestMergeSkill71Gallery(unittest.TestCase):
         self.assertFalse(data["ok"])
         self.assertIn("HTML file not found", data["error"])
 
+    def test_cli_exception_stderr_output(self):
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("merge_skill71_gallery.merge_gallery", side_effect=RuntimeError("Merge gallery disk error")):
+            with redirect_stderr(buf):
+                code = merge_main([])
+            self.assertEqual(code, 1)
+            self.assertIn("❌ 画廊合并失败: Merge gallery disk error", buf.getvalue())
+
+    def test_cli_exception_quiet_mode(self):
+        from contextlib import redirect_stderr, redirect_stdout
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("merge_skill71_gallery.merge_gallery", side_effect=RuntimeError("Merge gallery disk error")):
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                code = merge_main(["--quiet"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
+    def test_cli_exception_json_output(self):
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("merge_skill71_gallery.merge_gallery", side_effect=RuntimeError("Merge gallery disk error")):
+            with redirect_stdout(buf):
+                code = merge_main(["--json"])
+            self.assertEqual(code, 1)
+            data = json.loads(buf.getvalue())
+            self.assertFalse(data["ok"])
+            self.assertEqual(data["error"], "Merge gallery disk error")
+
+    def test_cli_list_groups_exception_json_output(self):
+        from contextlib import redirect_stdout
+
+        class FaultyDict:
+            def items(self):
+                raise RuntimeError("Group meta load error")
+
+        buf = io.StringIO()
+        with patch("merge_skill71_gallery.GROUP_META", new=FaultyDict()):
+            with redirect_stdout(buf):
+                code = merge_main(["--list-groups", "--json"])
+            self.assertEqual(code, 1)
+            data = json.loads(buf.getvalue())
+            self.assertFalse(data["ok"])
+            self.assertEqual(data["error"], "Group meta load error")
+
+    def test_cli_list_groups_exception_stderr_output(self):
+        from contextlib import redirect_stderr
+
+        class FaultyDict:
+            def items(self):
+                raise RuntimeError("Group meta load error")
+
+        buf = io.StringIO()
+        with patch("merge_skill71_gallery.GROUP_META", new=FaultyDict()):
+            with redirect_stderr(buf):
+                code = merge_main(["--list-groups"])
+            self.assertEqual(code, 1)
+            self.assertIn("❌ 71 项 Skill 分组映射读取失败: Group meta load error", buf.getvalue())
+
+    def test_cli_list_groups_exception_quiet_mode(self):
+        from contextlib import redirect_stderr, redirect_stdout
+
+        class FaultyDict:
+            def items(self):
+                raise RuntimeError("Group meta load error")
+
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("merge_skill71_gallery.GROUP_META", new=FaultyDict()):
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                code = merge_main(["--list-groups", "--quiet"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
     def test_public_index_html_integrity(self):
         """确保工作区真实 public/index.html 具备完整的全局画廊定义且计数精准无冲突"""
         real_html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")

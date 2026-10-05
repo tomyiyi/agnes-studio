@@ -341,7 +341,7 @@ def main(argv: list[str] | None = None) -> int:
     quiet = args.quiet or args.json
 
     if args.list_groups:
-        if args.json:
+        try:
             groups_data = [
                 {
                     "id": gid,
@@ -350,12 +350,19 @@ def main(argv: list[str] | None = None) -> int:
                 }
                 for gname, (gid, label) in GROUP_META.items()
             ]
-            print(json.dumps(groups_data, ensure_ascii=False, indent=2))
-        elif not args.quiet:
-            print("Agnes Studio · 71 项 Skill 分组映射清单:")
-            for gname, (gid, label) in GROUP_META.items():
-                print(f"  [{gid:<18}] {label} (原组名: {gname})")
-        return 0
+            if args.json:
+                print(json.dumps(groups_data, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio · 71 项 Skill 分组映射清单:")
+                for it in groups_data:
+                    print(f"  [{it['id']:<18}] {it['label']} (原组名: {it['source_group']})")
+            return 0
+        except Exception as e:
+            if not args.quiet and not args.json:
+                print(f"❌ 71 项 Skill 分组映射读取失败: {e}", file=sys.stderr)
+            elif args.json:
+                print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+            return 1
 
     try:
         meta = merge_gallery(
@@ -377,10 +384,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  * 分类数: {len(meta['categories'])}")
         return 0
     except Exception as e:
-        if args.json:
-            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False, indent=2))
-        elif not args.quiet:
+        if not args.quiet and not args.json:
             print(f"❌ 画廊合并失败: {e}", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
         return 1
 
 
