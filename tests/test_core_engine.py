@@ -11373,6 +11373,37 @@ class TestBatchTypeBehindV154(unittest.TestCase):
             ])
             self.assertEqual(code, 1)
 
+    def test_cli_exception_json_output(self):
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("batch_type_behind_v154.run_batch_v154", side_effect=RuntimeError("GPU out of memory")):
+            with redirect_stdout(buf):
+                code = batch_type_behind_v154.main(["-v", "v154", "--json"])
+            self.assertEqual(code, 1)
+            data = json.loads(buf.getvalue())
+            self.assertFalse(data["ok"])
+            self.assertEqual(data["error"], "GPU out of memory")
+
+    def test_cli_exception_stderr_output(self):
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("batch_type_behind_v154.run_batch_v154", side_effect=ValueError("Invalid version range")):
+            with redirect_stderr(buf):
+                code = batch_type_behind_v154.main(["-v", "v154"])
+            self.assertEqual(code, 1)
+            self.assertIn("❌ 批量字在人后 v154-v159 渲染失败: Invalid version range", buf.getvalue())
+
+    def test_cli_exception_quiet_mode(self):
+        from contextlib import redirect_stderr, redirect_stdout
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("batch_type_behind_v154.run_batch_v154", side_effect=RuntimeError("Silent failure")):
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                code = batch_type_behind_v154.main(["-v", "v154", "--quiet"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
 
 class TestBatchSkill71HifiP0(unittest.TestCase):
     """测试 P0 八套高保真生图样张批处理引擎 batch_skill71_hifi_p0"""
