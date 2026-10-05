@@ -2,8 +2,10 @@
 """电影级极简海报：去掉一切教材腔，只留图 + 极少字 + 真负空间。"""
 from __future__ import annotations
 
+import argparse
 import base64
 from html import escape
+import json
 import os
 import sys
 from pathlib import Path
@@ -59,9 +61,20 @@ def sanitize_img_uri(uri: str) -> str:
     )
 
 
-def shot(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 500, quiet: bool = False) -> Path:
+def shot(
+    html: str,
+    out: str | Path,
+    size=(864, 1152),
+    timeout_ms: int = 500,
+    quiet: bool = False,
+    dry_run: bool = False,
+) -> Path:
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    if dry_run:
+        if not quiet:
+            print(f" ✓ {out_path.name} (dry_run)")
+        return out_path
     from playwright.sync_api import sync_playwright
 
     chrome_path = resolve_chrome_path()
@@ -131,11 +144,12 @@ def film_bottom(
     latin: str = "Night Voyage",
     tagline: str = "A FILM STILL · AGNES",
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """经典电影海报：巨标压底，西文其上，几乎无装饰。"""
     img = b64(image)
     html = build_film_bottom_html(img, title=title, latin=latin, tagline=tagline)
-    return shot(html, out, quiet=quiet)
+    return shot(html, out, quiet=quiet, dry_run=dry_run)
 
 
 def build_film_top_html(
@@ -167,11 +181,12 @@ def film_top(
     latin: str = "Night Voyage",
     tagline: str = "她把城市调成静音",
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """上标下图：字在天空/空场，主体完整。"""
     img = b64(image)
     html = build_film_top_html(img, title=title, latin=latin, tagline=tagline)
-    return shot(html, out, quiet=quiet)
+    return shot(html, out, quiet=quiet, dry_run=dry_run)
 
 
 def build_side_rail_html(
@@ -206,11 +221,12 @@ def side_rail(
     latin: str = "Night Voyage",
     tagline: str = "她把城市调成静音",
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """极简左轴：竖排大标 + 一条细线，其余全给图。"""
     img = b64(image)
     html = build_side_rail_html(img, title=title, latin=latin, tagline=tagline)
-    return shot(html, out, quiet=quiet)
+    return shot(html, out, quiet=quiet, dry_run=dry_run)
 
 
 # =============================================================================
@@ -223,18 +239,21 @@ CINEMA_POSTER_STYLES = {
         "func": film_bottom,
         "default_file": "cine_01_bottom.png",
         "default_tagline": "A FILM STILL · AGNES",
+        "description": "经典电影海报：巨标压底，西文其上，极少装饰",
     },
     "top": {
         "name": "上标空场构图 (Film Top)",
         "func": film_top,
         "default_file": "cine_02_top.png",
         "default_tagline": "她把城市调成静音",
+        "description": "上标下图：字在天空/留白空场，主体与景深完整呈现",
     },
     "rail": {
         "name": "极简左轴竖排 (Minimal Side Rail)",
         "func": side_rail,
         "default_file": "cine_03_rail.png",
         "default_tagline": "她把城市调成静音",
+        "description": "极简左轴：竖排大标搭配细线，视觉重心全给画面",
     },
 }
 
@@ -242,7 +261,13 @@ CINEMA_POSTER_STYLES = {
 def list_cinema_poster_styles() -> list[dict[str, str]]:
     """列出所有已注册的电影级极简海报版式"""
     return [
-        {"key": k, "name": v["name"], "default_file": v["default_file"]}
+        {
+            "key": k,
+            "name": v["name"],
+            "default_file": v["default_file"],
+            "default_tagline": v["default_tagline"],
+            "description": v.get("description", ""),
+        }
         for k, v in CINEMA_POSTER_STYLES.items()
     ]
 
@@ -255,6 +280,7 @@ def render_cinema_poster_style(
     latin: str = "Night Voyage",
     tagline: str | None = None,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """按风格名称派发渲染电影级海报"""
     key = style.strip().lower()
@@ -270,12 +296,12 @@ def render_cinema_poster_style(
         latin=latin,
         tagline=effective_tagline,
         quiet=quiet,
+        dry_run=dry_run,
     )
 
 
-def main(argv: list[str] | None = None) -> int:
-    import argparse
-
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建电影级极简海报渲染命令行参数解析器"""
     parser = argparse.ArgumentParser(description="Agnes Studio · 电影级极简海报渲染引擎 (Cinema Poster Renderer)")
     parser.add_argument(
         "--style",
@@ -296,6 +322,11 @@ def main(argv: list[str] | None = None) -> int:
         "-o",
         default=None,
         help="输出海报路径（在 style=all 时将自动附加风格后缀）",
+    )
+    parser.add_argument(
+        "--out-dir",
+        default=None,
+        help="输出目录路径（未指定时默认为 outputs/cinema_study）",
     )
     parser.add_argument(
         "--title",
@@ -320,6 +351,16 @@ def main(argv: list[str] | None = None) -> int:
         help="列出所有可用的电影级海报风格预设",
     )
     parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出风格列表或批量执行结果报告",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="预演模式：仅校验参数与规划输出路径，不唤起浏览器真实光栅化",
+    )
+    parser.add_argument(
         "--quiet",
         "-q",
         action="store_true",
@@ -330,10 +371,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="严格模式：遇到底图缺失或渲染异常时返回非零退出码 1",
     )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
     args = parser.parse_args(argv if argv is not None else [])
 
     if args.list:
-        if not args.quiet:
+        if args.json:
+            print(json.dumps(list_cinema_poster_styles(), ensure_ascii=False, indent=2))
+        elif not args.quiet:
             print("Agnes Studio 可用电影级海报风格预设:")
             for s in list_cinema_poster_styles():
                 print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
@@ -344,8 +392,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.src:
         p = Path(args.src)
         if not p.is_file():
-            if not args.quiet:
+            if not args.quiet and not args.json:
                 print(f"❌ 找不到输入底图: {args.src}", file=sys.stderr)
+            elif args.json:
+                print(json.dumps({"error": f"找不到输入底图: {args.src}", "ok": False}, ensure_ascii=False))
             return 1 if args.strict else 0
         resolved_src = p
     else:
@@ -361,14 +411,18 @@ def main(argv: list[str] | None = None) -> int:
                 break
 
     if resolved_src is None:
-        if not args.quiet:
+        if not args.quiet and not args.json:
             print("❌ 未指定 --src 且未发现默认候选底图资产", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"error": "未指定 --src 且未发现默认候选底图资产", "ok": False}, ensure_ascii=False))
         return 1 if args.strict else 0
 
     target_styles = list(CINEMA_POSTER_STYLES.keys()) if args.style == "all" else [args.style]
 
+    quiet = args.quiet or args.json
+    report_items = []
     try:
-        default_out_dir = ROOT / "outputs" / "cinema_study"
+        default_out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "cinema_study")
         for st in target_styles:
             if args.out:
                 out_path = Path(args.out)
@@ -385,14 +439,26 @@ def main(argv: list[str] | None = None) -> int:
                 title=args.title,
                 latin=args.latin,
                 tagline=args.tagline,
-                quiet=args.quiet,
+                quiet=quiet,
+                dry_run=args.dry_run,
             )
-        if not args.quiet:
+            report_items.append({
+                "style": st,
+                "name": CINEMA_POSTER_STYLES[st]["name"],
+                "output": str(out_path),
+                "dry_run": args.dry_run,
+                "status": "ok",
+            })
+        if args.json:
+            print(json.dumps(report_items, ensure_ascii=False, indent=2))
+        elif not args.quiet:
             print("done")
         return 0
     except Exception as e:
-        if not args.quiet:
+        if not args.quiet and not args.json:
             print(f"❌ 电影级海报渲染失败: {e}", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"error": str(e), "ok": False}, ensure_ascii=False))
         return 1 if args.strict else 0
 
 
