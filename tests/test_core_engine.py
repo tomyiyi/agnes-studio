@@ -3372,6 +3372,54 @@ class TestExpertPosterDesigner(unittest.TestCase):
         self.assertIn("error", data)
         self.assertIn("simulated expert failure", data["error"])
 
+    @patch("expert_poster_designer.render_expert_steampunk_poster", side_effect=RuntimeError("Expert disk render error"))
+    def test_main_cli_exception_stderr_output(self, mock_render):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = expert_designer_main([
+                "--mode", "steampunk",
+                "--src", str(self.dummy_bg),
+                "--out", str(self.tmp_path / "out.png"),
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 专家级排版渲染异常 (steampunk): Expert disk render error", buf.getvalue())
+
+    @patch("expert_poster_designer.render_expert_steampunk_poster", side_effect=RuntimeError("Expert quiet render error"))
+    def test_main_cli_exception_quiet_mode(self, mock_render):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            code = expert_designer_main([
+                "--mode", "steampunk",
+                "--src", str(self.dummy_bg),
+                "--out", str(self.tmp_path / "out.png"),
+                "-q",
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
+    def test_main_cli_missing_src_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        missing_src = self.tmp_path / "non_existent_expert_bg.png"
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = expert_designer_main([
+                "--mode", "steampunk",
+                "--src", str(missing_src),
+                "--out", str(self.tmp_path / "out.png"),
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 找不到可用背景底图", buf.getvalue())
+
 
 class TestPosterVisualLearner(unittest.TestCase):
     """测试海报多模态视觉解构与设计自学习引擎 (Poster Visual Learner Engine)"""

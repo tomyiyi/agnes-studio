@@ -364,114 +364,121 @@ def main(argv: list[str] | None = None) -> int:
 
     quiet = args.quiet or args.json
 
-    if args.list_modes:
-        modes = list_expert_modes()
-        if args.json:
-            print(json.dumps(modes, ensure_ascii=False, indent=2))
-        elif not args.quiet:
-            print("Agnes Studio · 专家级动态海报排版模式清单:")
-            for m in modes:
-                print(f"  [{m['mode']:<12}] {m['name']:<24} | 默认底图: {m['default_asset']}")
-                print(f"               说明: {m['description']}")
-        return 0
+    try:
+        if args.list_modes:
+            modes = list_expert_modes()
+            if args.json:
+                print(json.dumps(modes, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio · 专家级动态海报排版模式清单:")
+                for m in modes:
+                    print(f"  [{m['mode']:<12}] {m['name']:<24} | 默认底图: {m['default_asset']}")
+                    print(f"               说明: {m['description']}")
+            return 0
 
-    default_steampunk_src = os.path.join(ASSETS_DIR, "agnes_1790006749_b2b755da.png")
-    default_neochinese_src = os.path.join(ASSETS_DIR, "agnes_1789998061_5508.png")
+        default_steampunk_src = os.path.join(ASSETS_DIR, "agnes_1790006749_b2b755da.png")
+        default_neochinese_src = os.path.join(ASSETS_DIR, "agnes_1789998061_5508.png")
 
-    tasks = []
-    if args.mode in ("steampunk", "all"):
-        src = args.src or default_steampunk_src
-        if args.mode == "all" and args.out:
-            p = Path(args.out)
-            out = str(p.parent / f"{p.stem}_steampunk{p.suffix or '.png'}")
-        else:
-            out = args.out or os.path.join(ASSETS_DIR, "poster_expert_dynamic_steampunk.png")
-        tasks.append(("steampunk", render_expert_steampunk_poster, src, out))
-
-    if args.mode in ("neochinese", "all"):
-        src = args.src or default_neochinese_src
-        if args.mode == "all" and args.out:
-            p = Path(args.out)
-            out = str(p.parent / f"{p.stem}_neochinese{p.suffix or '.png'}")
-        else:
-            out = args.out or os.path.join(ASSETS_DIR, "poster_expert_dynamic_neochinese.png")
-        tasks.append(("neochinese", render_expert_neochinese_poster, src, out))
-
-    results: list[dict[str, Any]] = []
-    success = True
-    for mode_name, render_fn, src, out in tasks:
-        if not os.path.isfile(src):
-            err_msg = f"找不到可用背景底图: {src}"
-            if not quiet:
-                print(f"❌ {err_msg}")
-            results.append({
-                "mode": mode_name,
-                "src": src,
-                "out": out,
-                "ok": False,
-                "error": err_msg,
-            })
-            if args.strict or args.src:
-                if args.json:
-                    print(json.dumps({
-                        "ok": False,
-                        "error": err_msg,
-                        "total": len(tasks),
-                        "mode": args.mode,
-                        "results": results,
-                    }, ensure_ascii=False, indent=2))
-                return 1
-            success = False
-            continue
-        try:
-            if quiet:
-                import io
-                from contextlib import redirect_stdout
-                with redirect_stdout(io.StringIO()):
-                    res_path = render_fn(src, out, quiet=True)
+        tasks = []
+        if args.mode in ("steampunk", "all"):
+            src = args.src or default_steampunk_src
+            if args.mode == "all" and args.out:
+                p = Path(args.out)
+                out = str(p.parent / f"{p.stem}_steampunk{p.suffix or '.png'}")
             else:
-                res_path = render_fn(src, out, quiet=False)
-            f_size = Path(res_path).stat().st_size if Path(res_path).exists() else 0
-            results.append({
-                "mode": mode_name,
-                "src": src,
-                "out": res_path,
-                "ok": True,
-                "bytes": f_size,
-            })
-        except Exception as e:
-            err_msg = f"专家级排版渲染异常 ({mode_name}): {e}"
-            if not quiet:
-                print(f"❌ {err_msg}")
-            results.append({
-                "mode": mode_name,
-                "src": src,
-                "out": out,
-                "ok": False,
-                "error": str(e),
-            })
-            if args.strict:
-                if args.json:
-                    print(json.dumps({
-                        "ok": False,
-                        "error": str(e),
-                        "total": len(tasks),
-                        "mode": args.mode,
-                        "results": results,
-                    }, ensure_ascii=False, indent=2))
-                return 1
-            success = False
+                out = args.out or os.path.join(ASSETS_DIR, "poster_expert_dynamic_steampunk.png")
+            tasks.append(("steampunk", render_expert_steampunk_poster, src, out))
 
-    if args.json:
-        overall_ok = success and (len(results) > 0)
-        print(json.dumps({
-            "ok": overall_ok,
-            "total": len(tasks),
-            "mode": args.mode,
-            "results": results,
-        }, ensure_ascii=False, indent=2))
+        if args.mode in ("neochinese", "all"):
+            src = args.src or default_neochinese_src
+            if args.mode == "all" and args.out:
+                p = Path(args.out)
+                out = str(p.parent / f"{p.stem}_neochinese{p.suffix or '.png'}")
+            else:
+                out = args.out or os.path.join(ASSETS_DIR, "poster_expert_dynamic_neochinese.png")
+            tasks.append(("neochinese", render_expert_neochinese_poster, src, out))
 
-    return 0 if (success or not args.strict) else 1
+        results: list[dict[str, Any]] = []
+        success = True
+        for mode_name, render_fn, src, out in tasks:
+            if not os.path.isfile(src):
+                err_msg = f"找不到可用背景底图: {src}"
+                if not quiet:
+                    print(f"❌ {err_msg}", file=sys.stderr)
+                results.append({
+                    "mode": mode_name,
+                    "src": src,
+                    "out": out,
+                    "ok": False,
+                    "error": err_msg,
+                })
+                if args.strict or args.src:
+                    if args.json:
+                        print(json.dumps({
+                            "ok": False,
+                            "error": err_msg,
+                            "total": len(tasks),
+                            "mode": args.mode,
+                            "results": results,
+                        }, ensure_ascii=False, indent=2))
+                    return 1
+                success = False
+                continue
+            try:
+                if quiet:
+                    import io
+                    from contextlib import redirect_stdout
+                    with redirect_stdout(io.StringIO()):
+                        res_path = render_fn(src, out, quiet=True)
+                else:
+                    res_path = render_fn(src, out, quiet=False)
+                f_size = Path(res_path).stat().st_size if Path(res_path).exists() else 0
+                results.append({
+                    "mode": mode_name,
+                    "src": src,
+                    "out": res_path,
+                    "ok": True,
+                    "bytes": f_size,
+                })
+            except Exception as e:
+                err_msg = f"专家级排版渲染异常 ({mode_name}): {e}"
+                if not quiet:
+                    print(f"❌ {err_msg}", file=sys.stderr)
+                results.append({
+                    "mode": mode_name,
+                    "src": src,
+                    "out": out,
+                    "ok": False,
+                    "error": str(e),
+                })
+                if args.strict:
+                    if args.json:
+                        print(json.dumps({
+                            "ok": False,
+                            "error": str(e),
+                            "total": len(tasks),
+                            "mode": args.mode,
+                            "results": results,
+                        }, ensure_ascii=False, indent=2))
+                    return 1
+                success = False
+
+        if args.json:
+            overall_ok = success and (len(results) > 0)
+            print(json.dumps({
+                "ok": overall_ok,
+                "total": len(tasks),
+                "mode": args.mode,
+                "results": results,
+            }, ensure_ascii=False, indent=2))
+
+        return 0 if (success or not args.strict) else 1
+    except Exception as e:
+        if args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print(f"❌ 专家级排版异常: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
