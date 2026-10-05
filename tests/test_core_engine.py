@@ -185,6 +185,10 @@ from render_cinema_poster import (
     film_top,
     side_rail,
     shot as cinema_shot,
+    CINEMA_POSTER_STYLES,
+    list_cinema_poster_styles,
+    render_cinema_poster_style,
+    main as cinema_poster_main,
 )
 import render_drama_poster
 from render_drama_poster import (
@@ -4635,6 +4639,149 @@ class TestRenderCinemaPoster(unittest.TestCase):
         # Calling main shouldn't raise any exception
         render_cinema_poster.main()
         self.assertEqual(mock_shot.call_count, 3)
+
+    @patch("playwright.sync_api.sync_playwright")
+    def test_shot_quiet_mode(self, mock_playwright):
+        from contextlib import redirect_stdout
+
+        fake_page = MagicMock()
+        fake_browser = MagicMock()
+        fake_browser.new_page.return_value = fake_page
+        mock_p_inst = MagicMock()
+        mock_p_inst.chromium.launch.return_value = fake_browser
+        mock_playwright.return_value.__enter__.return_value = mock_p_inst
+
+        out_p = self.tmp_path / "shot_quiet.png"
+        out_p.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = cinema_shot("<html></html>", out_p, quiet=True)
+        self.assertEqual(ret, out_p)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    @patch("render_cinema_poster.shot")
+    def test_render_styles_quiet_mode(self, mock_shot):
+        sample_img = self.tmp_path / "cinema_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out.png"
+        mock_shot.return_value = out_p
+
+        res = film_bottom(sample_img, out_p, quiet=True)
+        self.assertEqual(res, out_p)
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+        res_top = film_top(sample_img, out_p, quiet=True)
+        self.assertEqual(res_top, out_p)
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+        res_rail = side_rail(sample_img, out_p, quiet=True)
+        self.assertEqual(res_rail, out_p)
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+    @patch("render_cinema_poster.shot")
+    def test_list_and_render_cinema_poster_style(self, mock_shot):
+        styles = list_cinema_poster_styles()
+        self.assertEqual(len(styles), 3)
+        keys = {s["key"] for s in styles}
+        self.assertEqual(keys, {"bottom", "top", "rail"})
+
+        sample_img = self.tmp_path / "cinema_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "dispatched.png"
+        mock_shot.return_value = out_p
+
+        ret = render_cinema_poster_style("rail", sample_img, out_p, title="自定义", latin="CUSTOM", quiet=True)
+        self.assertEqual(ret, out_p)
+        mock_shot.assert_called()
+        self.assertTrue(mock_shot.call_args[1].get("quiet", False))
+
+        with self.assertRaises(KeyError):
+            render_cinema_poster_style("unknown", sample_img, out_p)
+
+    def test_cli_main_list_mode(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = cinema_poster_main(["--list"])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("Agnes Studio 可用电影级海报风格预设:", out)
+        self.assertIn("bottom", out)
+        self.assertIn("rail", out)
+
+    @patch("render_cinema_poster.shot")
+    def test_cli_main_single_style_with_custom_src_and_out(self, mock_shot):
+        sample_img = self.tmp_path / "cinema_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "single_out.png"
+        mock_shot.return_value = out_p
+
+        code = cinema_poster_main([
+            "--style", "top",
+            "--src", str(sample_img),
+            "--out", str(out_p),
+            "--title", "极简夜航",
+            "--latin", "MINIMAL NIGHT",
+            "--tagline", "全新视觉体验",
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_shot.call_count, 1)
+
+    @patch("render_cinema_poster.shot")
+    def test_cli_main_all_mode(self, mock_shot):
+        sample_img = self.tmp_path / "cinema_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_base = self.tmp_path / "bundle.png"
+        mock_shot.return_value = self.tmp_path / "out.png"
+
+        code = cinema_poster_main([
+            "--style", "all",
+            "--src", str(sample_img),
+            "--out", str(out_base),
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_shot.call_count, 3)
+
+    def test_cli_main_missing_src_strict_mode(self):
+        missing_src = self.tmp_path / "does_not_exist.png"
+        code_strict = cinema_poster_main([
+            "--style", "bottom",
+            "--src", str(missing_src),
+            "--strict",
+            "--quiet",
+        ])
+        self.assertEqual(code_strict, 1)
+
+        code_lenient = cinema_poster_main([
+            "--style", "bottom",
+            "--src", str(missing_src),
+            "--quiet",
+        ])
+        self.assertEqual(code_lenient, 0)
+
+    @patch("render_cinema_poster.shot")
+    def test_cli_main_quiet_mode_suppresses_stdout(self, mock_shot):
+        from contextlib import redirect_stdout
+
+        sample_img = self.tmp_path / "cinema_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "quiet_out.png"
+        mock_shot.return_value = out_p
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = cinema_poster_main([
+                "--style", "bottom",
+                "--src", str(sample_img),
+                "--out", str(out_p),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
 
 
 class TestRenderDramaPoster(unittest.TestCase):
