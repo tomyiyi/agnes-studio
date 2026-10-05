@@ -557,30 +557,37 @@ def main(argv: list[str] | None = None) -> int:
     # 在 --json 模式下自动静默内部打印，避免污染标准输出
     quiet = args.quiet or args.json
 
-    report = run_batch_layout_variants(
-        out_dir=args.out,
-        stems=stems_list,
-        model=args.model,
-        size=args.size,
-        retries=args.retries,
-        force=args.force,
-        dry_run=args.dry_run,
-        word=args.word,
-        quiet=quiet,
-    )
+    try:
+        report = run_batch_layout_variants(
+            out_dir=args.out,
+            stems=stems_list,
+            model=args.model,
+            size=args.size,
+            retries=args.retries,
+            force=args.force,
+            dry_run=args.dry_run,
+            word=args.word,
+            quiet=quiet,
+        )
 
-    if args.json:
-        print(json.dumps(report, ensure_ascii=False, indent=2))
+        if args.json:
+            print(json.dumps(report, ensure_ascii=False, indent=2))
 
-    if args.strict:
-        if not report or any(not x.get("ok") for x in report):
+        if args.strict:
+            if not report or any(not x.get("ok") for x in report):
+                return 1
+            return 0
+
+        # 常规模式：只要存在成功或跳过即视为正常；如全部失败或为空则返回 1
+        if not report or all(not x.get("ok") for x in report):
             return 1
         return 0
-
-    # 常规模式：只要存在成功或跳过即视为正常；如全部失败或为空则返回 1
-    if not report or all(not x.get("ok") for x in report):
+    except Exception as e:
+        if not args.quiet and not args.json:
+            print(f"❌ 12 款经典构图版式批量生成失败: {e}", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
         return 1
-    return 0
 
 
 if __name__ == "__main__":

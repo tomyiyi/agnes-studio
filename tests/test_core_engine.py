@@ -10577,6 +10577,37 @@ class TestBatchLayoutVariants(unittest.TestCase):
         self.assertEqual(ret_dry, 0)
         self.assertTrue((cli_out / "batch_report.json").is_file())
 
+    def test_cli_exception_json_output(self):
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("batch_layout_variants.run_batch_layout_variants", side_effect=RuntimeError("Disk I/O error")):
+            with redirect_stdout(buf):
+                code = batch_layout_variants.main(["--stems", "01", "--json"])
+            self.assertEqual(code, 1)
+            data = json.loads(buf.getvalue())
+            self.assertFalse(data["ok"])
+            self.assertEqual(data["error"], "Disk I/O error")
+
+    def test_cli_exception_stderr_output(self):
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("batch_layout_variants.run_batch_layout_variants", side_effect=ValueError("Invalid layout variant")):
+            with redirect_stderr(buf):
+                code = batch_layout_variants.main(["--stems", "01"])
+            self.assertEqual(code, 1)
+            self.assertIn("❌ 12 款经典构图版式批量生成失败: Invalid layout variant", buf.getvalue())
+
+    def test_cli_exception_quiet_mode(self):
+        from contextlib import redirect_stderr, redirect_stdout
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("batch_layout_variants.run_batch_layout_variants", side_effect=RuntimeError("Silent failure")):
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                code = batch_layout_variants.main(["--stems", "01", "--quiet"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
 
 class TestBatchTypeBehind(unittest.TestCase):
     """测试「字在人后」(Type Behind Person) 时尚海报批量生成引擎"""
