@@ -79,8 +79,154 @@ def lint_copy(text: str) -> list[str]:
     return issues
 
 
+def build_arg_parser():
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="Agnes Studio · 中文文案排版规范检查与自动修正引擎 (Chinese Copywriting Rules)"
+    )
+    parser.add_argument(
+        "text_arg",
+        nargs="?",
+        default=None,
+        help="待处理文案内容（可选；未提供时可通过 --text、--file 或使用内置 Demo）",
+    )
+    parser.add_argument(
+        "-t", "--text",
+        dest="text_opt",
+        default=None,
+        help="显式传入待处理文案内容",
+    )
+    parser.add_argument(
+        "-f", "--file",
+        dest="file_path",
+        default=None,
+        help="文案文本文件路径",
+    )
+    parser.add_argument(
+        "-c", "--check",
+        action="store_true",
+        help="仅执行合规性检查（Lint 模式），输出违规项",
+    )
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help="执行自动格式修正（修复盘古空格与直角引号，默认模式）",
+    )
+    parser.add_argument(
+        "-i", "--in-place",
+        action="store_true",
+        help="与 --file 配合使用，将修正结果写回原文件",
+    )
+    parser.add_argument(
+        "-o", "--out",
+        dest="out_path",
+        default=None,
+        help="将修正后的文案写入指定目标文件",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 结构输出检查/修正结果",
+    )
+    parser.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="静默模式，抑制标准输出",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格模式：若检查发现排版问题或输入文件不存在，返回退出码 1",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    import json
+    import sys
+    from pathlib import Path
+
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+
+    is_demo = False
+    raw_text: str = ""
+
+    if args.file_path:
+        p = Path(args.file_path)
+        if not p.is_file():
+            sys.stderr.write(f"❌ 找不到文案文件: {args.file_path}\n")
+            return 1
+        try:
+            raw_text = p.read_text(encoding="utf-8")
+        except Exception as e:
+            sys.stderr.write(f"❌ 读取文案文件失败 {args.file_path}: {e}\n")
+            return 1
+    else:
+        given = args.text_opt or args.text_arg
+        if given is not None:
+            raw_text = given
+        else:
+            is_demo = True
+            raw_text = "东方BEAUTY的“高级感”来自10:1字阶"
+
+    issues = lint_copy(raw_text)
+    fixed = apply_fix(raw_text)
+
+    if args.check:
+        if args.json:
+            result = {
+                "clean": len(issues) == 0,
+                "issues": issues,
+                "original": raw_text,
+                "fixed": fixed,
+            }
+            if not args.quiet:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            if not args.quiet:
+                if not issues:
+                    print("✓ 文案排版规范检查通过，未发现格式问题。")
+                else:
+                    print(f"⚠️ 发现 {len(issues)} 项文案排版规范问题:")
+                    for idx, issue in enumerate(issues, 1):
+                        print(f"  [{idx}] {issue}")
+        if args.strict and issues:
+            return 1
+        return 0
+
+    # 默认或 --fix 模式
+    if args.json:
+        result = {
+            "clean": len(issues) == 0,
+            "issues": issues,
+            "original": raw_text,
+            "fixed": fixed,
+        }
+        if not args.quiet:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        if not args.quiet:
+            if is_demo and not args.out_path and not args.in_place:
+                print("in ", raw_text)
+                print("fix", fixed)
+                print("lint", issues)
+            else:
+                print(fixed)
+
+    if args.out_path:
+        out_p = Path(args.out_path)
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        out_p.write_text(fixed, encoding="utf-8")
+
+    if args.in_place and args.file_path:
+        Path(args.file_path).write_text(fixed, encoding="utf-8")
+
+    if args.strict and issues:
+        return 1
+    return 0
+
+
 if __name__ == "__main__":
-    demo = "东方BEAUTY的“高级感”来自10:1字阶"
-    print("in ", demo)
-    print("fix", apply_fix(demo))
-    print("lint", lint_copy(demo))
+    import sys
+    raise SystemExit(main(sys.argv[1:]))

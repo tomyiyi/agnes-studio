@@ -30,7 +30,14 @@ sys.path.insert(0, str(ROOT / "experiments"))
 import env_config  # noqa: F401
 from PIL import Image
 
-from copywriting_rules import apply_fix, lint_copy, apply_pangu_spacing, normalize_punctuation
+from copywriting_rules import (
+    apply_fix,
+    lint_copy,
+    apply_pangu_spacing,
+    normalize_punctuation,
+    main as copy_rules_main,
+    build_arg_parser as build_copy_rules_parser,
+)
 from typography_rules import (
     ChineseTypographyRules,
     ModularScale,
@@ -528,6 +535,101 @@ class TestCopywritingRules(unittest.TestCase):
         self.assertIn("「高级感」", fixed)
         issues = lint_copy(fixed)
         self.assertEqual(issues, [])
+
+    def test_cli_main_demo_mode(self):
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            code = copy_rules_main([])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("in ", out)
+        self.assertIn("fix", out)
+        self.assertIn("lint", out)
+
+    def test_cli_main_explicit_text_and_fix(self):
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            code = copy_rules_main(["Agnes模型发布"])
+        self.assertEqual(code, 0)
+        self.assertIn("Agnes 模型发布", buf.getvalue())
+
+        buf_opt = io.StringIO()
+        with patch("sys.stdout", buf_opt):
+            code_opt = copy_rules_main(["-t", "海报BEAUTY“高级感”设计"])
+        self.assertEqual(code_opt, 0)
+        self.assertIn("海报 BEAUTY「高级感」设计", buf_opt.getvalue())
+
+    def test_cli_main_check_mode_clean_and_issue(self):
+        # 干净文本检查
+        buf_clean = io.StringIO()
+        with patch("sys.stdout", buf_clean):
+            code_clean = copy_rules_main(["--check", "Agnes 模型发布", "--strict"])
+        self.assertEqual(code_clean, 0)
+        self.assertIn("文案排版规范检查通过", buf_clean.getvalue())
+
+        # 存在排版问题的文本：宽松模式返回 0
+        buf_issue = io.StringIO()
+        with patch("sys.stdout", buf_issue):
+            code_issue = copy_rules_main(["--check", "Agnes模型发布"])
+        self.assertEqual(code_issue, 0)
+        self.assertIn("⚠️", buf_issue.getvalue())
+
+        # 存在排版问题的文本：严格模式返回 1
+        code_strict = copy_rules_main(["--check", "Agnes模型发布", "--strict", "-q"])
+        self.assertEqual(code_strict, 1)
+
+    def test_cli_main_json_mode(self):
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            code = copy_rules_main(["--json", "Agnes模型"])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertIn("clean", data)
+        self.assertIn("issues", data)
+        self.assertIn("original", data)
+        self.assertIn("fixed", data)
+        self.assertFalse(data["clean"])
+        self.assertEqual(data["fixed"], "Agnes 模型")
+
+        buf_check = io.StringIO()
+        with patch("sys.stdout", buf_check):
+            code_check = copy_rules_main(["--check", "--json", "Agnes 模型"])
+        self.assertEqual(code_check, 0)
+        data_check = json.loads(buf_check.getvalue())
+        self.assertTrue(data_check["clean"])
+        self.assertEqual(data_check["issues"], [])
+
+    def test_cli_main_file_out_and_in_place(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_p = Path(tmp_dir)
+            in_file = tmp_p / "dirty_copy.txt"
+            out_file = tmp_p / "fixed_copy.txt"
+            in_file.write_text("Agnes模型“商业”设计", encoding="utf-8")
+
+            # 测试写入 --out
+            code_out = copy_rules_main([
+                "-f", str(in_file),
+                "-o", str(out_file),
+                "--quiet",
+            ])
+            self.assertEqual(code_out, 0)
+            self.assertTrue(out_file.exists())
+            self.assertEqual(out_file.read_text(encoding="utf-8"), "Agnes 模型「商业」设计")
+
+            # 测试 --in-place
+            code_inplace = copy_rules_main([
+                "-f", str(in_file),
+                "-i",
+                "--quiet",
+            ])
+            self.assertEqual(code_inplace, 0)
+            self.assertEqual(in_file.read_text(encoding="utf-8"), "Agnes 模型「商业」设计")
+
+    def test_cli_main_file_error_handling(self):
+        err_buf = io.StringIO()
+        with patch("sys.stderr", err_buf):
+            code = copy_rules_main(["-f", "/tmp/path/to/nonexistent_copywriting_file.txt"])
+        self.assertEqual(code, 1)
 
 
 class TestChineseTypographyRules(unittest.TestCase):
