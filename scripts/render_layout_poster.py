@@ -261,7 +261,7 @@ def build_window_editorial_html(
 
 # ---------- 渲染与对外输出接口 ----------
 
-def render_html(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 550) -> Path:
+def render_html(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 550, quiet: bool = False) -> Path:
     """使用 Playwright 渲染 HTML 为高清海报 PNG。"""
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -280,14 +280,15 @@ def render_html(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 
             page.wait_for_timeout(timeout_ms)
         page.screenshot(path=str(out_path), type="png")
         browser.close()
-    size_kb = out_path.stat().st_size // 1024 if out_path.exists() else 0
-    print(f"  ✓ {out_path.name} ({size_kb} KB)")
+    if not quiet:
+        size_kb = out_path.stat().st_size // 1024 if out_path.exists() else 0
+        print(f"  ✓ {out_path.name} ({size_kb} KB)")
     return out_path
 
 
-def render(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 550) -> Path:
+def render(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 550, quiet: bool = False) -> Path:
     """向下兼容别名，调用 render_html。"""
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def layout_swiss_asym(
@@ -301,6 +302,7 @@ def layout_swiss_asym(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 550,
+    quiet: bool = False,
 ) -> Path:
     """瑞士非对称：左栏字塔 + 右侧大图重心；12 列意识。"""
     img = sanitize_img_uri(b64(image))
@@ -313,7 +315,7 @@ def layout_swiss_asym(
         num=num,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def layout_type_band(
@@ -326,6 +328,7 @@ def layout_type_band(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 550,
+    quiet: bool = False,
 ) -> Path:
     """上字带 / 下图场：信息与视觉分区，电影预告结构。"""
     img = sanitize_img_uri(b64(image))
@@ -337,7 +340,7 @@ def layout_type_band(
         tag=tag,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def layout_axis_tension(
@@ -351,6 +354,7 @@ def layout_axis_tension(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 550,
+    quiet: bool = False,
 ) -> Path:
     """对角张力：字块左下压角，西文右上拉线，中间留给主体。"""
     img = sanitize_img_uri(b64(image))
@@ -363,7 +367,7 @@ def layout_axis_tension(
         tag=tag,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def layout_window_editorial(
@@ -376,6 +380,7 @@ def layout_window_editorial(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 550,
+    quiet: bool = False,
 ) -> Path:
     """杂志开窗：大留白纸面 + 开窗看图 + 书脊式标题。"""
     img = sanitize_img_uri(b64(image))
@@ -387,43 +392,283 @@ def layout_window_editorial(
         idx_text=idx_text,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
-def main(argv=None) -> int:
-    import argparse
-    parser = argparse.ArgumentParser(description="海报「设计排版」范式库渲染器")
-    parser.add_argument("--input", "-i", type=str, default=None, help="底图路径")
-    parser.add_argument("--out-dir", "-o", type=str, default=None, help="输出目录")
-    parser.add_argument("--title", type=str, default="夜航", help="主标题")
-    parser.add_argument("--latin", type=str, default="Night Voyage", help="西文大标")
-    parser.add_argument("--slogan", type=str, default=None, help="文案副标")
-    args = parser.parse_args(argv)
+# =============================================================================
+# 风格注册表与多风格派发器
+# =============================================================================
 
-    if args.input:
-        base = Path(args.input)
+LAYOUT_POSTER_STYLES = {
+    "swiss_asym": {
+        "name": "瑞士非对称网格 (Swiss Asymmetric)",
+        "func": layout_swiss_asym,
+        "default_file": "layout_01_swiss_asym.png",
+        "default_slogan": "她把城市调成静音",
+    },
+    "type_band": {
+        "name": "杂志色块字带 (Magazine Type Band)",
+        "func": layout_type_band,
+        "default_file": "layout_02_type_band.png",
+        "default_slogan": "一部还没写完的电影",
+    },
+    "axis_tension": {
+        "name": "对角轴线张力 (Diagonal Axis Tension)",
+        "func": layout_axis_tension,
+        "default_file": "layout_03_axis_tension.png",
+        "default_slogan": "她把城市调成静音",
+    },
+    "window_editorial": {
+        "name": "杂志开窗视界 (Window Editorial)",
+        "func": layout_window_editorial,
+        "default_file": "layout_04_window_editorial.png",
+        "default_slogan": "一部还没写完的电影",
+    },
+}
+
+
+def list_layout_poster_styles() -> list[dict[str, str]]:
+    """列出所有已注册的海报设计排版范式预设"""
+    return [
+        {"key": k, "name": v["name"], "default_file": v["default_file"]}
+        for k, v in LAYOUT_POSTER_STYLES.items()
+    ]
+
+
+def render_layout_poster_style(
+    style: str,
+    image: str | Path,
+    out: str | Path,
+    title: str = "夜航",
+    latin: str = "Night Voyage",
+    slogan: str | None = None,
+    system_tag: str | None = None,
+    num: str | None = None,
+    tag: str | None = None,
+    year_text: str | None = None,
+    idx_text: str | None = None,
+    extra_css: str = "",
+    size=(864, 1152),
+    timeout_ms: int = 550,
+    quiet: bool = False,
+    **kwargs,
+) -> Path:
+    """按版式范式名称派发渲染对应的海报"""
+    key = style.strip().lower()
+    if key not in LAYOUT_POSTER_STYLES:
+        raise KeyError(f"Unknown layout poster style: '{style}'. Available: {list(LAYOUT_POSTER_STYLES.keys())}")
+    style_meta = LAYOUT_POSTER_STYLES[key]
+    func = style_meta["func"]
+    effective_slogan = slogan if slogan is not None else style_meta["default_slogan"]
+
+    if key == "swiss_asym":
+        s_tag = system_tag if system_tag is not None else "Swiss · Asym"
+        n_str = num if num is not None else "01"
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            latin=latin,
+            slogan=effective_slogan,
+            system_tag=s_tag,
+            num=n_str,
+            extra_css=extra_css,
+            size=size,
+            timeout_ms=timeout_ms,
+            quiet=quiet,
+        )
+    elif key == "type_band":
+        t_str = tag if tag is not None else "Layout 02<br>Band / Field"
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            latin=latin,
+            slogan=effective_slogan,
+            tag=t_str,
+            extra_css=extra_css,
+            size=size,
+            timeout_ms=timeout_ms,
+            quiet=quiet,
+        )
+    elif key == "axis_tension":
+        y_str = year_text if year_text is not None else "MMXXVI"
+        t_str = tag if tag is not None else "Agnes Layout · Diagonal"
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            latin=latin,
+            slogan=effective_slogan,
+            year_text=y_str,
+            tag=t_str,
+            extra_css=extra_css,
+            size=size,
+            timeout_ms=timeout_ms,
+            quiet=quiet,
+        )
+    elif key == "window_editorial":
+        i_str = idx_text if idx_text is not None else "No.01"
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            latin=latin,
+            slogan=effective_slogan,
+            idx_text=i_str,
+            extra_css=extra_css,
+            size=size,
+            timeout_ms=timeout_ms,
+            quiet=quiet,
+        )
     else:
-        base = ROOT / "outputs" / "epic_compare" / "clean_base.png"
-        if not base.exists():
-            base = ROOT / "public" / "assets" / "agnes_1789995698_9987.png"
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            latin=latin,
+            slogan=effective_slogan,
+            extra_css=extra_css,
+            size=size,
+            timeout_ms=timeout_ms,
+            quiet=quiet,
+            **kwargs,
+        )
 
-    if not base.exists():
-        print(f"⚠️ 未找到可用底图: {base}")
-        return 1
 
-    out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "layout_study")
-    out_dir.mkdir(parents=True, exist_ok=True)
+def main(argv: list[str] | None = None) -> int:
+    import argparse
 
-    slogan_default_1 = args.slogan or "她把城市调成静音"
-    slogan_default_2 = args.slogan or "一部还没写完的电影"
+    parser = argparse.ArgumentParser(description="Agnes Studio · 海报「设计排版」范式库渲染引擎 (Layout Poster Renderer)")
+    parser.add_argument(
+        "--style",
+        "-s",
+        default="all",
+        choices=["swiss_asym", "type_band", "axis_tension", "window_editorial", "all"],
+        help="海报版式风格: swiss_asym | type_band | axis_tension | window_editorial | all (默认: all)",
+    )
+    parser.add_argument(
+        "--src",
+        "--image",
+        default=None,
+        help="输入背景底图路径（未指定时探查默认底图）",
+    )
+    parser.add_argument(
+        "--input",
+        "-i",
+        default=None,
+        help="输入背景底图路径（兼容选项）",
+    )
+    parser.add_argument(
+        "--out",
+        "-o",
+        default=None,
+        help="输出海报路径（在 style=all 时将自动附加风格后缀）",
+    )
+    parser.add_argument(
+        "--out-dir",
+        default=None,
+        help="输出目录（如果指定且未提供 --out，海报将输出至该目录）",
+    )
+    parser.add_argument(
+        "--title",
+        "-t",
+        default="夜航",
+        help="主标题 (默认: 夜航)",
+    )
+    parser.add_argument(
+        "--latin",
+        "-l",
+        default="Night Voyage",
+        help="西文大标 (默认: Night Voyage)",
+    )
+    parser.add_argument(
+        "--slogan",
+        default=None,
+        help="文案副标 (默认根据各版式预设提供)",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="列出所有可用的设计排版风格预设",
+    )
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="静默模式，抑制控制台日志",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格模式：遇到底图缺失或渲染异常时返回非零退出码 1",
+    )
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
-    layout_swiss_asym(base, out_dir / "layout_01_swiss_asym.png", title=args.title, latin=args.latin, slogan=slogan_default_1)
-    layout_type_band(base, out_dir / "layout_02_type_band.png", title=args.title, latin=args.latin, slogan=slogan_default_2)
-    layout_axis_tension(base, out_dir / "layout_03_axis_tension.png", title=args.title, latin=args.latin, slogan=slogan_default_1)
-    layout_window_editorial(base, out_dir / "layout_04_window_editorial.png", title=args.title, latin=args.latin, slogan=slogan_default_2)
-    print("done →", out_dir)
-    return 0
+    if args.list:
+        if not args.quiet:
+            print("Agnes Studio 可用设计排版风格预设:")
+            for s in list_layout_poster_styles():
+                print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
+        return 0
+
+    # 确定输入源
+    resolved_src = None
+    input_path_arg = args.src or args.input
+    if input_path_arg:
+        p = Path(input_path_arg)
+        if not p.is_file():
+            if not args.quiet:
+                print(f"❌ 找不到输入底图: {input_path_arg}", file=sys.stderr)
+            return 1 if (args.strict or args.input) else 0
+        resolved_src = p
+    else:
+        candidates = [
+            ROOT / "outputs" / "epic_compare" / "clean_base.png",
+            ROOT / "public" / "assets" / "agnes_1789995698_9987.png",
+            ROOT / "assets" / "agnes_1790006749_b2b755da.png",
+            ROOT / "assets" / "agnes_1789995999_1670.png",
+        ]
+        for c in candidates:
+            if c.is_file():
+                resolved_src = c
+                break
+
+    if resolved_src is None:
+        if not args.quiet:
+            print("❌ 未指定底图且未发现默认候选底图资产", file=sys.stderr)
+        return 1 if args.strict else 0
+
+    target_styles = list(LAYOUT_POSTER_STYLES.keys()) if args.style == "all" else [args.style]
+
+    try:
+        default_out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "layout_study")
+        for st in target_styles:
+            if args.out:
+                out_path = Path(args.out)
+                if args.style == "all":
+                    out_path = out_path.with_name(f"{out_path.stem}_{st}{out_path.suffix or '.png'}")
+            else:
+                default_out_dir.mkdir(parents=True, exist_ok=True)
+                out_path = default_out_dir / LAYOUT_POSTER_STYLES[st]["default_file"]
+
+            render_layout_poster_style(
+                style=st,
+                image=resolved_src,
+                out=out_path,
+                title=args.title,
+                latin=args.latin,
+                slogan=args.slogan,
+                quiet=args.quiet,
+            )
+        if not args.quiet:
+            print("done")
+        return 0
+    except Exception as e:
+        if not args.quiet:
+            print(f"❌ 设计排版海报渲染失败: {e}", file=sys.stderr)
+        return 1 if args.strict else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main(sys.argv[1:]))

@@ -236,6 +236,10 @@ from render_layout_poster import (
     layout_axis_tension,
     build_window_editorial_html,
     layout_window_editorial,
+    LAYOUT_POSTER_STYLES,
+    list_layout_poster_styles,
+    render_layout_poster_style,
+    main as layout_poster_main,
 )
 import render_title_design
 from render_title_design import (
@@ -5796,6 +5800,162 @@ class TestRenderLayoutPoster(unittest.TestCase):
     def test_main_missing_input_returns_nonzero(self):
         ret = render_layout_poster.main(["--input", str(self.tmp_path / "does_not_exist.png")])
         self.assertEqual(ret, 1)
+
+    @patch("playwright.sync_api.sync_playwright")
+    def test_render_html_quiet_mode(self, mock_playwright):
+        from contextlib import redirect_stdout
+
+        fake_page = MagicMock()
+        fake_browser = MagicMock()
+        fake_browser.new_page.return_value = fake_page
+        mock_p_inst = MagicMock()
+        mock_p_inst.chromium.launch.return_value = fake_browser
+        mock_playwright.return_value.__enter__.return_value = mock_p_inst
+
+        out_p = self.tmp_path / "shot_quiet.png"
+        out_p.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = layout_render_html("<html></html>", out_p, quiet=True)
+        self.assertEqual(ret, out_p)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    @patch("render_layout_poster.render_html")
+    def test_render_styles_quiet_mode(self, mock_render):
+        sample_img = self.tmp_path / "layout_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out.png"
+        mock_render.return_value = out_p
+
+        res1 = layout_swiss_asym(sample_img, out_p, quiet=True)
+        self.assertEqual(res1, out_p)
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+        res2 = layout_type_band(sample_img, out_p, quiet=True)
+        self.assertEqual(res2, out_p)
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+        res3 = layout_axis_tension(sample_img, out_p, quiet=True)
+        self.assertEqual(res3, out_p)
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+        res4 = layout_window_editorial(sample_img, out_p, quiet=True)
+        self.assertEqual(res4, out_p)
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+    @patch("render_layout_poster.render_html")
+    def test_list_and_render_layout_poster_style(self, mock_render):
+        styles = list_layout_poster_styles()
+        self.assertEqual(len(styles), 4)
+        keys = {s["key"] for s in styles}
+        self.assertEqual(keys, {"swiss_asym", "type_band", "axis_tension", "window_editorial"})
+
+        sample_img = self.tmp_path / "layout_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "dispatched.png"
+        mock_render.return_value = out_p
+
+        ret = render_layout_poster_style(
+            "swiss_asym",
+            sample_img,
+            out_p,
+            title="瑞士夜航",
+            latin="SWISS NIGHT",
+            slogan="网格律动",
+            quiet=True,
+        )
+        self.assertEqual(ret, out_p)
+        mock_render.assert_called()
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+        with self.assertRaises(KeyError):
+            render_layout_poster_style("unknown_style", sample_img, out_p)
+
+    def test_cli_main_list_mode(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = layout_poster_main(["--list"])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("Agnes Studio 可用设计排版风格预设:", out)
+        self.assertIn("swiss_asym", out)
+        self.assertIn("type_band", out)
+        self.assertIn("axis_tension", out)
+        self.assertIn("window_editorial", out)
+
+    @patch("render_layout_poster.render_html")
+    def test_cli_main_single_style_with_custom_src_and_out(self, mock_render):
+        sample_img = self.tmp_path / "layout_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "single_out.png"
+        mock_render.return_value = out_p
+
+        code = layout_poster_main([
+            "--style", "axis_tension",
+            "--src", str(sample_img),
+            "--out", str(out_p),
+            "--title", "张力测试",
+            "--latin", "TENSION TEST",
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_render.call_count, 1)
+
+    @patch("render_layout_poster.render_html")
+    def test_cli_main_all_mode(self, mock_render):
+        sample_img = self.tmp_path / "layout_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_base = self.tmp_path / "bundle.png"
+        mock_render.return_value = self.tmp_path / "out.png"
+
+        code = layout_poster_main([
+            "--style", "all",
+            "--src", str(sample_img),
+            "--out", str(out_base),
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_render.call_count, 4)
+
+    def test_cli_main_missing_src_strict_mode(self):
+        missing_src = self.tmp_path / "does_not_exist.png"
+        code_strict = layout_poster_main([
+            "--style", "swiss_asym",
+            "--src", str(missing_src),
+            "--strict",
+            "--quiet",
+        ])
+        self.assertEqual(code_strict, 1)
+
+        code_lenient = layout_poster_main([
+            "--style", "swiss_asym",
+            "--src", str(missing_src),
+            "--quiet",
+        ])
+        self.assertEqual(code_lenient, 0)
+
+    @patch("render_layout_poster.render_html")
+    def test_cli_main_quiet_mode_suppresses_stdout(self, mock_render):
+        from contextlib import redirect_stdout
+
+        sample_img = self.tmp_path / "layout_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "quiet_out.png"
+        mock_render.return_value = out_p
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = layout_poster_main([
+                "--style", "swiss_asym",
+                "--src", str(sample_img),
+                "--out", str(out_p),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
 
 
 class TestRenderTitleDesign(unittest.TestCase):
