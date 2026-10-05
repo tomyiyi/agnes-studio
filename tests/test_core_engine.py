@@ -111,6 +111,11 @@ from expert_poster_designer import (
 from poster_composer import (
     compose_commercial_poster,
     main as poster_composer_main,
+    build_arg_parser as poster_composer_build_arg_parser,
+    list_font_styles as poster_composer_list_font_styles,
+    list_theme_colors as poster_composer_list_theme_colors,
+    FONT_STYLES as POSTER_COMPOSER_FONT_STYLES,
+    THEME_COLORS as POSTER_COMPOSER_THEME_COLORS,
 )
 from vision_subject_detector import (
     detect_faces,
@@ -2796,6 +2801,158 @@ class TestPosterComposer(unittest.TestCase):
             ])
         self.assertEqual(code, 0)
         self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_build_arg_parser(self):
+        parser = poster_composer_build_arg_parser()
+        self.assertIsInstance(parser, argparse.ArgumentParser)
+        actions = {dest: a for a in parser._actions for dest in a.dest.split()}
+        self.assertIn("bg", actions)
+        self.assertIn("out", actions)
+        self.assertIn("font_style", actions)
+        self.assertIn("title", actions)
+        self.assertIn("sub", actions)
+        self.assertIn("tagline", actions)
+        self.assertIn("metadata", actions)
+        self.assertIn("theme_color", actions)
+        self.assertIn("all_styles", actions)
+        self.assertIn("list_styles", actions)
+        self.assertIn("json", actions)
+        self.assertIn("quiet", actions)
+        self.assertIn("strict", actions)
+
+    def test_list_font_styles_and_colors(self):
+        styles = poster_composer_list_font_styles()
+        self.assertIsInstance(styles, list)
+        self.assertEqual(len(styles), 3)
+        for s in styles:
+            self.assertIn("key", s)
+            self.assertIn("name", s)
+            self.assertIn("font_file", s)
+            self.assertIn("description", s)
+
+        colors = poster_composer_list_theme_colors()
+        self.assertIsInstance(colors, list)
+        self.assertEqual(len(colors), 3)
+        for c in colors:
+            self.assertIn("key", c)
+            self.assertIn("name", c)
+            self.assertIn("title_rgb", c)
+            self.assertIn("description", c)
+
+    def test_cli_list_styles_plain(self):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = poster_composer_main(["--list-styles"])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("Agnes Studio · 支持字体风格清单:", out)
+        self.assertIn("wenkai", out)
+        self.assertIn("smiley", out)
+        self.assertIn("songti", out)
+        self.assertIn("Agnes Studio · 支持配色主题清单:", out)
+        self.assertIn("amber_gold", out)
+
+    def test_cli_list_styles_json(self):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = poster_composer_main(["--list-styles", "--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue().strip())
+        self.assertIn("font_styles", data)
+        self.assertIn("theme_colors", data)
+        self.assertEqual(len(data["font_styles"]), 3)
+        self.assertEqual(len(data["theme_colors"]), 3)
+
+    def test_cli_main_json_output_single_style(self):
+        import io
+        from contextlib import redirect_stdout
+
+        out_file = self.tmp_path / "cli_json_single.png"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = poster_composer_main([
+                "--bg", str(self.dummy_bg),
+                "--out", str(out_file),
+                "--font-style", "wenkai",
+                "--json",
+            ])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue().strip())
+        self.assertTrue(data.get("ok"))
+        self.assertEqual(data.get("total"), 1)
+        self.assertEqual(data.get("styles"), ["wenkai"])
+        self.assertEqual(len(data.get("results", [])), 1)
+        res0 = data["results"][0]
+        self.assertEqual(res0["style"], "wenkai")
+        self.assertTrue(res0["ok"])
+        self.assertTrue(out_file.exists())
+        self.assertGreater(res0["bytes"], 0)
+
+    def test_cli_main_json_output_all_styles(self):
+        import io
+        from contextlib import redirect_stdout
+
+        out_base = self.tmp_path / "cli_json_all.png"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = poster_composer_main([
+                "--bg", str(self.dummy_bg),
+                "--out", str(out_base),
+                "--all-styles",
+                "--json",
+            ])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue().strip())
+        self.assertTrue(data.get("ok"))
+        self.assertEqual(data.get("total"), 3)
+        self.assertEqual(data.get("styles"), ["wenkai", "smiley", "songti"])
+        self.assertEqual(len(data.get("results", [])), 3)
+        for r in data["results"]:
+            self.assertTrue(r["ok"])
+            self.assertTrue(Path(r["file"]).exists())
+            self.assertGreater(r["bytes"], 0)
+
+    def test_cli_main_missing_bg_json_error(self):
+        import io
+        from contextlib import redirect_stdout
+
+        missing_bg = self.tmp_path / "non_existent_bg.png"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = poster_composer_main([
+                "--bg", str(missing_bg),
+                "--out", str(self.tmp_path / "out.png"),
+                "--json",
+            ])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertIn("error", data)
+        self.assertIn("找不到可用背景底图", data["error"])
+
+    def test_cli_main_render_exception_json_error(self):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with patch("poster_composer.compose_commercial_poster", side_effect=RuntimeError("simulated render failure")):
+            with redirect_stdout(buf):
+                code = poster_composer_main([
+                    "--bg", str(self.dummy_bg),
+                    "--out", str(self.tmp_path / "out.png"),
+                    "--json",
+                ])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertIn("error", data)
+        self.assertIn("simulated render failure", data["error"])
 
 
 class TestExpertPosterDesigner(unittest.TestCase):

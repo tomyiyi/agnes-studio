@@ -5,9 +5,12 @@ Agnes Studio - 商业海报排版与中文字体合成引擎
 支持 得意黑 (Smiley Sans)、霞鹜文楷 (LXGW WenKai)、经典宋体 (Songti) 矢量光影合成
 """
 
+import argparse
+import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(SCRIPTS_DIR) not in sys.path:
@@ -18,6 +21,58 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 FONTS_DIR = str(FONTS_DIR)
 ASSETS_DIR = str(ASSETS_DIR)
+
+FONT_STYLES: dict[str, dict[str, Any]] = {
+    "wenkai": {
+        "key": "wenkai",
+        "name": "霞鹜文楷",
+        "font_file": "LXGWWenKai-Regular.ttf",
+        "description": "经典文楷书风，温润优雅，适用于人文、艺术与叙事商业海报",
+    },
+    "smiley": {
+        "key": "smiley",
+        "name": "得意黑",
+        "font_file": "SmileySans-Oblique.ttf",
+        "description": "现代窄体黑体，动感有力，适用于先锋、科技与运动潮牌海报",
+    },
+    "songti": {
+        "key": "songti",
+        "name": "经典宋体",
+        "font_file": "SourceHanSerif-Regular.otf",
+        "description": "高雅清秀宋体，庄重端庄，适用于典雅、文艺与高端品牌海报",
+    },
+}
+
+THEME_COLORS: dict[str, dict[str, Any]] = {
+    "amber_gold": {
+        "key": "amber_gold",
+        "name": "琥珀暖金",
+        "title_rgb": [255, 228, 160],
+        "description": "温暖复古金色调，适合人文、古典、蒸汽朋克海报",
+    },
+    "cyber_cyan": {
+        "key": "cyber_cyan",
+        "name": "赛博青蓝",
+        "title_rgb": [0, 240, 255],
+        "description": "冷色霓虹青蓝调，适合未来科幻、都市街头海报",
+    },
+    "pure_white": {
+        "key": "pure_white",
+        "name": "极简纯白",
+        "title_rgb": [255, 255, 255],
+        "description": "纯净高对比白灰色调，适合极简现代、黑白光影海报",
+    },
+}
+
+
+def list_font_styles() -> list[dict[str, Any]]:
+    """返回支持的字体风格元数据清单。"""
+    return [dict(v) for v in FONT_STYLES.values()]
+
+
+def list_theme_colors() -> list[dict[str, Any]]:
+    """返回支持的配色主题元数据清单。"""
+    return [dict(v) for v in THEME_COLORS.values()]
 
 
 def _prepare_io(bg_image_path, output_path):
@@ -157,9 +212,8 @@ def compose_commercial_poster(
     return str(out_p)
 
 
-def main(argv: list[str] | None = None) -> int:
-    import argparse
-
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建商业海报排版与中文字体合成引擎命令行参数解析器。"""
     parser = argparse.ArgumentParser(description="Agnes Studio · 商业海报排版与中文字体合成引擎 (Poster Composer)")
     parser.add_argument(
         "--bg",
@@ -215,6 +269,17 @@ def main(argv: list[str] | None = None) -> int:
         help="一键渲染输出全部 3 款开源字体风格版本",
     )
     parser.add_argument(
+        "--list-styles",
+        "-l",
+        action="store_true",
+        help="列出支持的字体风格与配色主题清单",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出预设清单或渲染执行汇总报告",
+    )
+    parser.add_argument(
         "--quiet",
         "-q",
         action="store_true",
@@ -225,7 +290,31 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="严格模式：底图缺失或渲染异常时返回退出码 1",
     )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
     args = parser.parse_args(argv)
+
+    quiet = args.quiet or args.json
+
+    if args.list_styles:
+        styles = list_font_styles()
+        colors = list_theme_colors()
+        if args.json:
+            print(json.dumps({
+                "font_styles": styles,
+                "theme_colors": colors,
+            }, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print("Agnes Studio · 支持字体风格清单:")
+            for s in styles:
+                print(f"  [{s['key']:<8}] {s['name']:<8} ({s['font_file']:<26}) | {s['description']}")
+            print("Agnes Studio · 支持配色主题清单:")
+            for c in colors:
+                print(f"  [{c['key']:<12}] {c['name']:<8} | {c['description']}")
+        return 0
 
     # 确定输入背景底图
     target_bg = None
@@ -243,11 +332,15 @@ def main(argv: list[str] | None = None) -> int:
                 target_bg = candidates[0]
 
     if not target_bg or not target_bg.is_file():
-        if not args.quiet:
-            print(f"❌ 找不到可用背景底图: {args.bg or ASSETS_DIR}")
+        err_msg = f"找不到可用背景底图: {args.bg or ASSETS_DIR}"
+        if args.json:
+            print(json.dumps({"ok": False, "error": err_msg}, ensure_ascii=False))
+        elif not args.quiet:
+            print(f"❌ {err_msg}")
         return 1
 
     styles_to_render = ["wenkai", "smiley", "songti"] if args.all_styles else [args.font_style]
+    results: list[dict[str, Any]] = []
 
     try:
         for style in styles_to_render:
@@ -259,7 +352,7 @@ def main(argv: list[str] | None = None) -> int:
                 default_dir = SCRIPTS_DIR.parent / "outputs" / "posters"
                 out_path = default_dir / f"poster_{style}.png"
 
-            compose_commercial_poster(
+            res_path = compose_commercial_poster(
                 target_bg,
                 out_path,
                 font_style=style,
@@ -268,11 +361,29 @@ def main(argv: list[str] | None = None) -> int:
                 tagline=args.tagline,
                 metadata_no=args.metadata,
                 theme_color=args.theme_color,
-                quiet=args.quiet,
+                quiet=quiet,
             )
+            file_p = Path(res_path)
+            results.append({
+                "style": style,
+                "file": str(file_p),
+                "bytes": file_p.stat().st_size if file_p.exists() else 0,
+                "ok": True,
+            })
+
+        if args.json:
+            print(json.dumps({
+                "ok": True,
+                "total": len(results),
+                "styles": styles_to_render,
+                "bg": str(target_bg),
+                "results": results,
+            }, ensure_ascii=False, indent=2))
         return 0
     except Exception as e:
-        if not args.quiet:
+        if args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+        elif not args.quiet:
             print(f"❌ 商业海报渲染失败: {e}")
         return 1
 
