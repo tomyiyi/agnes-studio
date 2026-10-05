@@ -14236,6 +14236,26 @@ class TestBatchAgnesSamples(unittest.TestCase):
             self.assertFalse(data["ok"])
             self.assertEqual(data["error"], "Lib parse failure")
 
+    def test_cli_list_items_exception_stderr_output(self):
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("batch_agnes_samples.list_items", side_effect=RuntimeError("Lib parse failure")):
+            with redirect_stderr(buf):
+                code = agnes_samples_main(["--list-items"])
+            self.assertEqual(code, 1)
+            self.assertIn("❌ GPT Image 预设清单读取失败: Lib parse failure", buf.getvalue())
+
+    def test_cli_list_items_exception_quiet_mode(self):
+        from contextlib import redirect_stderr, redirect_stdout
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("batch_agnes_samples.list_items", side_effect=RuntimeError("Lib parse failure")):
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                code = agnes_samples_main(["--list-items", "--quiet"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
 
 class TestInstallSkills71(unittest.TestCase):
     """测试 71 项生图 Skill 全局安装引擎 install_skills_71"""

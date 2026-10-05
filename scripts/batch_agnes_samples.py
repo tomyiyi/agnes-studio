@@ -308,7 +308,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     quiet = args.quiet or args.json
 
@@ -324,10 +324,10 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"总计: {len(items)} 项预设")
             return 0
         except Exception as e:
-            if not args.quiet and not args.json:
-                print(f"❌ GPT Image 预设清单读取失败: {e}", file=sys.stderr)
-            elif args.json:
+            if args.json:
                 print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+            elif not args.quiet:
+                print(f"❌ GPT Image 预设清单读取失败: {e}", file=sys.stderr)
             return 1
 
     try:
@@ -364,10 +364,10 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return 0
     except Exception as e:
-        if not args.quiet and not args.json:
-            print(f"❌ GPT Image 样张批量生成失败: {e}", file=sys.stderr)
-        elif args.json:
+        if args.json:
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+        elif not args.quiet:
+            print(f"❌ GPT Image 样张批量生成失败: {e}", file=sys.stderr)
         return 1
 
 
