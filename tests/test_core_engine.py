@@ -10447,6 +10447,75 @@ class TestRenderVariantsVerify(unittest.TestCase):
         ])
         self.assertEqual(code_strict, 1)
 
+    @patch("render_variants_verify.render_variant_style", side_effect=RuntimeError("Simulated variant render crash"))
+    def test_main_cli_exception_stderr_output(self, mock_render):
+        import io
+        from contextlib import redirect_stderr
+        sample_img = self.tmp_path / "variant_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = verify_variants_main([
+                "--variant", "v1",
+                "--src", str(sample_img),
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 版式变体海报渲染失败: Simulated variant render crash", buf.getvalue())
+
+    @patch("render_variants_verify.render_variant_style", side_effect=RuntimeError("Simulated variant quiet crash"))
+    def test_main_cli_exception_quiet_mode(self, mock_render):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        sample_img = self.tmp_path / "variant_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            code = verify_variants_main([
+                "--variant", "v1",
+                "--src", str(sample_img),
+                "-q",
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
+    def test_main_cli_missing_src_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        missing_src = self.tmp_path / "non_existent_variant_src.png"
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = verify_variants_main([
+                "--variant", "v1",
+                "--src", str(missing_src),
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 找不到输入底图", buf.getvalue())
+
+    @patch("render_variants_verify.render_variant_style", side_effect=RuntimeError("Simulated variant JSON crash"))
+    def test_cli_main_exception_json_error(self, mock_render):
+        import io
+        from contextlib import redirect_stdout
+        sample_img = self.tmp_path / "variant_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = verify_variants_main([
+                "--variant", "v1",
+                "--src", str(sample_img),
+                "--json",
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        err = json.loads(buf.getvalue())
+        self.assertFalse(err["ok"])
+        self.assertIn("error", err)
+        self.assertIn("Simulated variant JSON crash", err["error"])
+
 
 class TestBatchLayoutCn789(unittest.TestCase):
     """测试 7/8/9 版式精修与中文排版渲染器 batch_layout_cn_789"""
