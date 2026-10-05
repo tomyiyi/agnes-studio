@@ -47,7 +47,15 @@ from env_config import (
     resolve_chrome_path,
     resolve_font_path,
 )
-from cover_style import resolve_style, load_catalog, CoverStyle
+from cover_style import (
+    resolve_style,
+    load_catalog,
+    CoverStyle,
+    list_catalog_options,
+    list_skill_styles,
+    main as cover_style_main,
+    build_arg_parser as build_cover_style_parser,
+)
 import cover_pipeline
 from cover_pipeline import (
     validate_copy,
@@ -827,6 +835,116 @@ class TestCoverStyleResolver(unittest.TestCase):
         self.assertIn("gen_prompt", d)
         serialized = json.dumps(d, ensure_ascii=False)
         self.assertTrue(len(serialized) > 0)
+
+    def test_list_catalog_options(self):
+        opts = list_catalog_options()
+        self.assertIsInstance(opts, dict)
+        self.assertIn("subjects", opts)
+        self.assertIn("tones", opts)
+        self.assertIn("goals", opts)
+        self.assertIn("platforms", opts)
+        self.assertIn("modes", opts)
+        self.assertIn("beauty", opts["subjects"])
+        self.assertIn("luxury", opts["tones"])
+        self.assertIn("wechat", opts["platforms"])
+        self.assertIn("diag", opts["modes"])
+
+    def test_list_skill_styles(self):
+        skills = list_skill_styles()
+        self.assertIsInstance(skills, list)
+        self.assertGreater(len(skills), 0)
+        first = skills[0]
+        self.assertIn("id", first)
+        self.assertIn("call_name", first)
+        self.assertIn("tone", first)
+        self.assertIn("mode", first)
+        ids = [s["id"] for s in skills]
+        self.assertIn("S05", ids)
+
+    def test_resolve_style_kwargs_and_empty_brief(self):
+        st = resolve_style(subject="product", tone="cyber", platform="xhs")
+        self.assertEqual(st.mode, "diag")
+        self.assertEqual(st.name, "cyber/product/editorial/diag")
+        self.assertIn("cyber", st.notes)
+        self.assertIn("product", st.notes)
+
+    def test_cover_style_cli_main_default_and_flags(self):
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            code = cover_style_main([])
+        self.assertEqual(code, 0)
+        output = json.loads(buf.getvalue())
+        self.assertEqual(output["mode"], "diag")
+
+        buf_custom = io.StringIO()
+        with patch("sys.stdout", buf_custom):
+            code_custom = cover_style_main([
+                "--subject", "product",
+                "--tone", "cyber",
+                "--platform", "xhs",
+                "--goal", "brand",
+            ])
+        self.assertEqual(code_custom, 0)
+        output_custom = json.loads(buf_custom.getvalue())
+        self.assertEqual(output_custom["name"], "cyber/product/brand/diag")
+
+    def test_cover_style_cli_main_json_inline(self):
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            code = cover_style_main(["--json", '{"subject": "scenery", "tone": "minimal"}'])
+        self.assertEqual(code, 0)
+        output = json.loads(buf.getvalue())
+        self.assertIn("minimal", output["name"])
+
+        # 非法 JSON 字符串返回退出码 1
+        err_buf = io.StringIO()
+        with patch("sys.stderr", err_buf):
+            code_invalid = cover_style_main(["--json", 'invalid-json-string'])
+        self.assertEqual(code_invalid, 1)
+
+        # 根对象非字典返回退出码 1
+        with patch("sys.stderr", err_buf):
+            code_array = cover_style_main(["--json", '["a", "b"]'])
+        self.assertEqual(code_array, 1)
+
+    def test_cover_style_cli_main_brief_file_and_out(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            brief_file = tmp_path / "test_brief.json"
+            out_file = tmp_path / "out_style.json"
+            brief_file.write_text(json.dumps({"subject": "character", "tone": "warm"}), encoding="utf-8")
+
+            buf = io.StringIO()
+            with patch("sys.stdout", buf):
+                code = cover_style_main([
+                    str(brief_file),
+                    "--out", str(out_file),
+                    "--quiet",
+                ])
+            self.assertEqual(code, 0)
+            self.assertEqual(buf.getvalue(), "")  # --quiet 抑制输出
+            self.assertTrue(out_file.exists())
+            loaded = json.loads(out_file.read_text(encoding="utf-8"))
+            self.assertIn("warm", loaded["name"])
+
+    def test_cover_style_cli_main_list_modes(self):
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            code_list = cover_style_main(["--list"])
+        self.assertEqual(code_list, 0)
+        self.assertIn("Agnes Studio · 封面样式目录预设选项", buf.getvalue())
+
+        buf_skills = io.StringIO()
+        with patch("sys.stdout", buf_skills):
+            code_skills = cover_style_main(["--list-skills"])
+        self.assertEqual(code_skills, 0)
+        self.assertIn("Agnes Studio · 封面预设 Skill 样式映射", buf_skills.getvalue())
+
+    def test_cover_style_cli_main_error_handling(self):
+        err_buf = io.StringIO()
+        with patch("sys.stderr", err_buf):
+            code_missing = cover_style_main(["/tmp/path/to/definitely_not_existing_brief.json"])
+        self.assertEqual(code_missing, 1)
 
 
 class TestSafeZoneAnalyzer(unittest.TestCase):
