@@ -8344,6 +8344,75 @@ class TestRenderLayoutPoster(unittest.TestCase):
         self.assertFalse(err.get("ok", True))
         self.assertIn("error", err)
 
+    @patch("render_layout_poster.render_layout_poster_style", side_effect=RuntimeError("Simulated layout render crash"))
+    def test_main_cli_exception_stderr_output(self, mock_render):
+        import io
+        from contextlib import redirect_stderr
+        sample_img = self.tmp_path / "layout_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = layout_poster_main([
+                "--style", "swiss_asym",
+                "--src", str(sample_img),
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 设计排版海报渲染失败: Simulated layout render crash", buf.getvalue())
+
+    @patch("render_layout_poster.render_layout_poster_style", side_effect=RuntimeError("Simulated layout quiet crash"))
+    def test_main_cli_exception_quiet_mode(self, mock_render):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        sample_img = self.tmp_path / "layout_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            code = layout_poster_main([
+                "--style", "swiss_asym",
+                "--src", str(sample_img),
+                "-q",
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
+    def test_main_cli_missing_src_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        missing_src = self.tmp_path / "non_existent_layout_src.png"
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = layout_poster_main([
+                "--style", "swiss_asym",
+                "--src", str(missing_src),
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 找不到输入底图", buf.getvalue())
+
+    @patch("render_layout_poster.render_layout_poster_style", side_effect=RuntimeError("Simulated layout JSON crash"))
+    def test_cli_main_exception_json_error(self, mock_render):
+        import io
+        from contextlib import redirect_stdout
+        sample_img = self.tmp_path / "layout_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = layout_poster_main([
+                "--style", "swiss_asym",
+                "--src", str(sample_img),
+                "--json",
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        err = json.loads(buf.getvalue())
+        self.assertFalse(err["ok"])
+        self.assertIn("error", err)
+        self.assertIn("Simulated layout JSON crash", err["error"])
+
 
 class TestRenderTitleDesign(unittest.TestCase):
     """测试海报标题字设计（Title Lettering Design）渲染器 render_title_design 及其 6 大设计范式"""
