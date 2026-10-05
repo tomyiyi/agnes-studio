@@ -5,6 +5,7 @@
 http_post 全部 mock，不发起真实网络请求。
 """
 
+import json
 import os
 import socket
 import sys
@@ -360,6 +361,119 @@ class CliTest(unittest.TestCase):
             with patch("gateway_failover.resolve_endpoints", return_value=[EP1]):
                 rc = G.main([])
         self.assertEqual(rc, 0)
+
+    def test_cli_build_arg_parser_options(self):
+        parser = G.build_arg_parser()
+        actions = {opt for a in parser._actions for opt in a.option_strings}
+        self.assertIn("--quiet", actions)
+        self.assertIn("-q", actions)
+        self.assertIn("--json", actions)
+        self.assertIn("--strict", actions)
+        self.assertIn("--doctor", actions)
+        self.assertIn("--kind", actions)
+        self.assertIn("--timeout", actions)
+        self.assertIn("--key-path", actions)
+
+    def test_cli_main_quiet_mode_endpoints(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            with patch("gateway_failover.resolve_endpoints", return_value=[EP1]):
+                rc = G.main(["-q"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
+    def test_cli_main_quiet_mode_doctor_success(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            with patch("gateway_failover.doctor", return_value={EP1: {"status": "ok"}}):
+                rc = G.main(["--doctor", "--quiet"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
+    def test_cli_main_quiet_mode_doctor_strict_failure(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            with patch("gateway_failover.doctor", return_value={EP1: {"status": "error", "message": "unreachable"}}):
+                rc = G.main(["--doctor", "--strict", "-q"])
+        self.assertEqual(rc, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
+    def test_cli_main_json_flag_success(self):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            with patch("gateway_failover.resolve_endpoints", return_value=[EP1, EP2]):
+                rc = G.main(["--json"])
+        self.assertEqual(rc, 0)
+        data = json.loads(buf.getvalue())
+        self.assertEqual(data["endpoints"], [EP1, EP2])
+
+    def test_cli_main_exception_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            with patch("gateway_failover.resolve_endpoints", side_effect=RuntimeError("Endpoint failure")):
+                rc = G.main([])
+        self.assertEqual(rc, 1)
+        self.assertIn("❌ 网关故障转移探活失败: Endpoint failure", buf.getvalue())
+
+    def test_cli_main_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            with patch("gateway_failover.resolve_endpoints", side_effect=ValueError("Invalid gateway config")):
+                rc = G.main(["--json"])
+        self.assertEqual(rc, 1)
+        data = json.loads(buf.getvalue())
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["error"], "Invalid gateway config")
+
+    def test_cli_main_exception_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            with patch("gateway_failover.doctor", side_effect=RuntimeError("Doctor fatal")):
+                rc = G.main(["--doctor", "--quiet"])
+        self.assertEqual(rc, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
+    def test_cli_main_doctor_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            with patch("gateway_failover.doctor", side_effect=RuntimeError("Doctor timeout crash")):
+                rc = G.main(["--doctor", "--json"])
+        self.assertEqual(rc, 1)
+        data = json.loads(buf.getvalue())
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["error"], "Doctor timeout crash")
 
 
 if __name__ == "__main__":
