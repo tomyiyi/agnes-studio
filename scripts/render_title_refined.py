@@ -792,62 +792,67 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
-    if args.list:
-        if args.json:
-            print(json.dumps(list_refined_title_styles(), ensure_ascii=False, indent=2))
-        elif not args.quiet:
-            print("Agnes Studio 可用高级字设范式预设:")
-            for s in list_refined_title_styles():
-                print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
-        return 0
+    suppress_log = args.quiet or args.json
 
-    # 确定输入源
-    resolved_src = None
-    input_path_arg = args.src or args.input
-    if input_path_arg:
-        p = Path(input_path_arg)
-        if not p.is_file():
-            if not args.quiet and not args.json:
-                print(f"❌ 找不到输入底图: {input_path_arg}", file=sys.stderr)
-            elif args.json:
-                print(json.dumps({"error": f"找不到输入底图: {input_path_arg}", "ok": False}, ensure_ascii=False))
-            return 1 if (args.strict or args.input) else 0
-        resolved_src = p
-    else:
-        candidates = [
-            ROOT / "outputs" / "epic_compare" / "clean_base.png",
-            ROOT / "public" / "assets" / "agnes_1789995698_9987.png",
-            ROOT / "assets" / "agnes_1790006749_b2b755da.png",
-            ROOT / "assets" / "agnes_1789995999_1670.png",
-        ]
-        for c in candidates:
-            if c.is_file():
-                resolved_src = c
-                break
-
-    if resolved_src is None:
-        if not args.quiet and not args.json:
-            print("❌ 未指定底图且未发现默认候选底图资产", file=sys.stderr)
-        elif args.json:
-            print(json.dumps({"error": "未指定底图且未发现默认候选底图资产", "ok": False}, ensure_ascii=False))
-        return 1 if (args.strict or args.input) else 0
-
-    raw_style = (args.style or "all").strip().lower()
-    if raw_style == "all":
-        target_styles = list(REFINED_TITLE_STYLES.keys())
-    else:
-        try:
-            target_styles = [normalize_refined_style_key(raw_style)]
-        except KeyError as e:
-            if not args.quiet and not args.json:
-                print(f"❌ {e}", file=sys.stderr)
-            elif args.json:
-                print(json.dumps({"error": str(e), "ok": False}, ensure_ascii=False))
-            return 1 if (args.strict or args.input) else 0
-
-    quiet = args.quiet or args.json
-    report_items = []
     try:
+        if args.list:
+            if args.json:
+                print(json.dumps(list_refined_title_styles(), ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio 可用高级字设范式预设:")
+                for s in list_refined_title_styles():
+                    print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
+            return 0
+
+        # 确定输入源
+        resolved_src = None
+        input_path_arg = args.src or args.input
+        if input_path_arg:
+            p = Path(input_path_arg)
+            if not p.is_file():
+                err_msg = f"找不到输入底图: {input_path_arg}"
+                if args.json:
+                    print(json.dumps({"error": err_msg, "ok": False}, ensure_ascii=False))
+                elif not args.quiet:
+                    print(f"❌ {err_msg}", file=sys.stderr)
+                return 1 if (args.strict or args.input) else 0
+            resolved_src = p
+        else:
+            candidates = [
+                ROOT / "outputs" / "epic_compare" / "clean_base.png",
+                ROOT / "public" / "assets" / "agnes_1789995698_9987.png",
+                ROOT / "assets" / "agnes_1790006749_b2b755da.png",
+                ROOT / "assets" / "agnes_1789995999_1670.png",
+            ]
+            for c in candidates:
+                if c.is_file():
+                    resolved_src = c
+                    break
+
+        if resolved_src is None:
+            err_msg = "未指定底图且未发现默认候选底图资产"
+            if args.json:
+                print(json.dumps({"error": err_msg, "ok": False}, ensure_ascii=False))
+            elif not args.quiet:
+                print(f"❌ {err_msg}", file=sys.stderr)
+            return 1 if (args.strict or args.input) else 0
+
+        raw_style = (args.style or "all").strip().lower()
+        if raw_style == "all":
+            target_styles = list(REFINED_TITLE_STYLES.keys())
+        else:
+            try:
+                target_styles = [normalize_refined_style_key(raw_style)]
+            except KeyError as e:
+                err_msg = str(e)
+                if args.json:
+                    print(json.dumps({"error": err_msg, "ok": False}, ensure_ascii=False))
+                elif not args.quiet:
+                    print(f"❌ {err_msg}", file=sys.stderr)
+                return 1 if (args.strict or args.input) else 0
+
+        quiet = suppress_log
+        report_items = []
         default_out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "title_refined")
         for st in target_styles:
             if args.out:
@@ -882,10 +887,10 @@ def main(argv: list[str] | None = None) -> int:
             print("done")
         return 0
     except Exception as e:
-        if not args.quiet and not args.json:
-            print(f"❌ 高级字设海报渲染失败: {e}", file=sys.stderr)
-        elif args.json:
+        if args.json:
             print(json.dumps({"error": str(e), "ok": False}, ensure_ascii=False))
+        elif not args.quiet:
+            print(f"❌ 高级字设海报渲染失败: {e}", file=sys.stderr)
         return 1 if (args.strict or args.input) else 0
 
 
