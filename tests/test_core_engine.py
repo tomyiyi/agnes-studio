@@ -13576,6 +13576,122 @@ class TestInstallSkills71(unittest.TestCase):
         self.assertFalse(payload["ok"])
         self.assertIn("error", payload)
 
+    def test_cli_load_manifest_stderr_output(self):
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            ret = skills_71_main([
+                "--manifest", str(self.tmp_path / "not_found.json"),
+            ])
+        self.assertEqual(ret, 1)
+        self.assertIn("❌ 71 项生图 Skill 清单加载失败:", buf.getvalue())
+
+    def test_cli_load_manifest_quiet_mode(self):
+        from contextlib import redirect_stderr, redirect_stdout
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with redirect_stderr(err_buf), redirect_stdout(out_buf):
+            ret = skills_71_main([
+                "--manifest", str(self.tmp_path / "not_found.json"),
+                "--quiet",
+            ])
+        self.assertEqual(ret, 1)
+        self.assertEqual(err_buf.getvalue(), "")
+        self.assertEqual(out_buf.getvalue(), "")
+
+    def test_cli_list_exception_json_output(self):
+        manifest_file = self.tmp_path / "valid_manifest.json"
+        manifest_file.write_text(json.dumps({"entries": [{"id": "ST01"}]}), encoding="utf-8")
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("install_skills_71.list_skills", side_effect=RuntimeError("List parse crash")):
+            with redirect_stdout(buf):
+                ret = skills_71_main([
+                    "--manifest", str(manifest_file),
+                    "--list",
+                    "--json",
+                ])
+            self.assertEqual(ret, 1)
+            payload = json.loads(buf.getvalue())
+            self.assertFalse(payload["ok"])
+            self.assertEqual(payload["error"], "List parse crash")
+
+    def test_cli_list_exception_stderr_output(self):
+        manifest_file = self.tmp_path / "valid_manifest.json"
+        manifest_file.write_text(json.dumps({"entries": [{"id": "ST01"}]}), encoding="utf-8")
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("install_skills_71.list_skills", side_effect=RuntimeError("List parse crash")):
+            with redirect_stderr(buf):
+                ret = skills_71_main([
+                    "--manifest", str(manifest_file),
+                    "--list",
+                ])
+            self.assertEqual(ret, 1)
+            self.assertIn("❌ 71 项生图 Skill 清单读取失败: List parse crash", buf.getvalue())
+
+    def test_cli_list_exception_quiet_mode(self):
+        manifest_file = self.tmp_path / "valid_manifest.json"
+        manifest_file.write_text(json.dumps({"entries": [{"id": "ST01"}]}), encoding="utf-8")
+        from contextlib import redirect_stderr, redirect_stdout
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("install_skills_71.list_skills", side_effect=RuntimeError("List parse crash")):
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                ret = skills_71_main([
+                    "--manifest", str(manifest_file),
+                    "--list",
+                    "--quiet",
+                ])
+            self.assertEqual(ret, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
+    def test_cli_install_exception_json_output(self):
+        manifest_file = self.tmp_path / "valid_manifest.json"
+        manifest_file.write_text(json.dumps({"entries": [{"id": "ST01"}]}), encoding="utf-8")
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("install_skills_71.run_install", side_effect=PermissionError("Permission denied")):
+            with redirect_stdout(buf):
+                ret = skills_71_main([
+                    "--manifest", str(manifest_file),
+                    "--json",
+                ])
+            self.assertEqual(ret, 1)
+            payload = json.loads(buf.getvalue())
+            self.assertFalse(payload["ok"])
+            self.assertEqual(payload["error"], "Permission denied")
+
+    def test_cli_install_exception_stderr_output(self):
+        manifest_file = self.tmp_path / "valid_manifest.json"
+        manifest_file.write_text(json.dumps({"entries": [{"id": "ST01"}]}), encoding="utf-8")
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("install_skills_71.run_install", side_effect=PermissionError("Permission denied")):
+            with redirect_stderr(buf):
+                ret = skills_71_main([
+                    "--manifest", str(manifest_file),
+                ])
+            self.assertEqual(ret, 1)
+            self.assertIn("❌ 71 项生图 Skill 安装失败: Permission denied", buf.getvalue())
+
+    def test_cli_install_exception_quiet_mode(self):
+        manifest_file = self.tmp_path / "valid_manifest.json"
+        manifest_file.write_text(json.dumps({"entries": [{"id": "ST01"}]}), encoding="utf-8")
+        from contextlib import redirect_stderr, redirect_stdout
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("install_skills_71.run_install", side_effect=RuntimeError("Silent failure")):
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                ret = skills_71_main([
+                    "--manifest", str(manifest_file),
+                    "--quiet",
+                ])
+            self.assertEqual(ret, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
 
 class TestGenAgnesSamples(unittest.TestCase):
     """测试 GPT Image 转 Agnes 单条与批量生成引擎 gen_agnes_samples"""
