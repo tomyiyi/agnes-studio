@@ -10131,6 +10131,58 @@ class TestBatchLayoutCn789(unittest.TestCase):
         self.assertEqual(buf.getvalue().strip(), "")
         self.assertTrue(out_p.is_file())
 
+    def test_cli_missing_source_image_json_error(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = batch_layout_cn_789.main([
+                "--variant", "07",
+                "--src", str(self.tmp_path / "not_found_source.png"),
+                "--json",
+            ])
+        self.assertEqual(ret, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertIn("error", data)
+        self.assertIn("找不到底图文件", data["error"])
+
+    def test_cli_render_exception_json_error(self):
+        buf = io.StringIO()
+        with patch("batch_layout_cn_789.render_layout_cn", side_effect=RuntimeError("渲染过程崩溃")):
+            with redirect_stdout(buf):
+                ret = batch_layout_cn_789.main([
+                    "--variant", "07",
+                    "--src", str(self.test_img_path),
+                    "--json",
+                ])
+        self.assertEqual(ret, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertIn("error", data)
+        self.assertIn("渲染过程崩溃", data["error"])
+
+    def test_cli_list_json_with_quiet_flag(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = batch_layout_cn_789.main(["--list", "--json", "--quiet"])
+        self.assertEqual(ret, 0)
+        data = json.loads(buf.getvalue().strip())
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 3)
+
+    def test_cli_batch_strict_missing_json_error(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = batch_layout_cn_789.main([
+                "--batch",
+                "--strict",
+                "--json",
+                "--src", str(self.tmp_path / "missing_batch_src.png"),
+            ])
+        self.assertEqual(ret, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertIn("error", data)
+
 
 class TestBatchLayoutVariants(unittest.TestCase):
     """测试 12 款经典构图版式编号册生成器 batch_layout_variants"""

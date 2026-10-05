@@ -692,16 +692,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.list:
         variants = list_layout_cn_variants()
         if args.json:
-            if not args.quiet:
-                print(json.dumps(variants, ensure_ascii=False, indent=2))
-        else:
-            if not args.quiet:
-                print("Agnes Studio · 7/8/9 经典中文版式清单:")
-                for v in variants:
-                    print(
-                        f"  [{v['key']}] {v['name']} -> "
-                        f"默认: 《{v['default_title']}》/ {v['default_latin']} ({v['default_filename']})"
-                    )
+            print(json.dumps(variants, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print("Agnes Studio · 7/8/9 经典中文版式清单:")
+            for v in variants:
+                print(
+                    f"  [{v['key']}] {v['name']} -> "
+                    f"默认: 《{v['default_title']}》/ {v['default_latin']} ({v['default_filename']})"
+                )
         return 0
 
     try:
@@ -709,7 +707,7 @@ def main(argv: list[str] | None = None) -> int:
         report: list[dict] = []
         if args.generate:
             if not args.dry_run and (not generate or not save_image):
-                if not args.quiet:
+                if not args.quiet and not args.json:
                     print("⚠️ agnes_gateway 不可用，跳过生成步骤", file=sys.stderr)
             else:
                 report = run_batch_generate_shots(
@@ -723,8 +721,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.src:
             src_path = Path(args.src)
             if not src_path.is_file():
-                if not args.quiet:
+                if not args.quiet and not args.json:
                     print(f"❌ 找不到底图文件: {args.src}", file=sys.stderr)
+                elif args.json:
+                    print(json.dumps({"ok": False, "error": f"找不到底图文件: {args.src}"}, ensure_ascii=False))
                 return 1
         else:
             candidates = [
@@ -752,9 +752,11 @@ def main(argv: list[str] | None = None) -> int:
             for src_name, dst_name, title, latin, caption in jobs:
                 cur_src = (OUT / src_name) if (OUT / src_name).is_file() else src_path
                 if not cur_src or not cur_src.is_file():
-                    if not args.quiet:
+                    if not args.quiet and not args.json:
                         print("MISS src for", dst_name)
                     if args.strict:
+                        if args.json:
+                            print(json.dumps({"ok": False, "error": f"strict 模式下缺失底图: {src_name}"}, ensure_ascii=False))
                         return 1
                     continue
                 dst = OUT / dst_name
@@ -767,8 +769,10 @@ def main(argv: list[str] | None = None) -> int:
                 rendered_jobs.append(str(p))
 
             if args.strict and not rendered_jobs:
-                if not args.quiet:
+                if not args.quiet and not args.json:
                     print("❌ strict 模式下无任何底图可用，排版合成终止", file=sys.stderr)
+                elif args.json:
+                    print(json.dumps({"ok": False, "error": "strict 模式下无任何底图可用，排版合成终止"}, ensure_ascii=False))
                 return 1
 
             (OUT / "batch_report.json").write_text(
@@ -782,8 +786,7 @@ def main(argv: list[str] | None = None) -> int:
                     "rendered": rendered_jobs,
                     "generation_report": report,
                 }
-                if not args.quiet:
-                    print(json.dumps(res_obj, ensure_ascii=False, indent=2))
+                print(json.dumps(res_obj, ensure_ascii=False, indent=2))
             else:
                 if not args.quiet:
                     print("DONE")
@@ -791,8 +794,10 @@ def main(argv: list[str] | None = None) -> int:
 
         # 单项或全量渲染检查底图
         if not src_path or not src_path.is_file():
-            if not args.quiet:
+            if not args.quiet and not args.json:
                 print("❌ 未提供底图且未检测到默认底图", file=sys.stderr)
+            elif args.json:
+                print(json.dumps({"ok": False, "error": "未提供底图且未检测到默认底图"}, ensure_ascii=False))
             return 1
 
         target_out_dir = Path(args.out) if args.out else OUT
@@ -812,8 +817,7 @@ def main(argv: list[str] | None = None) -> int:
                     "src": str(src_path),
                     "results": {k: str(v) for k, v in all_rendered.items()},
                 }
-                if not args.quiet:
-                    print(json.dumps(res_obj, ensure_ascii=False, indent=2))
+                print(json.dumps(res_obj, ensure_ascii=False, indent=2))
             return 0
 
         # 指定具体 variant
@@ -839,13 +843,14 @@ def main(argv: list[str] | None = None) -> int:
                 "src": str(src_path),
                 "output": str(single_res),
             }
-            if not args.quiet:
-                print(json.dumps(res_obj, ensure_ascii=False, indent=2))
+            print(json.dumps(res_obj, ensure_ascii=False, indent=2))
         return 0
 
     except Exception as e:
-        if not args.quiet:
+        if not args.quiet and not args.json:
             print(f"❌ 执行失败: {e}", file=sys.stderr)
+        elif args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
         return 1
 
 
