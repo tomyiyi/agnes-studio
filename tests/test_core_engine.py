@@ -6885,6 +6885,39 @@ class TestRenderCinemaPoster(unittest.TestCase):
         self.assertIn("error", err)
         self.assertIn("Simulated JSON crash", err["error"])
 
+    @patch("render_cinema_poster.render_cinema_poster_style", side_effect=RuntimeError("Simulated stderr crash"))
+    def test_cli_main_exception_stderr_output(self, mock_render):
+        import io
+        from contextlib import redirect_stderr
+        sample_img = self.tmp_path / "cinema_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = cinema_poster_main([
+                "--style", "bottom",
+                "--src", str(sample_img),
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 电影级海报渲染失败: Simulated stderr crash", buf.getvalue())
+
+    @patch("render_cinema_poster.render_cinema_poster_style", side_effect=RuntimeError("Simulated quiet crash"))
+    def test_cli_main_exception_quiet_mode(self, mock_render):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        sample_img = self.tmp_path / "cinema_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            code = cinema_poster_main([
+                "--style", "bottom",
+                "--src", str(sample_img),
+                "-q",
+            ])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
 
 
 class TestRenderDramaPoster(unittest.TestCase):
