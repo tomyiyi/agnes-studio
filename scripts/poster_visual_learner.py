@@ -9,6 +9,7 @@ Agnes Studio · 海报多模态视觉解构与设计自学习引擎
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -38,38 +39,41 @@ def extract_poster_features(filepath: str | Path) -> dict[str, Any] | None:
         return None
 
     filename = path.name
-    with Image.open(path) as img:
-        rgb_img = img.convert("RGB")
-        w, h = rgb_img.size
-        thumb = rgb_img.resize((32, 32))
-        colors = thumb.getcolors(32 * 32) or []
-        colors.sort(key=lambda x: x[0], reverse=True)
+    try:
+        with Image.open(path) as img:
+            rgb_img = img.convert("RGB")
+            w, h = rgb_img.size
+            thumb = rgb_img.resize((32, 32))
+            colors = thumb.getcolors(32 * 32) or []
+            colors.sort(key=lambda x: x[0], reverse=True)
 
-        palette = []
-        for count, rgb in colors[:5]:
-            if isinstance(rgb, tuple) and len(rgb) >= 3:
-                hex_val = f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
-                palette.append({"hex": hex_val, "rgb": list(rgb[:3]), "pixels": count})
+            palette = []
+            for count, rgb in colors[:5]:
+                if isinstance(rgb, tuple) and len(rgb) >= 3:
+                    hex_val = f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
+                    palette.append({"hex": hex_val, "rgb": list(rgb[:3]), "pixels": count})
 
-        aspect_ratio = round(w / h, 2) if h > 0 else 1.0
-        if aspect_ratio >= 1.3:
-            layout = "电影宽银幕上下遮幅 (2.35:1)"
-        else:
-            layout = "加块绿 · 左右对角拆字法"
+            aspect_ratio = round(w / h, 2) if h > 0 else 1.0
+            if aspect_ratio >= 1.3:
+                layout = "电影宽银幕上下遮幅 (2.35:1)"
+            else:
+                layout = "加块绿 · 左右对角拆字法"
 
-        return {
-            "filename": filename,
-            "dimensions": f"{w}x{h}",
-            "aspect_ratio": aspect_ratio,
-            "dominant_palette": palette,
-            "layout_category": layout,
-            "rules": [
-                "形：莫兰迪色块打底隔离复杂背景",
-                "斜：8° 窄斜体得意黑建立动势",
-                "比：主标题与微标 10:1 极端字阶对比",
-                "空：对角避让保留人物视觉焦点",
-            ],
-        }
+            return {
+                "filename": filename,
+                "dimensions": f"{w}x{h}",
+                "aspect_ratio": aspect_ratio,
+                "dominant_palette": palette,
+                "layout_category": layout,
+                "rules": [
+                    "形：莫兰迪色块打底隔离复杂背景",
+                    "斜：8° 窄斜体得意黑建立动势",
+                    "比：主标题与微标 10:1 极端字阶对比",
+                    "空：对角避让保留人物视觉焦点",
+                ],
+            }
+    except Exception:
+        return None
 
 
 def analyze_poster_visual(
@@ -128,9 +132,8 @@ def analyze_poster_visual(
     return results
 
 
-def main(argv: list[str] | None = None) -> int:
-    import argparse
-
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建海报多模态视觉解构与设计自学习引擎 CLI 参数解析器"""
     parser = argparse.ArgumentParser(description="海报多模态视觉解构与设计自学习引擎")
     parser.add_argument(
         "--files",
@@ -152,21 +155,47 @@ def main(argv: list[str] | None = None) -> int:
         help="静默模式，抑制控制台日志输出",
     )
     parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出解构结果汇总至标准输出",
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="严格模式：当指定的文件存在缺失或解构失败时返回非零退出码 1",
     )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
     args = parser.parse_args(argv)
 
+    quiet = args.quiet or args.json
     target_files = [Path(p) for p in args.files] if args.files is not None else None
+    expected_count = len(target_files) if target_files is not None else len(DEFAULT_TARGET_FILES)
+
     results = analyze_poster_visual(
         target_files=target_files,
         output_path=args.out,
-        quiet=args.quiet,
+        quiet=quiet,
     )
-    if args.strict and target_files is not None:
-        if len(results) != len(target_files):
-            return 1
+
+    is_strict_failed = bool(args.strict and target_files is not None and len(results) != len(target_files))
+
+    if args.json:
+        payload: dict[str, Any] = {
+            "ok": not is_strict_failed,
+            "total": len(results),
+            "expected": expected_count,
+            "results": results,
+        }
+        if is_strict_failed:
+            payload["error"] = f"部分文件解构失败 ({len(results)}/{expected_count})"
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+    if is_strict_failed:
+        return 1
     return 0
 
 

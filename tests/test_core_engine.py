@@ -144,6 +144,7 @@ from poster_visual_learner import (
     analyze_poster_visual,
     DEFAULT_TARGET_FILES,
     DEFAULT_OUTPUT_PATH,
+    build_arg_parser as poster_learner_build_arg_parser,
     main as poster_learner_main,
 )
 import autonomous_followup
@@ -3477,6 +3478,70 @@ class TestPosterVisualLearner(unittest.TestCase):
             "--quiet",
         ])
         self.assertEqual(rc, 1)
+
+    def test_poster_learner_build_arg_parser(self):
+        parser = poster_learner_build_arg_parser()
+        self.assertIsInstance(parser, argparse.ArgumentParser)
+        args = parser.parse_args([
+            "--files", "a.png", "b.png",
+            "--out", "rules.json",
+            "--quiet",
+            "--json",
+            "--strict",
+        ])
+        self.assertEqual(args.files, ["a.png", "b.png"])
+        self.assertEqual(args.out, "rules.json")
+        self.assertTrue(args.quiet)
+        self.assertTrue(args.json)
+        self.assertTrue(args.strict)
+
+    def test_extract_poster_features_corrupted_file_returns_none(self):
+        corrupt_file = self.tmp_path / "corrupt.png"
+        corrupt_file.write_bytes(b"NOT_A_VALID_IMAGE_HEADER_DATA")
+        res = extract_poster_features(corrupt_file)
+        self.assertIsNone(res)
+
+    def test_cli_main_json_mode_output(self):
+        import io
+        from contextlib import redirect_stdout
+
+        out_json = self.tmp_path / "out_json_mode.json"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = poster_learner_main([
+                "--files", str(self.square_img), str(self.wide_img),
+                "--out", str(out_json),
+                "--json",
+            ])
+        self.assertEqual(rc, 0)
+        data = json.loads(buf.getvalue().strip())
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["total"], 2)
+        self.assertEqual(data["expected"], 2)
+        self.assertEqual(len(data["results"]), 2)
+        self.assertEqual(data["results"][0]["filename"], "square_red.png")
+
+    def test_cli_main_json_mode_strict_failure(self):
+        import io
+        from contextlib import redirect_stdout
+
+        missing = self.tmp_path / "missing_poster.png"
+        out_json = self.tmp_path / "out_json_fail.json"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = poster_learner_main([
+                "--files", str(self.square_img), str(missing),
+                "--out", str(out_json),
+                "--json",
+                "--strict",
+            ])
+        self.assertEqual(rc, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["total"], 1)
+        self.assertEqual(data["expected"], 2)
+        self.assertIn("error", data)
+        self.assertIn("部分文件解构失败", data["error"])
 
 
 class TestWechatCoverAB(unittest.TestCase):
