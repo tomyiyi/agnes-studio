@@ -276,7 +276,8 @@ def run_lifecycle_monitor(
     return summary
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建上游依赖与聚合网关巡检命令行参数解析器。"""
     parser = argparse.ArgumentParser(description="Agnes Studio Sentinel & Upstream Monitor")
     parser.add_argument("--out", type=str, default=UPDATES_PATH, help="Output JSON path")
     parser.add_argument("--base-url", type=str, default=None, help="New API base URL")
@@ -293,11 +294,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--timeout", type=float, default=5.0, help="Request timeout in seconds")
     parser.add_argument("--no-save", action="store_true", help="Do not write output to file")
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress console logging output")
+    parser.add_argument("--json", action="store_true", help="Print structured JSON monitoring summary to stdout")
     parser.add_argument(
         "--strict",
         action="store_true",
         help="Exit with code 1 if gateway is unhealthy or any upstream repo check fails",
     )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
     args = parser.parse_args(argv)
 
     monitor_kwargs = {
@@ -309,10 +316,13 @@ def main(argv: list[str] | None = None) -> int:
         "save": not args.no_save,
         "key_path": args.key_path,
     }
-    if args.quiet:
+    if args.quiet or args.json:
         monitor_kwargs["quiet"] = True
 
     summary = run_lifecycle_monitor(**monitor_kwargs)
+    if args.json:
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+
     if args.strict:
         gw_status = (summary.get("gateway") or {}).get("status")
         if gw_status != "healthy":

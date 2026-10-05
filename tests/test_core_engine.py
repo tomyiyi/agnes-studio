@@ -98,6 +98,7 @@ from check_upstream_updates import (
     check_github_repo,
     run_lifecycle_monitor,
     main as monitor_main,
+    build_arg_parser as sentinel_build_arg_parser,
 )
 import wechat_cover_ab
 import agnes_gateway
@@ -4239,6 +4240,46 @@ class TestUpstreamSentinel(unittest.TestCase):
             key_path=None,
             quiet=True,
         )
+
+    def test_sentinel_build_arg_parser(self):
+        parser = sentinel_build_arg_parser()
+        self.assertIsNotNone(parser)
+        parsed = parser.parse_args(["--json", "--strict", "--no-save", "-q"])
+        self.assertTrue(parsed.json)
+        self.assertTrue(parsed.strict)
+        self.assertTrue(parsed.no_save)
+        self.assertTrue(parsed.quiet)
+
+    @patch("check_upstream_updates.run_lifecycle_monitor")
+    def test_cli_main_json_mode_output(self, mock_run):
+        import io
+        import contextlib
+        mock_run.return_value = {
+            "gateway": {"status": "healthy", "latency_ms": 12},
+            "upstream_repositories": [{"repo": "owner/repo", "status": "synchronized"}],
+        }
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = monitor_main(["--json", "--no-save"])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue())
+        self.assertEqual(data["gateway"]["status"], "healthy")
+        self.assertEqual(data["upstream_repositories"][0]["status"], "synchronized")
+
+    @patch("check_upstream_updates.run_lifecycle_monitor")
+    def test_cli_main_json_mode_with_strict_failure(self, mock_run):
+        import io
+        import contextlib
+        mock_run.return_value = {
+            "gateway": {"status": "unhealthy", "error": "Connection failed"},
+            "upstream_repositories": [],
+        }
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = monitor_main(["--json", "--strict", "--no-save"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue())
+        self.assertEqual(data["gateway"]["status"], "unhealthy")
 
 
 class TestAutonomousFollowup(unittest.TestCase):
