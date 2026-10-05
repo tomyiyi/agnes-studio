@@ -11,8 +11,10 @@
 """
 from __future__ import annotations
 
+import argparse
 import base64
 from html import escape
+import json
 import os
 import sys
 from pathlib import Path
@@ -261,10 +263,21 @@ def build_window_editorial_html(
 
 # ---------- 渲染与对外输出接口 ----------
 
-def render_html(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 550, quiet: bool = False) -> Path:
+def render_html(
+    html: str,
+    out: str | Path,
+    size=(864, 1152),
+    timeout_ms: int = 550,
+    quiet: bool = False,
+    dry_run: bool = False,
+) -> Path:
     """使用 Playwright 渲染 HTML 为高清海报 PNG。"""
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    if dry_run:
+        if not quiet:
+            print(f"  ✓ {out_path.name} (dry_run)")
+        return out_path
     from playwright.sync_api import sync_playwright
 
     chrome_path = resolve_chrome_path()
@@ -286,9 +299,16 @@ def render_html(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 
     return out_path
 
 
-def render(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 550, quiet: bool = False) -> Path:
+def render(
+    html: str,
+    out: str | Path,
+    size=(864, 1152),
+    timeout_ms: int = 550,
+    quiet: bool = False,
+    dry_run: bool = False,
+) -> Path:
     """向下兼容别名，调用 render_html。"""
-    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run)
 
 
 def layout_swiss_asym(
@@ -303,6 +323,7 @@ def layout_swiss_asym(
     size=(864, 1152),
     timeout_ms: int = 550,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """瑞士非对称：左栏字塔 + 右侧大图重心；12 列意识。"""
     img = sanitize_img_uri(b64(image))
@@ -315,7 +336,7 @@ def layout_swiss_asym(
         num=num,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run)
 
 
 def layout_type_band(
@@ -329,6 +350,7 @@ def layout_type_band(
     size=(864, 1152),
     timeout_ms: int = 550,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """上字带 / 下图场：信息与视觉分区，电影预告结构。"""
     img = sanitize_img_uri(b64(image))
@@ -340,7 +362,7 @@ def layout_type_band(
         tag=tag,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run)
 
 
 def layout_axis_tension(
@@ -355,6 +377,7 @@ def layout_axis_tension(
     size=(864, 1152),
     timeout_ms: int = 550,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """对角张力：字块左下压角，西文右上拉线，中间留给主体。"""
     img = sanitize_img_uri(b64(image))
@@ -367,7 +390,7 @@ def layout_axis_tension(
         tag=tag,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run)
 
 
 def layout_window_editorial(
@@ -381,6 +404,7 @@ def layout_window_editorial(
     size=(864, 1152),
     timeout_ms: int = 550,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """杂志开窗：大留白纸面 + 开窗看图 + 书脊式标题。"""
     img = sanitize_img_uri(b64(image))
@@ -392,7 +416,7 @@ def layout_window_editorial(
         idx_text=idx_text,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run)
 
 
 # =============================================================================
@@ -405,24 +429,28 @@ LAYOUT_POSTER_STYLES = {
         "func": layout_swiss_asym,
         "default_file": "layout_01_swiss_asym.png",
         "default_slogan": "她把城市调成静音",
+        "description": "瑞士非对称：左栏字塔 + 右侧大图重心；12 列意识与秩序美学",
     },
     "type_band": {
         "name": "杂志色块字带 (Magazine Type Band)",
         "func": layout_type_band,
         "default_file": "layout_02_type_band.png",
         "default_slogan": "一部还没写完的电影",
+        "description": "上字带 / 下图场：信息与视觉分区，强对比电影预告结构",
     },
     "axis_tension": {
         "name": "对角轴线张力 (Diagonal Axis Tension)",
         "func": layout_axis_tension,
         "default_file": "layout_03_axis_tension.png",
         "default_slogan": "她把城市调成静音",
+        "description": "对角张力：字块左下压角，西文右上拉线，中间留给主体",
     },
     "window_editorial": {
         "name": "杂志开窗视界 (Window Editorial)",
         "func": layout_window_editorial,
         "default_file": "layout_04_window_editorial.png",
         "default_slogan": "一部还没写完的电影",
+        "description": "杂志开窗：大留白纸面 + 开窗看图 + 书脊式标题与典雅质感",
     },
 }
 
@@ -430,7 +458,12 @@ LAYOUT_POSTER_STYLES = {
 def list_layout_poster_styles() -> list[dict[str, str]]:
     """列出所有已注册的海报设计排版范式预设"""
     return [
-        {"key": k, "name": v["name"], "default_file": v["default_file"]}
+        {
+            "key": k,
+            "name": v["name"],
+            "default_file": v["default_file"],
+            "description": v.get("description", ""),
+        }
         for k, v in LAYOUT_POSTER_STYLES.items()
     ]
 
@@ -451,6 +484,7 @@ def render_layout_poster_style(
     size=(864, 1152),
     timeout_ms: int = 550,
     quiet: bool = False,
+    dry_run: bool = False,
     **kwargs,
 ) -> Path:
     """按版式范式名称派发渲染对应的海报"""
@@ -476,6 +510,7 @@ def render_layout_poster_style(
             size=size,
             timeout_ms=timeout_ms,
             quiet=quiet,
+            dry_run=dry_run,
         )
     elif key == "type_band":
         t_str = tag if tag is not None else "Layout 02<br>Band / Field"
@@ -490,6 +525,7 @@ def render_layout_poster_style(
             size=size,
             timeout_ms=timeout_ms,
             quiet=quiet,
+            dry_run=dry_run,
         )
     elif key == "axis_tension":
         y_str = year_text if year_text is not None else "MMXXVI"
@@ -506,6 +542,7 @@ def render_layout_poster_style(
             size=size,
             timeout_ms=timeout_ms,
             quiet=quiet,
+            dry_run=dry_run,
         )
     elif key == "window_editorial":
         i_str = idx_text if idx_text is not None else "No.01"
@@ -520,6 +557,7 @@ def render_layout_poster_style(
             size=size,
             timeout_ms=timeout_ms,
             quiet=quiet,
+            dry_run=dry_run,
         )
     else:
         return func(
@@ -532,13 +570,13 @@ def render_layout_poster_style(
             size=size,
             timeout_ms=timeout_ms,
             quiet=quiet,
+            dry_run=dry_run,
             **kwargs,
         )
 
 
-def main(argv: list[str] | None = None) -> int:
-    import argparse
-
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建海报设计排版范式库渲染命令行参数解析器"""
     parser = argparse.ArgumentParser(description="Agnes Studio · 海报「设计排版」范式库渲染引擎 (Layout Poster Renderer)")
     parser.add_argument(
         "--style",
@@ -593,6 +631,16 @@ def main(argv: list[str] | None = None) -> int:
         help="列出所有可用的设计排版风格预设",
     )
     parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出风格列表或批量执行结果报告",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="预演模式：仅校验参数与规划输出路径，不唤起浏览器真实光栅化",
+    )
+    parser.add_argument(
         "--quiet",
         "-q",
         action="store_true",
@@ -603,10 +651,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="严格模式：遇到底图缺失或渲染异常时返回非零退出码 1",
     )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     if args.list:
-        if not args.quiet:
+        if args.json:
+            print(json.dumps(list_layout_poster_styles(), ensure_ascii=False, indent=2))
+        elif not args.quiet:
             print("Agnes Studio 可用设计排版风格预设:")
             for s in list_layout_poster_styles():
                 print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
@@ -618,8 +673,10 @@ def main(argv: list[str] | None = None) -> int:
     if input_path_arg:
         p = Path(input_path_arg)
         if not p.is_file():
-            if not args.quiet:
+            if not args.quiet and not args.json:
                 print(f"❌ 找不到输入底图: {input_path_arg}", file=sys.stderr)
+            elif args.json:
+                print(json.dumps({"error": f"找不到输入底图: {input_path_arg}", "ok": False}, ensure_ascii=False))
             return 1 if (args.strict or args.input) else 0
         resolved_src = p
     else:
@@ -635,12 +692,16 @@ def main(argv: list[str] | None = None) -> int:
                 break
 
     if resolved_src is None:
-        if not args.quiet:
+        if not args.quiet and not args.json:
             print("❌ 未指定底图且未发现默认候选底图资产", file=sys.stderr)
-        return 1 if args.strict else 0
+        elif args.json:
+            print(json.dumps({"error": "未指定底图且未发现默认候选底图资产", "ok": False}, ensure_ascii=False))
+        return 1 if (args.strict or args.input) else 0
 
     target_styles = list(LAYOUT_POSTER_STYLES.keys()) if args.style == "all" else [args.style]
 
+    quiet = args.quiet or args.json
+    report_items = []
     try:
         default_out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "layout_study")
         for st in target_styles:
@@ -659,15 +720,27 @@ def main(argv: list[str] | None = None) -> int:
                 title=args.title,
                 latin=args.latin,
                 slogan=args.slogan,
-                quiet=args.quiet,
+                quiet=quiet,
+                dry_run=args.dry_run,
             )
-        if not args.quiet:
+            report_items.append({
+                "style": st,
+                "name": LAYOUT_POSTER_STYLES[st]["name"],
+                "output": str(out_path),
+                "dry_run": args.dry_run,
+                "status": "ok",
+            })
+        if args.json:
+            print(json.dumps(report_items, ensure_ascii=False, indent=2))
+        elif not args.quiet:
             print("done")
         return 0
     except Exception as e:
-        if not args.quiet:
+        if not args.quiet and not args.json:
             print(f"❌ 设计排版海报渲染失败: {e}", file=sys.stderr)
-        return 1 if args.strict else 0
+        elif args.json:
+            print(json.dumps({"error": str(e), "ok": False}, ensure_ascii=False))
+        return 1 if (args.strict or args.input) else 0
 
 
 if __name__ == "__main__":
