@@ -7644,6 +7644,76 @@ class TestRenderCnTypePoster(unittest.TestCase):
         self.assertFalse(err["ok"])
         self.assertIn("error", err)
 
+    @patch("render_cn_type_poster.render_cn_type_poster_style", side_effect=RuntimeError("Simulated cn_type render crash"))
+    def test_main_cli_exception_stderr_output(self, mock_render):
+        import io
+        from contextlib import redirect_stderr
+        sample_img = self.tmp_path / "cn_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = cn_type_poster_main([
+                "--style", "monument",
+                "--src", str(sample_img),
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 纪念碑式海报渲染失败: Simulated cn_type render crash", buf.getvalue())
+
+    @patch("render_cn_type_poster.render_cn_type_poster_style", side_effect=RuntimeError("Simulated quiet crash"))
+    def test_main_cli_exception_quiet_mode(self, mock_render):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        sample_img = self.tmp_path / "cn_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            code = cn_type_poster_main([
+                "--style", "monument",
+                "--src", str(sample_img),
+                "-q",
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
+    def test_main_cli_missing_src_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        missing_src = self.tmp_path / "non_existent_cn_src.png"
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = cn_type_poster_main([
+                "--style", "monument",
+                "--src", str(missing_src),
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 找不到输入底图", buf.getvalue())
+
+    @patch("render_cn_type_poster.render_cn_type_poster_style", side_effect=RuntimeError("Simulated JSON crash"))
+    def test_cli_main_exception_json_error(self, mock_render):
+        import io
+        from contextlib import redirect_stdout
+        sample_img = self.tmp_path / "cn_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = cn_type_poster_main([
+                "--style", "monument",
+                "--src", str(sample_img),
+                "--json",
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        err = json.loads(buf.getvalue())
+        self.assertFalse(err["ok"])
+        self.assertIn("error", err)
+        self.assertIn("Simulated JSON crash", err["error"])
+
+
 
 class TestRenderLayoutPoster(unittest.TestCase):
     """测试海报「设计排版」范式库渲染器 render_layout_poster 及其 4 大版式系统与安全防御"""
