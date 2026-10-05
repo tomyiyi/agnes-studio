@@ -5536,6 +5536,67 @@ class TestProPosterRenderer(unittest.TestCase):
         self.assertEqual(data.get("category"), "cinema")
         self.assertEqual(data.get("total"), 2)
 
+    @patch("pro_poster_renderer.render_preset", side_effect=RuntimeError("Simulated pro render crash"))
+    def test_cli_main_exception_stderr_output(self, mock_render):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = pro_poster_main([
+                "--key", "swiss_01",
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 渲染海报失败 [swiss_01]: Simulated pro render crash", buf.getvalue())
+
+    @patch("pro_poster_renderer.render_preset", side_effect=RuntimeError("Simulated pro quiet crash"))
+    def test_cli_main_exception_quiet_mode(self, mock_render):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            code = pro_poster_main([
+                "--key", "swiss_01",
+                "-q",
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
+    def test_cli_main_missing_src_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        missing_src = self.tmp_path / "non_existent_poster_bg.png"
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = pro_poster_main([
+                "--key", "swiss_01",
+                "--src", str(missing_src),
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 找不到输入底图", buf.getvalue())
+
+    @patch("pro_poster_renderer.render_preset", side_effect=RuntimeError("Simulated pro JSON crash"))
+    def test_cli_main_exception_json_error(self, mock_render):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = pro_poster_main([
+                "--key", "swiss_01",
+                "--json",
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        err = json.loads(buf.getvalue())
+        self.assertFalse(err["ok"])
+        self.assertIn("error", err)
+        self.assertIn("Simulated pro JSON crash", err["error"])
+        self.assertEqual(err.get("key"), "swiss_01")
+
 
 class TestGeminiEngine(unittest.TestCase):
     """Gemini 智能多模态与排版引擎单元测试"""
