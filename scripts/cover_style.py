@@ -266,61 +266,64 @@ def build_arg_parser():
 def main(argv: list[str] | None = None) -> int:
     import sys
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
-
-    if args.list:
-        opts = list_catalog_options()
-        if not args.quiet:
-            print("Agnes Studio · 封面样式目录预设选项:")
-            for category, values in opts.items():
-                print(f"  [{category}]: {', '.join(values)}")
-        return 0
-
-    if args.list_skills:
-        skills = list_skill_styles()
-        if not args.quiet:
-            print(f"Agnes Studio · 封面预设 Skill 样式映射 (共 {len(skills)} 项):")
-            for item in skills:
-                print(f"  [{item['id']:<5}] {item['call_name']:<18} | tone: {item['tone']:<12} | mode: {item['mode']}")
-        return 0
-
-    brief_path = args.brief_opt or args.brief_file
-    brief_data: dict = {}
-
-    if brief_path:
-        p = Path(brief_path)
-        if not p.is_file():
-            sys.stderr.write(f"❌ 找不到简报文件: {brief_path}\n")
-            return 1
-        try:
-            brief_data = load_brief(p)
-        except Exception as e:
-            sys.stderr.write(f"❌ 解析简报文件失败 {brief_path}: {e}\n")
-            return 1
-    elif args.brief_json:
-        try:
-            brief_data = json.loads(args.brief_json)
-            if not isinstance(brief_data, dict):
-                raise ValueError("JSON 根对象必须为字典")
-        except Exception as e:
-            sys.stderr.write(f"❌ 解析简报 JSON 字符串失败: {e}\n")
-            return 1
-
-    # CLI 参数覆盖优先级最高
-    if args.subject:
-        brief_data["subject"] = args.subject
-    if args.tone:
-        brief_data["tone"] = args.tone
-    if args.goal:
-        brief_data["goal"] = args.goal
-    if args.platform:
-        brief_data["platform"] = args.platform
-    if args.mode:
-        brief_data["mode"] = args.mode
-    if args.style_skill:
-        brief_data["style_skill"] = args.style_skill
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     try:
+        if args.list:
+            opts = list_catalog_options()
+            if not args.quiet:
+                print("Agnes Studio · 封面样式目录预设选项:")
+                for category, values in opts.items():
+                    print(f"  [{category}]: {', '.join(values)}")
+            return 0
+
+        if args.list_skills:
+            skills = list_skill_styles()
+            if not args.quiet:
+                print(f"Agnes Studio · 封面预设 Skill 样式映射 (共 {len(skills)} 项):")
+                for item in skills:
+                    print(f"  [{item['id']:<5}] {item['call_name']:<18} | tone: {item['tone']:<12} | mode: {item['mode']}")
+            return 0
+
+        brief_path = args.brief_opt or args.brief_file
+        brief_data: dict = {}
+
+        if brief_path:
+            p = Path(brief_path)
+            if not p.is_file():
+                if not args.quiet:
+                    sys.stderr.write(f"❌ 找不到简报文件: {brief_path}\n")
+                return 1
+            try:
+                brief_data = load_brief(p)
+            except Exception as e:
+                if not args.quiet:
+                    sys.stderr.write(f"❌ 解析简报文件失败 {brief_path}: {e}\n")
+                return 1
+        elif args.brief_json:
+            try:
+                brief_data = json.loads(args.brief_json)
+                if not isinstance(brief_data, dict):
+                    raise ValueError("JSON 根对象必须为字典")
+            except Exception as e:
+                if not args.quiet:
+                    sys.stderr.write(f"❌ 解析简报 JSON 字符串失败: {e}\n")
+                return 1
+
+        # CLI 参数覆盖优先级最高
+        if args.subject:
+            brief_data["subject"] = args.subject
+        if args.tone:
+            brief_data["tone"] = args.tone
+        if args.goal:
+            brief_data["goal"] = args.goal
+        if args.platform:
+            brief_data["platform"] = args.platform
+        if args.mode:
+            brief_data["mode"] = args.mode
+        if args.style_skill:
+            brief_data["style_skill"] = args.style_skill
+
         style = resolve_style(brief_data)
         out_dict = style.to_dict()
         out_json_str = json.dumps(out_dict, ensure_ascii=False, indent=2)
@@ -334,7 +337,8 @@ def main(argv: list[str] | None = None) -> int:
             print(out_json_str)
         return 0
     except Exception as e:
-        sys.stderr.write(f"❌ 封面样式推导异常: {e}\n")
+        if not args.quiet:
+            sys.stderr.write(f"❌ 封面样式推导异常: {e}\n")
         return 1
 
 

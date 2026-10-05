@@ -1359,6 +1359,33 @@ class TestCoverStyleResolver(unittest.TestCase):
             code_missing = cover_style_main(["/tmp/path/to/definitely_not_existing_brief.json"])
         self.assertEqual(code_missing, 1)
 
+    def test_cover_style_cli_main_missing_brief_quiet_mode(self):
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with redirect_stderr(err_buf), redirect_stdout(out_buf):
+            code_missing = cover_style_main(["/tmp/path/to/definitely_not_existing_brief.json", "-q"])
+        self.assertEqual(code_missing, 1)
+        self.assertEqual(err_buf.getvalue(), "")
+        self.assertEqual(out_buf.getvalue(), "")
+
+    def test_cover_style_cli_main_exception_stderr_output(self):
+        err_buf = io.StringIO()
+        with patch("cover_style.resolve_style", side_effect=RuntimeError("Resolve crash")), \
+             redirect_stderr(err_buf):
+            code = cover_style_main([])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 封面样式推导异常: Resolve crash", err_buf.getvalue())
+
+    def test_cover_style_cli_main_exception_quiet_mode(self):
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("cover_style.resolve_style", side_effect=RuntimeError("Silent crash")), \
+             redirect_stderr(err_buf), redirect_stdout(out_buf):
+            code = cover_style_main(["-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(err_buf.getvalue(), "")
+        self.assertEqual(out_buf.getvalue(), "")
+
 
 class TestSafeZoneAnalyzer(unittest.TestCase):
     """测试多模态空间方差与负空间避障探测器"""
