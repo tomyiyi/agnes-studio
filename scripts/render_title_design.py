@@ -261,7 +261,7 @@ def build_t6_outline_stretch_html(
 
 # ---------- 渲染与对外输出接口 ----------
 
-def render_html(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 500) -> Path:
+def render_html(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 500, quiet: bool = False) -> Path:
     """使用 Playwright 渲染 HTML 为高清海报 PNG。"""
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -280,14 +280,15 @@ def render_html(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 
             page.wait_for_timeout(timeout_ms)
         page.screenshot(path=str(out_path), type="png")
         browser.close()
-    size_kb = out_path.stat().st_size // 1024 if out_path.exists() else 0
-    print(f"  ✓ {out_path.name} ({size_kb} KB)")
+    if not quiet:
+        size_kb = out_path.stat().st_size // 1024 if out_path.exists() else 0
+        print(f"  ✓ {out_path.name} ({size_kb} KB)")
     return out_path
 
 
-def shot(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 500) -> Path:
+def shot(html: str, out: str | Path, size=(864, 1152), timeout_ms: int = 500, quiet: bool = False) -> Path:
     """向下兼容别名，调用 render_html。"""
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_t1_cut_slash(
@@ -300,6 +301,7 @@ def render_t1_cut_slash(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 500,
+    quiet: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_t1_cut_slash_html(
@@ -310,7 +312,7 @@ def render_t1_cut_slash(
         slash_color=slash_color,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_t2_double_offset(
@@ -323,6 +325,7 @@ def render_t2_double_offset(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 500,
+    quiet: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_t2_double_offset_html(
@@ -333,7 +336,7 @@ def render_t2_double_offset(
         text_color=text_color,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_t3_color_split(
@@ -346,6 +349,7 @@ def render_t3_color_split(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 500,
+    quiet: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_t3_color_split_html(
@@ -356,7 +360,7 @@ def render_t3_color_split(
         split_color=split_color,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_t4_image_in_type(
@@ -369,6 +373,7 @@ def render_t4_image_in_type(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 500,
+    quiet: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_t4_image_in_type_html(
@@ -379,7 +384,7 @@ def render_t4_image_in_type(
         bar_color=bar_color,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_t5_geo_lock(
@@ -392,6 +397,7 @@ def render_t5_geo_lock(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 500,
+    quiet: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_t5_geo_lock_html(
@@ -402,7 +408,7 @@ def render_t5_geo_lock(
         frame_color=frame_color,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 def render_t6_outline_stretch(
@@ -415,6 +421,7 @@ def render_t6_outline_stretch(
     extra_css: str = "",
     size=(864, 1152),
     timeout_ms: int = 500,
+    quiet: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_t6_outline_stretch_html(
@@ -425,7 +432,7 @@ def render_t6_outline_stretch(
         stroke_color=stroke_color,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
 
 
 TITLE_DESIGN_REGISTRY = {
@@ -438,6 +445,177 @@ TITLE_DESIGN_REGISTRY = {
 }
 
 
+# =============================================================================
+# 风格注册表与多风格派发器
+# =============================================================================
+
+TITLE_DESIGN_STYLES = {
+    "t1_cut_slash": {
+        "name": "斜切刀锋 (Slanted Cut Slash)",
+        "func": render_t1_cut_slash,
+        "default_file": "t1_cut_slash.png",
+        "default_latin": "Night Voyage",
+    },
+    "t2_double_offset": {
+        "name": "叠字双影 / 描边错位 (Double Offset Stroke)",
+        "func": render_t2_double_offset,
+        "default_file": "t2_double_offset.png",
+        "default_latin": "Night Voyage · 2026",
+    },
+    "t3_color_split": {
+        "name": "色块反相切割 (Color Split Inversion)",
+        "func": render_t3_color_split,
+        "default_file": "t3_color_split.png",
+        "default_latin": "A Film Still",
+    },
+    "t4_image_in_type": {
+        "name": "镂空透图 (Image in Type)",
+        "func": render_t4_image_in_type,
+        "default_file": "t4_image_in_type.png",
+        "default_latin": "Night Voyage",
+    },
+    "t5_geo_lock": {
+        "name": "几何框定 (Geometric Lock Frame)",
+        "func": render_t5_geo_lock,
+        "default_file": "t5_geo_lock.png",
+        "default_latin": "Night Voyage",
+    },
+    "t6_outline_stretch": {
+        "name": "渐变描边拉伸 (Outline Stretch)",
+        "func": render_t6_outline_stretch,
+        "default_file": "t6_outline_stretch.png",
+        "default_latin": "2026 / NIGHT",
+    },
+}
+
+
+def list_title_design_styles() -> list[dict[str, str]]:
+    """列出所有已注册的标题字设计范式预设"""
+    return [
+        {"key": k, "name": v["name"], "default_file": v["default_file"]}
+        for k, v in TITLE_DESIGN_STYLES.items()
+    ]
+
+
+def render_title_design_style(
+    style: str,
+    image: str | Path,
+    out: str | Path,
+    title: str = "夜航",
+    latin: str | None = None,
+    slogan: str | None = None,
+    color: str | None = None,
+    extra_css: str = "",
+    size=(864, 1152),
+    timeout_ms: int = 500,
+    quiet: bool = False,
+    **kwargs,
+) -> Path:
+    """按标题字设范式名称派发渲染对应的海报"""
+    key = style.strip().lower()
+    if key not in TITLE_DESIGN_STYLES:
+        raise KeyError(f"Unknown title design style: '{style}'. Available: {list(TITLE_DESIGN_STYLES.keys())}")
+    style_meta = TITLE_DESIGN_STYLES[key]
+    func = style_meta["func"]
+    effective_latin = latin if latin is not None else style_meta["default_latin"]
+    effective_slogan = slogan if slogan is not None else "她把城市调成静音"
+
+    if key == "t1_cut_slash":
+        slash_c = color if color is not None else "#C8102E"
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            latin=effective_latin,
+            slogan=effective_slogan,
+            slash_color=slash_c,
+            extra_css=extra_css,
+            size=size,
+            timeout_ms=timeout_ms,
+            quiet=quiet,
+        )
+    elif key == "t2_double_offset":
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            latin=effective_latin,
+            extra_css=extra_css,
+            size=size,
+            timeout_ms=timeout_ms,
+            quiet=quiet,
+        )
+    elif key == "t3_color_split":
+        split_c = color if color is not None else "#C8102E"
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            latin=effective_latin,
+            slogan=effective_slogan,
+            split_color=split_c,
+            extra_css=extra_css,
+            size=size,
+            timeout_ms=timeout_ms,
+            quiet=quiet,
+        )
+    elif key == "t4_image_in_type":
+        bar_c = color if color is not None else "#C8102E"
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            latin=effective_latin,
+            slogan=effective_slogan,
+            bar_color=bar_c,
+            extra_css=extra_css,
+            size=size,
+            timeout_ms=timeout_ms,
+            quiet=quiet,
+        )
+    elif key == "t5_geo_lock":
+        frame_c = color if color is not None else "#D4B896"
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            latin=effective_latin,
+            slogan=effective_slogan,
+            frame_color=frame_c,
+            extra_css=extra_css,
+            size=size,
+            timeout_ms=timeout_ms,
+            quiet=quiet,
+        )
+    elif key == "t6_outline_stretch":
+        stroke_c = color if color is not None else "#F4F0E8"
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            latin=effective_latin,
+            slogan=effective_slogan,
+            stroke_color=stroke_c,
+            extra_css=extra_css,
+            size=size,
+            timeout_ms=timeout_ms,
+            quiet=quiet,
+        )
+    else:
+        return func(
+            image=image,
+            out=out,
+            title=title,
+            latin=effective_latin,
+            slogan=effective_slogan,
+            extra_css=extra_css,
+            size=size,
+            timeout_ms=timeout_ms,
+            quiet=quiet,
+            **kwargs,
+        )
+
+
 def render_all_title_designs(
     image: str | Path,
     out_dir: str | Path | None = None,
@@ -445,6 +623,7 @@ def render_all_title_designs(
     latin: str = "Night Voyage",
     slogan: str = "她把城市调成静音",
     timeout_ms: int = 500,
+    quiet: bool = False,
 ) -> dict[str, Path]:
     """批量渲染所有 6 大标题字设范式海报。"""
     target_dir = Path(out_dir) if out_dir else (ROOT / "outputs" / "title_design")
@@ -452,52 +631,159 @@ def render_all_title_designs(
 
     results = {}
     results["t1_cut_slash"] = render_t1_cut_slash(
-        image, target_dir / "t1_cut_slash.png", title=title, latin=latin, slogan=slogan, timeout_ms=timeout_ms
+        image, target_dir / "t1_cut_slash.png", title=title, latin=latin, slogan=slogan, timeout_ms=timeout_ms, quiet=quiet
     )
     results["t2_double_offset"] = render_t2_double_offset(
-        image, target_dir / "t2_double_offset.png", title=title, latin=f"{latin} · 2026", timeout_ms=timeout_ms
+        image, target_dir / "t2_double_offset.png", title=title, latin=f"{latin} · 2026", timeout_ms=timeout_ms, quiet=quiet
     )
     results["t3_color_split"] = render_t3_color_split(
-        image, target_dir / "t3_color_split.png", title=title, latin="A Film Still", slogan=slogan, timeout_ms=timeout_ms
+        image, target_dir / "t3_color_split.png", title=title, latin="A Film Still", slogan=slogan, timeout_ms=timeout_ms, quiet=quiet
     )
     results["t4_image_in_type"] = render_t4_image_in_type(
-        image, target_dir / "t4_image_in_type.png", title=title, latin=latin, slogan=slogan, timeout_ms=timeout_ms
+        image, target_dir / "t4_image_in_type.png", title=title, latin=latin, slogan=slogan, timeout_ms=timeout_ms, quiet=quiet
     )
     results["t5_geo_lock"] = render_t5_geo_lock(
-        image, target_dir / "t5_geo_lock.png", title=title, latin=latin, slogan=slogan, timeout_ms=timeout_ms
+        image, target_dir / "t5_geo_lock.png", title=title, latin=latin, slogan=slogan, timeout_ms=timeout_ms, quiet=quiet
     )
     results["t6_outline_stretch"] = render_t6_outline_stretch(
-        image, target_dir / "t6_outline_stretch.png", title=title, latin="2026 / NIGHT", slogan=slogan, timeout_ms=timeout_ms
+        image, target_dir / "t6_outline_stretch.png", title=title, latin="2026 / NIGHT", slogan=slogan, timeout_ms=timeout_ms, quiet=quiet
     )
     return results
 
 
-def main(argv=None) -> int:
+def main(argv: list[str] | None = None) -> int:
     import argparse
-    parser = argparse.ArgumentParser(description="海报标题字设计（Title Lettering Design）渲染器")
-    parser.add_argument("--input", "-i", type=str, default=None, help="底图路径")
-    parser.add_argument("--out-dir", "-o", type=str, default=None, help="输出目录")
-    parser.add_argument("--title", type=str, default="夜航", help="主标题")
-    parser.add_argument("--latin", type=str, default="Night Voyage", help="西文大标")
-    parser.add_argument("--slogan", type=str, default="她把城市调成静音", help="文案副标")
-    args = parser.parse_args(argv)
 
-    if args.input:
-        base = Path(args.input)
+    parser = argparse.ArgumentParser(description="Agnes Studio · 海报标题字设计范式库渲染引擎 (Title Design Renderer)")
+    parser.add_argument(
+        "--style",
+        "-s",
+        default="all",
+        choices=["t1_cut_slash", "t2_double_offset", "t3_color_split", "t4_image_in_type", "t5_geo_lock", "t6_outline_stretch", "all"],
+        help="标题字设范式: t1_cut_slash | t2_double_offset | t3_color_split | t4_image_in_type | t5_geo_lock | t6_outline_stretch | all (默认: all)",
+    )
+    parser.add_argument(
+        "--src",
+        "--image",
+        default=None,
+        help="输入背景底图路径（未指定时探查默认底图）",
+    )
+    parser.add_argument(
+        "--input",
+        "-i",
+        default=None,
+        help="输入背景底图路径（兼容选项）",
+    )
+    parser.add_argument(
+        "--out",
+        "-o",
+        default=None,
+        help="输出海报路径（在 style=all 时将自动附加风格后缀）",
+    )
+    parser.add_argument(
+        "--out-dir",
+        default=None,
+        help="输出目录（如果指定且未提供 --out，海报将输出至该目录）",
+    )
+    parser.add_argument(
+        "--title",
+        "-t",
+        default="夜航",
+        help="主标题 (默认: 夜航)",
+    )
+    parser.add_argument(
+        "--latin",
+        "-l",
+        default=None,
+        help="西文大标 (默认根据各版式预设提供)",
+    )
+    parser.add_argument(
+        "--slogan",
+        default="她把城市调成静音",
+        help="文案副标 (默认: 她把城市调成静音)",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="列出所有可用的标题字设范式预设",
+    )
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="静默模式，抑制控制台日志",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格模式：遇到底图缺失或渲染异常时返回非零退出码 1",
+    )
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+
+    if args.list:
+        if not args.quiet:
+            print("Agnes Studio 可用标题字设范式预设:")
+            for s in list_title_design_styles():
+                print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
+        return 0
+
+    # 确定输入源
+    resolved_src = None
+    input_path_arg = args.src or args.input
+    if input_path_arg:
+        p = Path(input_path_arg)
+        if not p.is_file():
+            if not args.quiet:
+                print(f"❌ 找不到输入底图: {input_path_arg}", file=sys.stderr)
+            return 1 if (args.strict or args.input) else 0
+        resolved_src = p
     else:
-        base = ROOT / "outputs" / "epic_compare" / "clean_base.png"
-        if not base.exists():
-            base = ROOT / "public" / "assets" / "agnes_1789995698_9987.png"
+        candidates = [
+            ROOT / "outputs" / "epic_compare" / "clean_base.png",
+            ROOT / "public" / "assets" / "agnes_1789995698_9987.png",
+            ROOT / "assets" / "agnes_1790006749_b2b755da.png",
+            ROOT / "assets" / "agnes_1789995999_1670.png",
+        ]
+        for c in candidates:
+            if c.is_file():
+                resolved_src = c
+                break
 
-    if not base.exists():
-        print(f"⚠️ 未找到可用底图: {base}")
-        return 1
+    if resolved_src is None:
+        if not args.quiet:
+            print("❌ 未指定底图且未发现默认候选底图资产", file=sys.stderr)
+        return 1 if args.strict else 0
 
-    out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "title_design")
-    render_all_title_designs(base, out_dir=out_dir, title=args.title, latin=args.latin, slogan=args.slogan)
-    print("done", out_dir)
-    return 0
+    target_styles = list(TITLE_DESIGN_STYLES.keys()) if args.style == "all" else [args.style]
+
+    try:
+        default_out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "title_design")
+        for st in target_styles:
+            if args.out:
+                out_path = Path(args.out)
+                if args.style == "all":
+                    out_path = out_path.with_name(f"{out_path.stem}_{st}{out_path.suffix or '.png'}")
+            else:
+                default_out_dir.mkdir(parents=True, exist_ok=True)
+                out_path = default_out_dir / TITLE_DESIGN_STYLES[st]["default_file"]
+
+            render_title_design_style(
+                style=st,
+                image=resolved_src,
+                out=out_path,
+                title=args.title,
+                latin=args.latin,
+                slogan=args.slogan,
+                quiet=args.quiet,
+            )
+        if not args.quiet:
+            print("done")
+        return 0
+    except Exception as e:
+        if not args.quiet:
+            print(f"❌ 标题字设计海报渲染失败: {e}", file=sys.stderr)
+        return 1 if args.strict else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main(sys.argv[1:]))

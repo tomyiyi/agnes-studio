@@ -262,6 +262,10 @@ from render_title_design import (
     render_t6_outline_stretch,
     TITLE_DESIGN_REGISTRY,
     render_all_title_designs,
+    TITLE_DESIGN_STYLES,
+    list_title_design_styles,
+    render_title_design_style,
+    main as title_design_main,
 )
 import render_title_refined
 from render_title_refined import (
@@ -6335,6 +6339,175 @@ class TestRenderTitleDesign(unittest.TestCase):
     def test_main_missing_input_returns_nonzero(self):
         ret = render_title_design.main(["--input", str(self.tmp_path / "does_not_exist.png")])
         self.assertEqual(ret, 1)
+
+    @patch("playwright.sync_api.sync_playwright")
+    def test_render_html_quiet_mode(self, mock_playwright):
+        from contextlib import redirect_stdout
+
+        fake_page = MagicMock()
+        fake_browser = MagicMock()
+        fake_browser.new_page.return_value = fake_page
+        mock_p_inst = MagicMock()
+        mock_p_inst.chromium.launch.return_value = fake_browser
+        mock_playwright.return_value.__enter__.return_value = mock_p_inst
+
+        out_p = self.tmp_path / "shot_quiet.png"
+        out_p.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ret = title_render_html("<html></html>", out_p, quiet=True)
+        self.assertEqual(ret, out_p)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    @patch("render_title_design.render_html")
+    def test_render_styles_quiet_mode(self, mock_render):
+        sample_img = self.tmp_path / "title_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "out.png"
+        mock_render.return_value = out_p
+
+        res1 = render_t1_cut_slash(sample_img, out_p, quiet=True)
+        self.assertEqual(res1, out_p)
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+        res2 = render_t2_double_offset(sample_img, out_p, quiet=True)
+        self.assertEqual(res2, out_p)
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+        res3 = render_t3_color_split(sample_img, out_p, quiet=True)
+        self.assertEqual(res3, out_p)
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+        res4 = render_t4_image_in_type(sample_img, out_p, quiet=True)
+        self.assertEqual(res4, out_p)
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+        res5 = render_t5_geo_lock(sample_img, out_p, quiet=True)
+        self.assertEqual(res5, out_p)
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+        res6 = render_t6_outline_stretch(sample_img, out_p, quiet=True)
+        self.assertEqual(res6, out_p)
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+    @patch("render_title_design.render_html")
+    def test_list_and_render_title_design_style(self, mock_render):
+        styles = list_title_design_styles()
+        self.assertEqual(len(styles), 6)
+        keys = {s["key"] for s in styles}
+        self.assertEqual(
+            keys,
+            {"t1_cut_slash", "t2_double_offset", "t3_color_split", "t4_image_in_type", "t5_geo_lock", "t6_outline_stretch"},
+        )
+
+        sample_img = self.tmp_path / "title_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "dispatched.png"
+        mock_render.return_value = out_p
+
+        ret = render_title_design_style(
+            "t1_cut_slash",
+            sample_img,
+            out_p,
+            title="刀锋夜航",
+            latin="BLADE NIGHT",
+            slogan="刀锋切割",
+            quiet=True,
+        )
+        self.assertEqual(ret, out_p)
+        mock_render.assert_called()
+        self.assertTrue(mock_render.call_args[1].get("quiet", False))
+
+        with self.assertRaises(KeyError):
+            render_title_design_style("unknown_style", sample_img, out_p)
+
+    def test_cli_main_list_mode(self):
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = title_design_main(["--list"])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("Agnes Studio 可用标题字设范式预设:", out)
+        self.assertIn("t1_cut_slash", out)
+        self.assertIn("t2_double_offset", out)
+        self.assertIn("t3_color_split", out)
+        self.assertIn("t4_image_in_type", out)
+        self.assertIn("t5_geo_lock", out)
+        self.assertIn("t6_outline_stretch", out)
+
+    @patch("render_title_design.render_html")
+    def test_cli_main_single_style_with_custom_src_and_out(self, mock_render):
+        sample_img = self.tmp_path / "title_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "single_out.png"
+        mock_render.return_value = out_p
+
+        code = title_design_main([
+            "--style", "t1_cut_slash",
+            "--src", str(sample_img),
+            "--out", str(out_p),
+            "--title", "刀锋测试",
+            "--latin", "BLADE TEST",
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_render.call_count, 1)
+
+    @patch("render_title_design.render_html")
+    def test_cli_main_all_mode(self, mock_render):
+        sample_img = self.tmp_path / "title_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_base = self.tmp_path / "bundle.png"
+        mock_render.return_value = self.tmp_path / "out.png"
+
+        code = title_design_main([
+            "--style", "all",
+            "--src", str(sample_img),
+            "--out", str(out_base),
+            "--quiet",
+        ])
+        self.assertEqual(code, 0)
+        self.assertEqual(mock_render.call_count, 6)
+
+    def test_cli_main_missing_src_strict_mode(self):
+        missing_src = self.tmp_path / "does_not_exist.png"
+        code_strict = title_design_main([
+            "--style", "t1_cut_slash",
+            "--src", str(missing_src),
+            "--strict",
+            "--quiet",
+        ])
+        self.assertEqual(code_strict, 1)
+
+        code_lenient = title_design_main([
+            "--style", "t1_cut_slash",
+            "--src", str(missing_src),
+            "--quiet",
+        ])
+        self.assertEqual(code_lenient, 0)
+
+    @patch("render_title_design.render_html")
+    def test_cli_main_quiet_mode_suppresses_stdout(self, mock_render):
+        from contextlib import redirect_stdout
+
+        sample_img = self.tmp_path / "title_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_p = self.tmp_path / "quiet_out.png"
+        mock_render.return_value = out_p
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = title_design_main([
+                "--style", "t1_cut_slash",
+                "--src", str(sample_img),
+                "--out", str(out_p),
+                "--quiet",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
 
 
 class TestRenderTitleRefined(unittest.TestCase):
