@@ -7156,6 +7156,76 @@ class TestRenderDramaPoster(unittest.TestCase):
         self.assertFalse(err["ok"])
         self.assertIn("error", err)
 
+    @patch("render_drama_poster.render_drama_poster_style", side_effect=RuntimeError("Simulated drama render crash"))
+    def test_main_cli_exception_stderr_output(self, mock_render):
+        import io
+        from contextlib import redirect_stderr
+        sample_img = self.tmp_path / "drama_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = drama_poster_main([
+                "--style", "mega_bleed",
+                "--src", str(sample_img),
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 戏剧性海报渲染失败: Simulated drama render crash", buf.getvalue())
+
+    @patch("render_drama_poster.render_drama_poster_style", side_effect=RuntimeError("Simulated quiet crash"))
+    def test_main_cli_exception_quiet_mode(self, mock_render):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        sample_img = self.tmp_path / "drama_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            code = drama_poster_main([
+                "--style", "mega_bleed",
+                "--src", str(sample_img),
+                "-q",
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
+    def test_main_cli_missing_src_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        missing_src = self.tmp_path / "non_existent_drama_src.png"
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = drama_poster_main([
+                "--style", "mega_bleed",
+                "--src", str(missing_src),
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 找不到输入底图", buf.getvalue())
+
+    @patch("render_drama_poster.render_drama_poster_style", side_effect=RuntimeError("Simulated JSON crash"))
+    def test_cli_main_exception_json_error(self, mock_render):
+        import io
+        from contextlib import redirect_stdout
+        sample_img = self.tmp_path / "drama_base.png"
+        sample_img.write_bytes(b"\x89PNG\r\n\x1a\n")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = drama_poster_main([
+                "--style", "mega_bleed",
+                "--src", str(sample_img),
+                "--json",
+                "--strict",
+            ])
+        self.assertEqual(code, 1)
+        err = json.loads(buf.getvalue())
+        self.assertFalse(err["ok"])
+        self.assertIn("error", err)
+        self.assertIn("Simulated JSON crash", err["error"])
+
+
 
 class TestRenderCnTypePoster(unittest.TestCase):
     """测试高级中文字排渲染器 render_cn_type_poster 及其三大纪念碑式构图与输入安全防御"""
