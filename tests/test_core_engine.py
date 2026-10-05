@@ -5695,7 +5695,6 @@ class TestProPosterRenderer(unittest.TestCase):
         with redirect_stderr(buf):
             code = pro_poster_main([
                 "--key", "swiss_01",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertIn("❌ 渲染海报失败 [swiss_01]: Simulated pro render crash", buf.getvalue())
@@ -5710,7 +5709,6 @@ class TestProPosterRenderer(unittest.TestCase):
             code = pro_poster_main([
                 "--key", "swiss_01",
                 "-q",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertEqual(out_buf.getvalue(), "")
@@ -5739,7 +5737,6 @@ class TestProPosterRenderer(unittest.TestCase):
             code = pro_poster_main([
                 "--key", "swiss_01",
                 "--json",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         err = json.loads(buf.getvalue())

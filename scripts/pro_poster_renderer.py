@@ -1434,7 +1434,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"❌ 批量渲染流派海报失败 [{args.category}]: {e}", file=sys.stderr)
             else:
                 print(f"❌ 全量渲染海报失败: {e}", file=sys.stderr)
-        return 1 if args.strict else 0
+        return 1
 
 
 if __name__ == "__main__":
