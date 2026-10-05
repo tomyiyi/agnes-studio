@@ -107,6 +107,9 @@ from expert_poster_designer import (
     render_expert_steampunk_poster,
     render_expert_neochinese_poster,
     main as expert_designer_main,
+    build_arg_parser as expert_designer_build_arg_parser,
+    list_expert_modes as expert_designer_list_modes,
+    EXPERT_MODES as EXPERT_DESIGNER_MODES,
 )
 from poster_composer import (
     compose_commercial_poster,
@@ -3068,6 +3071,148 @@ class TestExpertPosterDesigner(unittest.TestCase):
             ])
         self.assertEqual(code, 0)
         self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_build_arg_parser(self):
+        parser = expert_designer_build_arg_parser()
+        self.assertIsInstance(parser, argparse.ArgumentParser)
+        actions = {dest: a for a in parser._actions for dest in a.dest.split()}
+        self.assertIn("mode", actions)
+        self.assertIn("src", actions)
+        self.assertIn("out", actions)
+        self.assertIn("list_modes", actions)
+        self.assertIn("json", actions)
+        self.assertIn("quiet", actions)
+        self.assertIn("strict", actions)
+
+    def test_list_expert_modes(self):
+        modes = expert_designer_list_modes()
+        self.assertIsInstance(modes, list)
+        self.assertEqual(len(modes), 2)
+        mode_keys = [m["mode"] for m in modes]
+        self.assertIn("steampunk", mode_keys)
+        self.assertIn("neochinese", mode_keys)
+        for m in modes:
+            self.assertIn("mode", m)
+            self.assertIn("name", m)
+            self.assertIn("description", m)
+            self.assertIn("default_asset", m)
+            self.assertIn("default_out", m)
+
+    def test_cli_list_modes_plain(self):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = expert_designer_main(["--list-modes"])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("Agnes Studio · 专家级动态海报排版模式清单:", out)
+        self.assertIn("steampunk", out)
+        self.assertIn("neochinese", out)
+
+    def test_cli_list_modes_json(self):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = expert_designer_main(["--list-modes", "--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue().strip())
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 2)
+        keys = [d["mode"] for d in data]
+        self.assertIn("steampunk", keys)
+        self.assertIn("neochinese", keys)
+
+    def test_cli_main_json_output_single_mode(self):
+        import io
+        from contextlib import redirect_stdout
+
+        out_file = self.tmp_path / "cli_json_steam.png"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = expert_designer_main([
+                "--mode", "steampunk",
+                "--src", str(self.dummy_bg),
+                "--out", str(out_file),
+                "--json",
+            ])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue().strip())
+        self.assertTrue(data.get("ok"))
+        self.assertEqual(data.get("total"), 1)
+        self.assertEqual(data.get("mode"), "steampunk")
+        self.assertEqual(len(data.get("results", [])), 1)
+        r0 = data["results"][0]
+        self.assertEqual(r0["mode"], "steampunk")
+        self.assertTrue(r0["ok"])
+        self.assertTrue(out_file.exists())
+        self.assertGreater(r0["bytes"], 0)
+
+    def test_cli_main_json_output_all_mode(self):
+        import io
+        from contextlib import redirect_stdout
+
+        out_base = self.tmp_path / "cli_json_bundle.png"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = expert_designer_main([
+                "--mode", "all",
+                "--src", str(self.dummy_bg),
+                "--out", str(out_base),
+                "--json",
+            ])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue().strip())
+        self.assertTrue(data.get("ok"))
+        self.assertEqual(data.get("total"), 2)
+        self.assertEqual(data.get("mode"), "all")
+        self.assertEqual(len(data.get("results", [])), 2)
+        for r in data["results"]:
+            self.assertTrue(r["ok"])
+            self.assertTrue(Path(r["out"]).exists())
+            self.assertGreater(r["bytes"], 0)
+
+    def test_cli_main_missing_src_json_error(self):
+        import io
+        from contextlib import redirect_stdout
+
+        missing_src = self.tmp_path / "non_existent_source.png"
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = expert_designer_main([
+                "--mode", "steampunk",
+                "--src", str(missing_src),
+                "--out", str(self.tmp_path / "out.png"),
+                "--json",
+            ])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertIn("error", data)
+        self.assertIn("找不到可用背景底图", data["error"])
+
+    def test_cli_main_render_exception_json_error(self):
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with patch("expert_poster_designer.render_expert_steampunk_poster", side_effect=RuntimeError("simulated expert failure")):
+            with redirect_stdout(buf):
+                code = expert_designer_main([
+                    "--mode", "steampunk",
+                    "--src", str(self.dummy_bg),
+                    "--out", str(self.tmp_path / "out.png"),
+                    "--json",
+                    "--strict",
+                ])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertIn("error", data)
+        self.assertIn("simulated expert failure", data["error"])
 
 
 class TestPosterVisualLearner(unittest.TestCase):

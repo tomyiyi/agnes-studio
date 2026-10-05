@@ -9,9 +9,12 @@ Agnes Studio · 专家级动态海报排版引擎 (Expert Dynamic Poster Designe
 4. 动线平衡与微对比：盘古之白微间距 + 环境光采样互补色
 """
 
+import argparse
+import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(SCRIPTS_DIR) not in sys.path:
@@ -32,6 +35,28 @@ FONT_SMILEY = resolve_font_path("smiley")
 FONT_WENKAI = resolve_font_path("wenkai")
 FONT_SONGTI = resolve_font_path("songti")
 FONT_PINGFANG = resolve_font_path("pingfang")
+
+EXPERT_MODES: dict[str, dict[str, Any]] = {
+    "steampunk": {
+        "mode": "steampunk",
+        "name": "铜钟与蒸汽城 (日漫概念)",
+        "description": "基于左上角平整负空间打造非对称悬挂与对角穿透，严格接入瑞士12栏网格与黄金分割字阶",
+        "default_asset": "agnes_1790006749_b2b755da.png",
+        "default_out": "poster_expert_dynamic_steampunk.png",
+    },
+    "neochinese": {
+        "mode": "neochinese",
+        "name": "苏园惊鸿 (新中式避障)",
+        "description": "采用智能人脸与主体避障保护区，左右拆字错位竖排夹击，中央留白",
+        "default_asset": "agnes_1789998061_5508.png",
+        "default_out": "poster_expert_dynamic_neochinese.png",
+    },
+}
+
+
+def list_expert_modes() -> list[dict[str, Any]]:
+    """返回专家级排版支持的模式规格清单。"""
+    return [dict(v) for v in EXPERT_MODES.values()]
 
 def get_font(path, size):
     if path and os.path.exists(str(path)):
@@ -284,9 +309,8 @@ def render_expert_neochinese_poster(src_img=None, out_img=None, quiet=False):
     return str(out_img)
 
 
-def main(argv: list[str] | None = None) -> int:
-    import argparse
-
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建专家级动态海报排版引擎命令行参数解析器。"""
     parser = argparse.ArgumentParser(description="Agnes Studio · 专家级动态海报排版引擎 (Expert Dynamic Poster Designer)")
     parser.add_argument(
         "--mode",
@@ -309,6 +333,18 @@ def main(argv: list[str] | None = None) -> int:
         help="输出海报图片路径（在 mode=all 且指定 out 时自动附加模式后缀）",
     )
     parser.add_argument(
+        "--list-modes",
+        "--list",
+        "-l",
+        action="store_true",
+        help="列出支持的专家级排版模式元数据清单",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出模式清单或排版执行汇总报告",
+    )
+    parser.add_argument(
         "--quiet",
         "-q",
         action="store_true",
@@ -319,7 +355,25 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="严格模式：底图缺失或渲染异常时返回非零退出码 1",
     )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
     args = parser.parse_args(argv)
+
+    quiet = args.quiet or args.json
+
+    if args.list_modes:
+        modes = list_expert_modes()
+        if args.json:
+            print(json.dumps(modes, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            print("Agnes Studio · 专家级动态海报排版模式清单:")
+            for m in modes:
+                print(f"  [{m['mode']:<12}] {m['name']:<24} | 默认底图: {m['default_asset']}")
+                print(f"               说明: {m['description']}")
+        return 0
 
     default_steampunk_src = os.path.join(ASSETS_DIR, "agnes_1790006749_b2b755da.png")
     default_neochinese_src = os.path.join(ASSETS_DIR, "agnes_1789998061_5508.png")
@@ -343,23 +397,79 @@ def main(argv: list[str] | None = None) -> int:
             out = args.out or os.path.join(ASSETS_DIR, "poster_expert_dynamic_neochinese.png")
         tasks.append(("neochinese", render_expert_neochinese_poster, src, out))
 
+    results: list[dict[str, Any]] = []
     success = True
     for mode_name, render_fn, src, out in tasks:
         if not os.path.isfile(src):
-            if not args.quiet:
-                print(f"❌ 找不到可用背景底图: {src}")
+            err_msg = f"找不到可用背景底图: {src}"
+            if not quiet:
+                print(f"❌ {err_msg}")
+            results.append({
+                "mode": mode_name,
+                "src": src,
+                "out": out,
+                "ok": False,
+                "error": err_msg,
+            })
             if args.strict or args.src:
+                if args.json:
+                    print(json.dumps({
+                        "ok": False,
+                        "error": err_msg,
+                        "total": len(tasks),
+                        "mode": args.mode,
+                        "results": results,
+                    }, ensure_ascii=False, indent=2))
                 return 1
             success = False
             continue
         try:
-            render_fn(src, out, quiet=args.quiet)
+            if quiet:
+                import io
+                from contextlib import redirect_stdout
+                with redirect_stdout(io.StringIO()):
+                    res_path = render_fn(src, out, quiet=True)
+            else:
+                res_path = render_fn(src, out, quiet=False)
+            f_size = Path(res_path).stat().st_size if Path(res_path).exists() else 0
+            results.append({
+                "mode": mode_name,
+                "src": src,
+                "out": res_path,
+                "ok": True,
+                "bytes": f_size,
+            })
         except Exception as e:
-            if not args.quiet:
-                print(f"❌ 专家级排版渲染异常 ({mode_name}): {e}")
+            err_msg = f"专家级排版渲染异常 ({mode_name}): {e}"
+            if not quiet:
+                print(f"❌ {err_msg}")
+            results.append({
+                "mode": mode_name,
+                "src": src,
+                "out": out,
+                "ok": False,
+                "error": str(e),
+            })
             if args.strict:
+                if args.json:
+                    print(json.dumps({
+                        "ok": False,
+                        "error": str(e),
+                        "total": len(tasks),
+                        "mode": args.mode,
+                        "results": results,
+                    }, ensure_ascii=False, indent=2))
                 return 1
             success = False
+
+    if args.json:
+        overall_ok = success and (len(results) > 0)
+        print(json.dumps({
+            "ok": overall_ok,
+            "total": len(tasks),
+            "mode": args.mode,
+            "results": results,
+        }, ensure_ascii=False, indent=2))
 
     return 0 if (success or not args.strict) else 1
 
