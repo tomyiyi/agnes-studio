@@ -378,50 +378,54 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv if argv is not None else [])
 
-    if args.list:
-        if args.json:
-            print(json.dumps(list_cinema_poster_styles(), ensure_ascii=False, indent=2))
-        elif not args.quiet:
-            print("Agnes Studio 可用电影级海报风格预设:")
-            for s in list_cinema_poster_styles():
-                print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
-        return 0
+    suppress_log = args.quiet or args.json
 
-    # 确定输入源
-    resolved_src = None
-    if args.src:
-        p = Path(args.src)
-        if not p.is_file():
-            if not args.quiet and not args.json:
-                print(f"❌ 找不到输入底图: {args.src}", file=sys.stderr)
-            elif args.json:
-                print(json.dumps({"error": f"找不到输入底图: {args.src}", "ok": False}, ensure_ascii=False))
-            return 1 if args.strict else 0
-        resolved_src = p
-    else:
-        candidates = [
-            ROOT / "outputs" / "epic_compare" / "clean_base.png",
-            ROOT / "public" / "assets" / "agnes_1789995698_9987.png",
-            ROOT / "assets" / "agnes_1790006749_b2b755da.png",
-            ROOT / "assets" / "agnes_1789995999_1670.png",
-        ]
-        for c in candidates:
-            if c.is_file():
-                resolved_src = c
-                break
-
-    if resolved_src is None:
-        if not args.quiet and not args.json:
-            print("❌ 未指定 --src 且未发现默认候选底图资产", file=sys.stderr)
-        elif args.json:
-            print(json.dumps({"error": "未指定 --src 且未发现默认候选底图资产", "ok": False}, ensure_ascii=False))
-        return 1 if args.strict else 0
-
-    target_styles = list(CINEMA_POSTER_STYLES.keys()) if args.style == "all" else [args.style]
-
-    quiet = args.quiet or args.json
-    report_items = []
     try:
+        if args.list:
+            if args.json:
+                print(json.dumps(list_cinema_poster_styles(), ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio 可用电影级海报风格预设:")
+                for s in list_cinema_poster_styles():
+                    print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
+            return 0
+
+        # 确定输入源
+        resolved_src = None
+        if args.src:
+            p = Path(args.src)
+            if not p.is_file():
+                err_msg = f"找不到输入底图: {args.src}"
+                if args.json:
+                    print(json.dumps({"error": err_msg, "ok": False}, ensure_ascii=False))
+                elif not args.quiet:
+                    print(f"❌ {err_msg}", file=sys.stderr)
+                return 1 if args.strict else 0
+            resolved_src = p
+        else:
+            candidates = [
+                ROOT / "outputs" / "epic_compare" / "clean_base.png",
+                ROOT / "public" / "assets" / "agnes_1789995698_9987.png",
+                ROOT / "assets" / "agnes_1790006749_b2b755da.png",
+                ROOT / "assets" / "agnes_1789995999_1670.png",
+            ]
+            for c in candidates:
+                if c.is_file():
+                    resolved_src = c
+                    break
+
+        if resolved_src is None:
+            err_msg = "未指定 --src 且未发现默认候选底图资产"
+            if args.json:
+                print(json.dumps({"error": err_msg, "ok": False}, ensure_ascii=False))
+            elif not args.quiet:
+                print(f"❌ {err_msg}", file=sys.stderr)
+            return 1 if args.strict else 0
+
+        target_styles = list(CINEMA_POSTER_STYLES.keys()) if args.style == "all" else [args.style]
+
+        quiet = suppress_log
+        report_items = []
         default_out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "cinema_study")
         for st in target_styles:
             if args.out:
@@ -455,10 +459,10 @@ def main(argv: list[str] | None = None) -> int:
             print("done")
         return 0
     except Exception as e:
-        if not args.quiet and not args.json:
-            print(f"❌ 电影级海报渲染失败: {e}", file=sys.stderr)
-        elif args.json:
+        if args.json:
             print(json.dumps({"error": str(e), "ok": False}, ensure_ascii=False))
+        elif not args.quiet:
+            print(f"❌ 电影级海报渲染失败: {e}", file=sys.stderr)
         return 1 if args.strict else 0
 
 
