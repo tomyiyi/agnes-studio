@@ -2487,6 +2487,54 @@ class TestVisionSubjectDetector(unittest.TestCase):
             self.assertFalse(data["ok"])
             self.assertIn("GPU memory explosion", data["error"])
 
+    def test_cli_main_missing_image_stderr_output(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            missing_img = Path(tmpdir) / "not_there.png"
+            buf = io.StringIO()
+            with redirect_stderr(buf):
+                code = vision_detector_main(["--image", str(missing_img)])
+            self.assertEqual(code, 1)
+            self.assertIn(f"❌ 找不到目标图片文件: {missing_img}", buf.getvalue())
+
+    def test_cli_main_missing_image_quiet_mode(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            missing_img = Path(tmpdir) / "not_there.png"
+            err_buf = io.StringIO()
+            out_buf = io.StringIO()
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                code = vision_detector_main(["--image", str(missing_img), "--quiet"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
+    def test_cli_main_runtime_exception_stderr_output(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_img = Path(tmpdir) / "face.png"
+            Image.new("RGB", (100, 100), color=(10, 10, 10)).save(tmp_img, "PNG")
+
+            buf = io.StringIO()
+            with patch("vision_subject_detector.detect_faces", side_effect=RuntimeError("Detector engine failure")), \
+                 redirect_stderr(buf):
+                code = vision_detector_main(["--image", str(tmp_img)])
+
+            self.assertEqual(code, 1)
+            self.assertIn("❌ 视觉主体与避障检测异常: Detector engine failure", buf.getvalue())
+
+    def test_cli_main_runtime_exception_quiet_mode(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_img = Path(tmpdir) / "face.png"
+            Image.new("RGB", (100, 100), color=(10, 10, 10)).save(tmp_img, "PNG")
+
+            err_buf = io.StringIO()
+            out_buf = io.StringIO()
+            with patch("vision_subject_detector.detect_faces", side_effect=RuntimeError("Silent failure")), \
+                 redirect_stderr(err_buf), redirect_stdout(out_buf):
+                code = vision_detector_main(["--image", str(tmp_img), "--quiet"])
+
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
 
 
 class TestFilmCoverEngine(unittest.TestCase):

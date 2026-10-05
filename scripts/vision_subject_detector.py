@@ -248,7 +248,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     current_dir = Path(__file__).resolve().parent.parent
     if args.image:
@@ -271,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
                 "error": err_msg,
             }, ensure_ascii=False, indent=2))
         elif not args.quiet:
-            print(f"❌ {err_msg}", file=sys.stderr if args.strict else sys.stdout)
+            print(f"❌ {err_msg}", file=sys.stderr)
         return 1
 
     try:
