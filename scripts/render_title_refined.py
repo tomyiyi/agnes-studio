@@ -12,8 +12,10 @@
 """
 from __future__ import annotations
 
+import argparse
 import base64
 from html import escape
+import json
 import os
 import sys
 from pathlib import Path
@@ -295,10 +297,15 @@ def render_html(
     size=(864, 1152),
     timeout_ms: int = 550,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """使用 Playwright 渲染 HTML 为高清海报 PNG。"""
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    if dry_run:
+        if not quiet:
+            print(f"  ✓ {out_path.name} (dry_run)")
+        return out_path
     from playwright.sync_api import sync_playwright
 
     chrome_path = resolve_chrome_path()
@@ -326,9 +333,10 @@ def shot(
     size=(864, 1152),
     timeout_ms: int = 550,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """向下兼容别名，调用 render_html。"""
-    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run)
 
 
 def render_r1_oriental_center(
@@ -342,6 +350,7 @@ def render_r1_oriental_center(
     size=(864, 1152),
     timeout_ms: int = 550,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_r1_oriental_center_html(
@@ -352,7 +361,7 @@ def render_r1_oriental_center(
         seal_text=seal_text,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run)
 
 
 def render_r2_left_big(
@@ -365,6 +374,7 @@ def render_r2_left_big(
     size=(864, 1152),
     timeout_ms: int = 550,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_r2_left_big_html(
@@ -374,7 +384,7 @@ def render_r2_left_big(
         slogan=slogan,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run)
 
 
 def render_r3_vertical_spine(
@@ -387,6 +397,7 @@ def render_r3_vertical_spine(
     size=(864, 1152),
     timeout_ms: int = 550,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_r3_vertical_spine_html(
@@ -396,7 +407,7 @@ def render_r3_vertical_spine(
         slogan=slogan,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run)
 
 
 def render_r4_sky_field(
@@ -409,6 +420,7 @@ def render_r4_sky_field(
     size=(864, 1152),
     timeout_ms: int = 550,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_r4_sky_field_html(
@@ -418,7 +430,7 @@ def render_r4_sky_field(
         slogan=slogan,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run)
 
 
 def render_r5_film_bottom(
@@ -431,6 +443,7 @@ def render_r5_film_bottom(
     size=(864, 1152),
     timeout_ms: int = 550,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     img = sanitize_img_uri(b64(image))
     html = build_r5_film_bottom_html(
@@ -440,7 +453,7 @@ def render_r5_film_bottom(
         slogan=slogan,
         extra_css=extra_css,
     )
-    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet)
+    return render_html(html, out, size=size, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run)
 
 
 # =============================================================================
@@ -454,6 +467,7 @@ REFINED_TITLE_STYLES = {
         "default_file": "r1_oriental_center.png",
         "default_latin": "Night Voyage",
         "default_slogan": "她把城市调成静音",
+        "description": "大宋体居中偏下，西文极细，朱印，微暗角",
     },
     "r2_left_big": {
         "name": "黑宋大标偏左 (Left Big Black Serif)",
@@ -461,6 +475,7 @@ REFINED_TITLE_STYLES = {
         "default_file": "r2_left_big.png",
         "default_latin": "Night Voyage",
         "default_slogan": "她把城市调成静音",
+        "description": "黑宋大标靠左，极简西文，极度克制",
     },
     "r3_vertical_spine": {
         "name": "竖排书脊标题 (Vertical Spine Book)",
@@ -468,6 +483,7 @@ REFINED_TITLE_STYLES = {
         "default_file": "r3_vertical_spine.png",
         "default_latin": "Night Voyage · Agnes",
         "default_slogan": "她把城市调成静音",
+        "description": "竖排书脊标题，底部横向英文，画册扉页质感",
     },
     "r4_sky_field": {
         "name": "负空间天幕 (Sky Field Negative Space)",
@@ -475,6 +491,7 @@ REFINED_TITLE_STYLES = {
         "default_file": "r4_sky_field.png",
         "default_latin": "Night Voyage",
         "default_slogan": "她把城市调成静音",
+        "description": "嵌入天空负空间，黄金分割留白",
     },
     "r5_film_bottom": {
         "name": "院线主从排布 (Film Bottom Hierarchy)",
@@ -482,6 +499,7 @@ REFINED_TITLE_STYLES = {
         "default_file": "r5_film_bottom.png",
         "default_latin": "Night Voyage",
         "default_slogan": "她把城市调成静音",
+        "description": "顶部独立西文，底部厚重中文主标与副标",
     },
 }
 
@@ -526,7 +544,12 @@ def normalize_refined_style_key(style: str) -> str:
 def list_refined_title_styles() -> list[dict[str, str]]:
     """列出所有已注册的高级中文海报标题字设范式预设。"""
     return [
-        {"key": k, "name": v["name"], "default_file": v["default_file"]}
+        {
+            "key": k,
+            "name": v["name"],
+            "default_file": v["default_file"],
+            "description": v.get("description", ""),
+        }
         for k, v in REFINED_TITLE_STYLES.items()
     ]
 
@@ -543,6 +566,7 @@ def render_refined_title_style(
     size=(864, 1152),
     timeout_ms: int = 550,
     quiet: bool = False,
+    dry_run: bool = False,
     **kwargs,
 ) -> Path:
     """按高级字设范式名称派发渲染对应的海报。"""
@@ -564,6 +588,7 @@ def render_refined_title_style(
             size=size,
             timeout_ms=timeout_ms,
             quiet=quiet,
+            dry_run=dry_run,
         )
     elif norm_key == "r4_sky_field":
         t = title
@@ -579,6 +604,7 @@ def render_refined_title_style(
             size=size,
             timeout_ms=timeout_ms,
             quiet=quiet,
+            dry_run=dry_run,
         )
     else:
         return func(
@@ -591,6 +617,7 @@ def render_refined_title_style(
             size=size,
             timeout_ms=timeout_ms,
             quiet=quiet,
+            dry_run=dry_run,
         )
 
 
@@ -606,6 +633,7 @@ def render_refined_variant(
     size=(864, 1152),
     timeout_ms: int = 550,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> Path:
     """根据变体名称渲染指定的精致字设海报（向后兼容）。"""
     raw_key = str(variant or "").strip().lower()
@@ -626,6 +654,7 @@ def render_refined_variant(
         size=size,
         timeout_ms=timeout_ms,
         quiet=quiet,
+        dry_run=dry_run,
     )
 
 
@@ -638,6 +667,7 @@ def render_all_refined_titles(
     seal_text: str = "航",
     timeout_ms: int = 550,
     quiet: bool = False,
+    dry_run: bool = False,
 ) -> dict[str, Path]:
     """批量渲染所有 5 大高级字设范式海报。"""
     target_dir = Path(out_dir) if out_dir else (ROOT / "outputs" / "title_refined")
@@ -645,27 +675,25 @@ def render_all_refined_titles(
 
     results = {}
     results["r1_oriental_center"] = render_r1_oriental_center(
-        image, target_dir / "r1_oriental_center.png", title=title, latin=latin, slogan=slogan, seal_text=seal_text, timeout_ms=timeout_ms, quiet=quiet
+        image, target_dir / "r1_oriental_center.png", title=title, latin=latin, slogan=slogan, seal_text=seal_text, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run
     )
     results["r2_left_big"] = render_r2_left_big(
-        image, target_dir / "r2_left_big.png", title=title, latin=latin, slogan=slogan, timeout_ms=timeout_ms, quiet=quiet
+        image, target_dir / "r2_left_big.png", title=title, latin=latin, slogan=slogan, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run
     )
     results["r3_vertical_spine"] = render_r3_vertical_spine(
-        image, target_dir / "r3_vertical_spine.png", title=title, latin=f"{latin} · Agnes", slogan=slogan, timeout_ms=timeout_ms, quiet=quiet
+        image, target_dir / "r3_vertical_spine.png", title=title, latin=f"{latin} · Agnes", slogan=slogan, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run
     )
     results["r4_sky_field"] = render_r4_sky_field(
-        image, target_dir / "r4_sky_field.png", title=f"{title[0]} {title[1:]}" if len(title) > 1 else title, latin=latin, slogan=slogan, timeout_ms=timeout_ms, quiet=quiet
+        image, target_dir / "r4_sky_field.png", title=f"{title[0]} {title[1:]}" if len(title) > 1 else title, latin=latin, slogan=slogan, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run
     )
     results["r5_film_bottom"] = render_r5_film_bottom(
-        image, target_dir / "r5_film_bottom.png", title=title, latin=latin, slogan=slogan, timeout_ms=timeout_ms, quiet=quiet
+        image, target_dir / "r5_film_bottom.png", title=title, latin=latin, slogan=slogan, timeout_ms=timeout_ms, quiet=quiet, dry_run=dry_run
     )
     return results
 
 
-def main(argv: list[str] | None = None) -> int:
-    """高级中文海报标题字设渲染引擎规范化 CLI 入口。"""
-    import argparse
-
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建高级中文海报标题字设渲染命令行参数解析器"""
     parser = argparse.ArgumentParser(description="高级中文海报标题字设（Refined Title Typography）渲染引擎")
     parser.add_argument(
         "--variant",
@@ -736,6 +764,16 @@ def main(argv: list[str] | None = None) -> int:
         help="列出所有可用的高级字设范式预设",
     )
     parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出风格列表或批量执行结果报告",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="预演模式：仅校验参数与规划输出路径，不唤起浏览器真实光栅化",
+    )
+    parser.add_argument(
         "--quiet",
         "-q",
         action="store_true",
@@ -746,10 +784,18 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="严格模式：遇到底图缺失或渲染异常时返回非零退出码 1",
     )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    """高级中文海报标题字设渲染引擎规范化 CLI 入口。"""
+    parser = build_arg_parser()
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     if args.list:
-        if not args.quiet:
+        if args.json:
+            print(json.dumps(list_refined_title_styles(), ensure_ascii=False, indent=2))
+        elif not args.quiet:
             print("Agnes Studio 可用高级字设范式预设:")
             for s in list_refined_title_styles():
                 print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
@@ -761,8 +807,10 @@ def main(argv: list[str] | None = None) -> int:
     if input_path_arg:
         p = Path(input_path_arg)
         if not p.is_file():
-            if not args.quiet:
+            if not args.quiet and not args.json:
                 print(f"❌ 找不到输入底图: {input_path_arg}", file=sys.stderr)
+            elif args.json:
+                print(json.dumps({"error": f"找不到输入底图: {input_path_arg}", "ok": False}, ensure_ascii=False))
             return 1 if (args.strict or args.input) else 0
         resolved_src = p
     else:
@@ -778,9 +826,11 @@ def main(argv: list[str] | None = None) -> int:
                 break
 
     if resolved_src is None:
-        if not args.quiet:
+        if not args.quiet and not args.json:
             print("❌ 未指定底图且未发现默认候选底图资产", file=sys.stderr)
-        return 1 if args.strict else 0
+        elif args.json:
+            print(json.dumps({"error": "未指定底图且未发现默认候选底图资产", "ok": False}, ensure_ascii=False))
+        return 1 if (args.strict or args.input) else 0
 
     raw_style = (args.style or "all").strip().lower()
     if raw_style == "all":
@@ -789,10 +839,14 @@ def main(argv: list[str] | None = None) -> int:
         try:
             target_styles = [normalize_refined_style_key(raw_style)]
         except KeyError as e:
-            if not args.quiet:
+            if not args.quiet and not args.json:
                 print(f"❌ {e}", file=sys.stderr)
-            return 1 if args.strict else 0
+            elif args.json:
+                print(json.dumps({"error": str(e), "ok": False}, ensure_ascii=False))
+            return 1 if (args.strict or args.input) else 0
 
+    quiet = args.quiet or args.json
+    report_items = []
     try:
         default_out_dir = Path(args.out_dir) if args.out_dir else (ROOT / "outputs" / "title_refined")
         for st in target_styles:
@@ -812,15 +866,27 @@ def main(argv: list[str] | None = None) -> int:
                 latin=args.latin,
                 slogan=args.slogan,
                 seal_text=args.seal,
-                quiet=args.quiet,
+                quiet=quiet,
+                dry_run=args.dry_run,
             )
-        if not args.quiet:
+            report_items.append({
+                "style": st,
+                "name": REFINED_TITLE_STYLES[st]["name"],
+                "output": str(out_path),
+                "dry_run": args.dry_run,
+                "status": "ok",
+            })
+        if args.json:
+            print(json.dumps(report_items, ensure_ascii=False, indent=2))
+        elif not args.quiet:
             print("done")
         return 0
     except Exception as e:
-        if not args.quiet:
+        if not args.quiet and not args.json:
             print(f"❌ 高级字设海报渲染失败: {e}", file=sys.stderr)
-        return 1 if args.strict else 0
+        elif args.json:
+            print(json.dumps({"error": str(e), "ok": False}, ensure_ascii=False))
+        return 1 if (args.strict or args.input) else 0
 
 
 if __name__ == "__main__":
