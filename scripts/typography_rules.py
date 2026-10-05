@@ -343,49 +343,6 @@ class SmartPosterComposer:
         return plan
 
 
-# =============================================================================
-# 自检与测试
-# =============================================================================
-
-if __name__ == "__main__":
-    print("✨ [Typography Engine] 运行字体排印与网格规则引擎自检...")
-    
-    # 1. 测试盘古之白与标点规范化
-    raw_text = 'Agnes 2.5模型震撼发布，首创"混元矢量"排版，超越99%同类产品！'
-    formatted = ChineseTypographyRules.format_poster_copy(raw_text)
-    print(f"  [盘古之白测试]")
-    print(f"  原始输入: {raw_text}")
-    print(f"  规范输出: {formatted}")
-    assert "Agnes 2.5 模型" in formatted
-    assert "「混元矢量」" in formatted
-    assert "99% 同类产品" in formatted
-    
-    # 2. 测试模块化字阶
-    scale = ModularScale(base_size=16, ratio_name="golden")
-    h = scale.get_poster_hierarchy()
-    print(f"\n  [黄金字阶层级 (base=16pt, r=1.618)]")
-    for k, v in h.items():
-        print(f"    - {k:8s}: {v:3d}pt")
-    assert h["h1"] == 68
-    
-    # 3. 测试网格系统
-    grid = SwissGridSystem(1024, 1024, columns=12)
-    print(f"\n  [瑞士 12 栏网格计算 (1024x1024)]")
-    print(f"    - Margin X: {grid.margin_x}px, Gutter: {grid.gutter}px, Col Width: {grid.col_w:.1f}px")
-    x, w = grid.get_column_rect(0, 4)
-    print(f"    - 跨前 4 栏起点与宽度: x={x}px, width={w}px")
-    
-    # 4. 模拟避障排版
-    mock_exclusion = [{"x_min": 0.45, "y_min": 0.08, "x_max": 0.55, "y_max": 0.18, "type": "face"}]
-    plan = SmartPosterComposer.plan_layout(1024, 1024, mock_exclusion, "苏园惊鸿", en_title="Suzhou Classic")
-    print(f"\n  [智能避障推导结果]")
-    print(f"    - 决策版式: {plan['layout_style']}")
-    for el in plan["elements"]:
-        print(f"    - 元素 [{el['role']}]: {el['text']} (x:{el['x']}, y:{el['y']}, font_size:{el['font_size']}pt)")
-        
-    print("\n🎉 全部排印学自检与断言测试通过！")
-
-
 class PosterTypeSystem:
     """主题呈现与字排规格（data/poster_type_system.json）。"""
 
@@ -419,3 +376,413 @@ class PosterTypeSystem:
         if len(slogan.replace(" ", "")) > 18:
             issues.append("slogan >18 字，建议砍半")
         return issues
+
+
+# =============================================================================
+# 五、CLI 命令行与自动化质检接口 (CLI & Inspection Interface)
+# =============================================================================
+
+def build_arg_parser():
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="Agnes Studio · 专业级中文字体排印学与网格系统引擎 (Typography & Grid Engine)"
+    )
+    # 模式选择
+    parser.add_argument(
+        "--plan",
+        action="store_true",
+        help="推导智能避障与对角拆字海报排版规划",
+    )
+    parser.add_argument(
+        "--hierarchy",
+        action="store_true",
+        help="计算模块化字阶层级 (Modular Scale Hierarchy)",
+    )
+    parser.add_argument(
+        "--list-ratios",
+        action="store_true",
+        help="列出所有内置模块化字阶比率",
+    )
+    parser.add_argument(
+        "--grid",
+        action="store_true",
+        help="计算瑞士国际主义网格与版面区域定义",
+    )
+    parser.add_argument(
+        "--format-copy",
+        action="store_true",
+        help="执行中文海报文案格式化（盘古空格、直角引号、标点挤压）",
+    )
+    parser.add_argument(
+        "--theme-mode",
+        dest="theme_mode_goal",
+        default=None,
+        help="查询海报主题呈现模式 (如 ctr, editorial, brand, story, vertical)",
+    )
+    parser.add_argument(
+        "--sizes",
+        action="store_true",
+        help="查询海报字排规格字号 (可配合 --width 指定版心宽度)",
+    )
+    parser.add_argument(
+        "--validate-copy",
+        action="store_true",
+        help="校验文案三联组 (主标/西文副标/标语)",
+    )
+
+    # 文本与内容参数
+    parser.add_argument(
+        "text_arg",
+        nargs="?",
+        default=None,
+        help="文案文本内容（可选）",
+    )
+    parser.add_argument(
+        "-t", "--title",
+        dest="title",
+        default=None,
+        help="主标题内容 (Title)",
+    )
+    parser.add_argument(
+        "--subtitle",
+        dest="subtitle",
+        default="",
+        help="中文副标题内容 (Subtitle)",
+    )
+    parser.add_argument(
+        "--en-title", "--latin",
+        dest="en_title",
+        default="",
+        help="英文/西文副标 (English / Latin Title)",
+    )
+    parser.add_argument(
+        "--slogan",
+        dest="slogan",
+        default="",
+        help="海报标语/金句内容 (Slogan)",
+    )
+
+    # 画布与网格参数
+    parser.add_argument(
+        "-W", "--width",
+        dest="width",
+        type=int,
+        default=1024,
+        help="画布宽度（像素，默认 1024）",
+    )
+    parser.add_argument(
+        "-H", "--height",
+        dest="height",
+        type=int,
+        default=1024,
+        help="画布高度（像素，默认 1024）",
+    )
+    parser.add_argument(
+        "--columns",
+        dest="columns",
+        type=int,
+        default=12,
+        help="网格分栏数（默认 12）",
+    )
+    parser.add_argument(
+        "--margin-ratio",
+        dest="margin_ratio",
+        type=float,
+        default=0.06,
+        help="安全边距比例（默认 0.06）",
+    )
+
+    # 字阶参数
+    parser.add_argument(
+        "--base-size",
+        dest="base_size",
+        type=float,
+        default=16.0,
+        help="字阶基准字号 (Base Font Size，默认 16.0)",
+    )
+    parser.add_argument(
+        "--ratio-name",
+        dest="ratio_name",
+        default="golden",
+        choices=["golden", "perfect_fifth", "augmented_fourth", "perfect_fourth", "major_third", "minor_third"],
+        help="字阶比例名称 (默认 golden)",
+    )
+
+    # 主体保护区参数
+    parser.add_argument(
+        "--exclusion-zones", "--face-box",
+        dest="exclusion_zones",
+        default=None,
+        help="主体保护区 JSON 字符串或 'x1,y1,x2,y2' 坐标 (如 0.45,0.08,0.55,0.22)",
+    )
+
+    # 控制与输出参数
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 格式输出结果",
+    )
+    parser.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="静默模式，抑制标准输出",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="严格模式：若文案校验不通过或参数异常，返回退出码 1",
+    )
+    return parser
+
+
+def parse_exclusion_zones(raw_input: Optional[str]) -> List[Dict[str, float]]:
+    """解析排除区输入（支持 JSON 数组或 'x1,y1,x2,y2' 字符串）"""
+    import json
+    if not raw_input:
+        return []
+    raw_str = raw_input.strip()
+    if raw_str.startswith("[") or raw_str.startswith("{"):
+        try:
+            parsed = json.loads(raw_str)
+            if isinstance(parsed, list):
+                return parsed
+            elif isinstance(parsed, dict):
+                return [parsed]
+        except Exception:
+            pass
+    # 逗号分隔的 4 个坐标浮点数: x_min, y_min, x_max, y_max
+    parts = [p.strip() for p in raw_str.split(",") if p.strip()]
+    if len(parts) == 4:
+        try:
+            coords = [float(p) for p in parts]
+            return [{
+                "x_min": coords[0],
+                "y_min": coords[1],
+                "x_max": coords[2],
+                "y_max": coords[3],
+                "type": "face"
+            }]
+        except ValueError:
+            pass
+    return []
+
+
+def plan_to_serializable(plan: Dict[str, Any]) -> Dict[str, Any]:
+    """将 plan 字典中的非 JSON 对象 (如 SwissGridSystem) 转为字典以便序列化"""
+    out = {}
+    for k, v in plan.items():
+        if k == "grid" and hasattr(v, "width"):
+            out["grid"] = {
+                "width": v.width,
+                "height": v.height,
+                "columns": v.columns,
+                "margin_x": v.margin_x,
+                "margin_y": v.margin_y,
+                "col_w": round(v.col_w, 2),
+                "gutter": v.gutter,
+                "baseline_unit": v.baseline_unit,
+            }
+        else:
+            out[k] = v
+    return out
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    import json
+    import sys
+
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+
+    # 1. 查询比率清单
+    if args.list_ratios:
+        if args.json:
+            if not args.quiet:
+                print(json.dumps(ModularScale.RATIOS, ensure_ascii=False, indent=2))
+        else:
+            if not args.quiet:
+                print("Agnes Studio · 模块化字阶比率清单:")
+                for name, ratio in ModularScale.RATIOS.items():
+                    print(f"  - {name:18s}: {ratio:.3f}")
+        return 0
+
+    # 2. 查询主题呈现模式
+    if args.theme_mode_goal is not None:
+        pts = PosterTypeSystem()
+        mode = pts.theme_mode(args.theme_mode_goal)
+        if args.json:
+            if not args.quiet:
+                print(json.dumps({"goal": args.theme_mode_goal, "theme_mode": mode}, ensure_ascii=False, indent=2))
+        else:
+            if not args.quiet:
+                print(f"Goal: {args.theme_mode_goal} -> Theme Mode: {mode}")
+        return 0
+
+    # 3. 查询海报字排规格字号
+    if args.sizes:
+        pts = PosterTypeSystem()
+        sizes_res = pts.sizes(canvas_w=args.width)
+        if args.json:
+            if not args.quiet:
+                print(json.dumps(sizes_res, ensure_ascii=False, indent=2))
+        else:
+            if not args.quiet:
+                print(f"Agnes Studio · 海报字排规格 (width={args.width}):")
+                for k, v in sizes_res.items():
+                    print(f"  [{k}]: {v.get('size', 0)}px ({v.get('desc', '')})")
+        return 0
+
+    # 4. 文案三联组校验
+    if args.validate_copy:
+        pts = PosterTypeSystem()
+        title_val = args.title or args.text_arg or ""
+        latin_val = args.en_title or ""
+        slogan_val = args.slogan or args.subtitle or ""
+        issues = pts.validate_copy_pair(title_val, latin_val, slogan_val)
+        if args.json:
+            res = {
+                "valid": len(issues) == 0,
+                "issues": issues,
+                "title": title_val,
+                "latin": latin_val,
+                "slogan": slogan_val,
+            }
+            if not args.quiet:
+                print(json.dumps(res, ensure_ascii=False, indent=2))
+        else:
+            if not args.quiet:
+                if not issues:
+                    print("✓ 文案三联组排印规范校验通过！")
+                else:
+                    print(f"⚠️ 发现 {len(issues)} 项文案排印规范问题:")
+                    for idx, issue in enumerate(issues, 1):
+                        print(f"  [{idx}] {issue}")
+        if args.strict and issues:
+            return 1
+        return 0
+
+    # 5. 文案格式化 (盘古之白与直角引号规范化)
+    if args.format_copy or (args.text_arg and not args.plan and not args.grid and not args.hierarchy):
+        target_text = args.title or args.text_arg or "Agnes 2.5模型震撼发布，首创\"混元矢量\"排版！"
+        formatted = ChineseTypographyRules.format_poster_copy(target_text)
+        if args.json:
+            res = {
+                "raw": target_text,
+                "formatted": formatted,
+            }
+            if not args.quiet:
+                print(json.dumps(res, ensure_ascii=False, indent=2))
+        else:
+            if not args.quiet:
+                print(formatted)
+        return 0
+
+    # 6. 计算模块化字阶层级
+    if args.hierarchy:
+        scale = ModularScale(base_size=args.base_size, ratio_name=args.ratio_name)
+        hierarchy = scale.get_poster_hierarchy()
+        if args.json:
+            res = {
+                "base_size": args.base_size,
+                "ratio_name": args.ratio_name,
+                "ratio": scale.ratio,
+                "hierarchy": hierarchy,
+            }
+            if not args.quiet:
+                print(json.dumps(res, ensure_ascii=False, indent=2))
+        else:
+            if not args.quiet:
+                print(f"Agnes Studio · 模块化字阶层级 ({args.ratio_name}, base={args.base_size}pt, ratio={scale.ratio:.3f}):")
+                for role, size in hierarchy.items():
+                    print(f"  - {role:12s}: {size:4d}pt")
+        return 0
+
+    # 7. 瑞士网格系统计算
+    if args.grid and not args.plan:
+        grid = SwissGridSystem(args.width, args.height, columns=args.columns, margin_ratio=args.margin_ratio)
+        zones = grid.get_layout_zones()
+        if args.json:
+            res = {
+                "width": grid.width,
+                "height": grid.height,
+                "columns": grid.columns,
+                "margin_x": grid.margin_x,
+                "margin_y": grid.margin_y,
+                "col_w": round(grid.col_w, 2),
+                "gutter": grid.gutter,
+                "baseline_unit": grid.baseline_unit,
+                "layout_zones": zones,
+            }
+            if not args.quiet:
+                print(json.dumps(res, ensure_ascii=False, indent=2))
+        else:
+            if not args.quiet:
+                print(f"Agnes Studio · 瑞士 {grid.columns} 栏网格计算 ({grid.width}x{grid.height}):")
+                print(f"  - 安全边距: margin_x={grid.margin_x}px, margin_y={grid.margin_y}px")
+                print(f"  - 栏宽/间距: col_w={grid.col_w:.1f}px, gutter={grid.gutter}px")
+                print(f"  - 基线网格单元: {grid.baseline_unit}px")
+                print("  - 版面功能区定义:")
+                for zone_name, rect in zones.items():
+                    print(f"    * {zone_name:16s}: x={rect[0]}, y={rect[1]}, w={rect[2]}, h={rect[3]}")
+        return 0
+
+    # 8. 智能避障海报排版规划 (显式 --plan 或提供了 --title)
+    if args.plan or args.title:
+        title = args.title or args.text_arg or "苏园惊鸿"
+        sub = args.subtitle or ""
+        en = args.en_title or ""
+        zones = parse_exclusion_zones(args.exclusion_zones)
+        plan = SmartPosterComposer.plan_layout(
+            image_w=args.width,
+            image_h=args.height,
+            exclusion_zones=zones,
+            title=title,
+            subtitle=sub,
+            en_title=en,
+        )
+        if args.json:
+            serializable = plan_to_serializable(plan)
+            if not args.quiet:
+                print(json.dumps(serializable, ensure_ascii=False, indent=2))
+        else:
+            if not args.quiet:
+                print(f"Agnes Studio · 智能避障海报排版方案 ({plan['layout_style']}):")
+                print(f"  标题: {plan['title_formatted']}")
+                if sub:
+                    print(f"  副标: {plan['subtitle_formatted']}")
+                print("  版面元素推荐坐标与字阶:")
+                for el in plan["elements"]:
+                    print(f"    - [{el['role']}]: {el.get('text', '')} (x:{el['x']}, y:{el['y']}, {el.get('orientation', 'horizontal')}, size:{el.get('font_size', 0)}pt)")
+        return 0
+
+    # 默认/自检 Demo 模式
+    raw_demo = 'Agnes 2.5模型震撼发布，首创"混元矢量"排版，超越99%同类产品！'
+    formatted_demo = ChineseTypographyRules.format_poster_copy(raw_demo)
+    scale_demo = ModularScale(base_size=16.0, ratio_name="golden")
+    h_demo = scale_demo.get_poster_hierarchy()
+    grid_demo = SwissGridSystem(1024, 1024, columns=12)
+    mock_exclusion = [{"x_min": 0.45, "y_min": 0.08, "x_max": 0.55, "y_max": 0.18, "type": "face"}]
+    plan_demo = SmartPosterComposer.plan_layout(1024, 1024, mock_exclusion, "苏园惊鸿", en_title="Suzhou Classic")
+
+    if args.json:
+        res = {
+            "demo_copy_formatted": formatted_demo,
+            "demo_hierarchy": h_demo,
+            "demo_plan": plan_to_serializable(plan_demo),
+        }
+        if not args.quiet:
+            print(json.dumps(res, ensure_ascii=False, indent=2))
+    else:
+        if not args.quiet:
+            print("✨ [Agnes Studio Typography Engine] 字体排印与网格规则引擎就绪")
+            print(f"  [文案规范输出]: {formatted_demo}")
+            print(f"  [黄金字阶层级]: mega={h_demo['mega']}pt, h1={h_demo['h1']}pt, h2={h_demo['h2']}pt")
+            print(f"  [瑞士12栏网格]: margin_x={grid_demo.margin_x}px, gutter={grid_demo.gutter}px, col_w={grid_demo.col_w:.1f}px")
+            print(f"  [智能避障推导]: 模式={plan_demo['layout_style']}, 元素数={len(plan_demo['elements'])}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    raise SystemExit(main(sys.argv[1:]))

@@ -44,6 +44,10 @@ from typography_rules import (
     SwissGridSystem,
     SmartPosterComposer,
     PosterTypeSystem,
+    build_arg_parser as build_typography_parser,
+    main as typography_main,
+    parse_exclusion_zones,
+    plan_to_serializable,
 )
 from env_config import (
     PROJECT_ROOT,
@@ -868,6 +872,233 @@ class TestPosterTypeSystem(unittest.TestCase):
             slogan="这是一个超级长毫无节制完全不适合海报金句排版的超长超长标语金句文本"
         )
         self.assertTrue(any("slogan >18 字" in msg for msg in long_slogan_issues))
+
+
+class TestTypographyRulesCLI(unittest.TestCase):
+    """测试字体排印与网格系统 CLI 规范化、字阶内省、网格推导与严格质检模式"""
+
+    def test_cli_parser_defaults(self):
+        parser = build_typography_parser()
+        args = parser.parse_args([])
+        self.assertEqual(args.width, 1024)
+        self.assertEqual(args.height, 1024)
+        self.assertEqual(args.columns, 12)
+        self.assertEqual(args.ratio_name, "golden")
+        self.assertEqual(args.base_size, 16.0)
+        self.assertFalse(args.json)
+        self.assertFalse(args.strict)
+
+    def test_parse_exclusion_zones(self):
+        # 1. 空输入
+        self.assertEqual(parse_exclusion_zones(None), [])
+        self.assertEqual(parse_exclusion_zones(""), [])
+
+        # 2. 逗号分隔四元组
+        zones_csv = parse_exclusion_zones("0.45,0.08,0.55,0.22")
+        self.assertEqual(len(zones_csv), 1)
+        self.assertAlmostEqual(zones_csv[0]["x_min"], 0.45)
+        self.assertAlmostEqual(zones_csv[0]["y_min"], 0.08)
+        self.assertAlmostEqual(zones_csv[0]["x_max"], 0.55)
+        self.assertAlmostEqual(zones_csv[0]["y_max"], 0.22)
+        self.assertEqual(zones_csv[0]["type"], "face")
+
+        # 3. JSON 数组
+        json_str = '[{"x_min": 0.1, "y_min": 0.2, "x_max": 0.3, "y_max": 0.4, "type": "subject"}]'
+        zones_json = parse_exclusion_zones(json_str)
+        self.assertEqual(len(zones_json), 1)
+        self.assertAlmostEqual(zones_json[0]["x_min"], 0.1)
+
+        # 4. JSON 单个字典对象
+        dict_str = '{"x_min": 0.2, "y_min": 0.3, "x_max": 0.4, "y_max": 0.5}'
+        zones_dict = parse_exclusion_zones(dict_str)
+        self.assertEqual(len(zones_dict), 1)
+        self.assertAlmostEqual(zones_dict[0]["x_min"], 0.2)
+
+        # 5. 非法输入
+        self.assertEqual(parse_exclusion_zones("invalid,data"), [])
+
+    def test_plan_to_serializable(self):
+        plan = SmartPosterComposer.plan_layout(1024, 1024, [], "测试标题")
+        self.assertIsInstance(plan["grid"], SwissGridSystem)
+        serializable = plan_to_serializable(plan)
+        self.assertIsInstance(serializable["grid"], dict)
+        self.assertEqual(serializable["grid"]["width"], 1024)
+        dumped = json.dumps(serializable)
+        self.assertIn("title_formatted", dumped)
+
+    def test_cli_main_demo_mode(self):
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            code = typography_main([])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("Typography Engine", out)
+        self.assertIn("文案规范输出", out)
+        self.assertIn("黄金字阶层级", out)
+
+        buf_json = io.StringIO()
+        with patch("sys.stdout", buf_json):
+            code_json = typography_main(["--json"])
+        self.assertEqual(code_json, 0)
+        data = json.loads(buf_json.getvalue())
+        self.assertIn("demo_copy_formatted", data)
+        self.assertIn("demo_hierarchy", data)
+        self.assertIn("demo_plan", data)
+
+    def test_cli_main_list_ratios(self):
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            code = typography_main(["--list-ratios"])
+        self.assertEqual(code, 0)
+        self.assertIn("golden", buf.getvalue())
+        self.assertIn("perfect_fifth", buf.getvalue())
+
+        buf_json = io.StringIO()
+        with patch("sys.stdout", buf_json):
+            code_json = typography_main(["--list-ratios", "--json"])
+        self.assertEqual(code_json, 0)
+        data = json.loads(buf_json.getvalue())
+        self.assertIn("golden", data)
+        self.assertEqual(data["golden"], 1.618)
+
+    def test_cli_main_hierarchy(self):
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            code = typography_main(["--hierarchy", "--base-size", "20", "--ratio-name", "perfect_fourth"])
+        self.assertEqual(code, 0)
+        self.assertIn("perfect_fourth", buf.getvalue())
+
+        buf_json = io.StringIO()
+        with patch("sys.stdout", buf_json):
+            code_json = typography_main(["--hierarchy", "--base-size", "16", "--ratio-name", "golden", "--json"])
+        self.assertEqual(code_json, 0)
+        data = json.loads(buf_json.getvalue())
+        self.assertEqual(data["ratio_name"], "golden")
+        self.assertEqual(data["hierarchy"]["h1"], 68)
+
+    def test_cli_main_grid(self):
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            code = typography_main(["--grid", "-W", "1200", "-H", "1600", "--columns", "12"])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("瑞士 12 栏网格计算", out)
+        self.assertIn("top_banner", out)
+
+        buf_json = io.StringIO()
+        with patch("sys.stdout", buf_json):
+            code_json = typography_main(["--grid", "-W", "1200", "-H", "1600", "--json"])
+        self.assertEqual(code_json, 0)
+        data = json.loads(buf_json.getvalue())
+        self.assertEqual(data["width"], 1200)
+        self.assertEqual(data["height"], 1600)
+        self.assertIn("layout_zones", data)
+
+    def test_cli_main_format_copy(self):
+        raw = 'Agnes 2.5模型震撼发布，首创"混元矢量"排版！'
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            code = typography_main(["--format-copy", raw])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("Agnes 2.5 模型", out)
+        self.assertIn("「混元矢量」", out)
+
+        buf_json = io.StringIO()
+        with patch("sys.stdout", buf_json):
+            code_json = typography_main(["--format-copy", raw, "--json"])
+        self.assertEqual(code_json, 0)
+        data = json.loads(buf_json.getvalue())
+        self.assertIn("Agnes 2.5 模型", data["formatted"])
+        self.assertIn("「混元矢量」", data["formatted"])
+
+    def test_cli_main_theme_mode_and_sizes(self):
+        buf_mode = io.StringIO()
+        with patch("sys.stdout", buf_mode):
+            code_mode = typography_main(["--theme-mode", "ctr", "--json"])
+        self.assertEqual(code_mode, 0)
+        data_mode = json.loads(buf_mode.getvalue())
+        self.assertEqual(data_mode["theme_mode"], "压图巨字")
+
+        buf_sizes = io.StringIO()
+        with patch("sys.stdout", buf_sizes):
+            code_sizes = typography_main(["--sizes", "-W", "1080", "--json"])
+        self.assertEqual(code_sizes, 0)
+        data_sizes = json.loads(buf_sizes.getvalue())
+        self.assertIn("T1", data_sizes)
+        self.assertEqual(data_sizes["T1"]["size"], 120)
+
+    def test_cli_main_validate_copy_clean_and_strict(self):
+        # 正常文案通过
+        buf_valid = io.StringIO()
+        with patch("sys.stdout", buf_valid):
+            code_valid = typography_main([
+                "--validate-copy",
+                "-t", "山河盛宴",
+                "--en-title", "FESTIVAL",
+                "--slogan", "千里江山一日还",
+                "--strict"
+            ])
+        self.assertEqual(code_valid, 0)
+        self.assertIn("校验通过", buf_valid.getvalue())
+
+        # 违规文案：非 strict 返回 0
+        buf_issue = io.StringIO()
+        with patch("sys.stdout", buf_issue):
+            code_issue = typography_main([
+                "--validate-copy",
+                "-t", "超级长的大气海报主标题完全超出限制",
+                "--json"
+            ])
+        self.assertEqual(code_issue, 0)
+        data_issue = json.loads(buf_issue.getvalue())
+        self.assertFalse(data_issue["valid"])
+        self.assertTrue(len(data_issue["issues"]) > 0)
+
+        # 违规文案：--strict 返回 1
+        code_strict = typography_main([
+            "--validate-copy",
+            "-t", "超级长的大气海报主标题完全超出限制",
+            "--strict",
+            "-q"
+        ])
+        self.assertEqual(code_strict, 1)
+
+    def test_cli_main_plan_layout_normal_and_face_avoidance(self):
+        # 1. 经典横向排版
+        buf_mag = io.StringIO()
+        with patch("sys.stdout", buf_mag):
+            code_mag = typography_main([
+                "--plan",
+                "-t", "铜钟与蒸汽城",
+                "--subtitle", "蒸汽纪元",
+                "--en-title", "Steam & Chime",
+                "--json"
+            ])
+        self.assertEqual(code_mag, 0)
+        data_mag = json.loads(buf_mag.getvalue())
+        self.assertEqual(data_mag["layout_style"], "top_horizontal_magazine")
+        self.assertEqual(data_mag["title_formatted"], "铜钟与蒸汽城")
+
+        # 2. 面部避障双向拆字错位竖排
+        buf_split = io.StringIO()
+        with patch("sys.stdout", buf_split):
+            code_split = typography_main([
+                "--plan",
+                "-t", "苏园惊鸿",
+                "--en-title", "Suzhou Classic",
+                "--exclusion-zones", "0.45,0.08,0.55,0.22",
+                "--json"
+            ])
+        self.assertEqual(code_split, 0)
+        data_split = json.loads(buf_split.getvalue())
+        self.assertEqual(data_split["layout_style"], "bilateral_split_vertical")
+        roles = {el["role"]: el for el in data_split["elements"]}
+        self.assertIn("title_part_1", roles)
+        self.assertIn("title_part_2", roles)
+        self.assertEqual(roles["title_part_1"]["orientation"], "vertical")
+        self.assertEqual(roles["title_part_2"]["orientation"], "vertical")
+
 
 
 class TestCoverStyleResolver(unittest.TestCase):
