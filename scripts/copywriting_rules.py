@@ -147,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     from pathlib import Path
 
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     is_demo = False
     raw_text: str = ""
@@ -155,12 +155,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.file_path:
         p = Path(args.file_path)
         if not p.is_file():
-            sys.stderr.write(f"❌ 找不到文案文件: {args.file_path}\n")
+            if args.json:
+                print(json.dumps({"ok": False, "error": f"找不到文案文件: {args.file_path}"}, ensure_ascii=False))
+            elif not args.quiet:
+                sys.stderr.write(f"❌ 找不到文案文件: {args.file_path}\n")
             return 1
         try:
             raw_text = p.read_text(encoding="utf-8")
         except Exception as e:
-            sys.stderr.write(f"❌ 读取文案文件失败 {args.file_path}: {e}\n")
+            if args.json:
+                print(json.dumps({"ok": False, "error": f"读取文案文件失败 {args.file_path}: {e}"}, ensure_ascii=False))
+            elif not args.quiet:
+                sys.stderr.write(f"❌ 读取文案文件失败 {args.file_path}: {e}\n")
             return 1
     else:
         given = args.text_opt or args.text_arg
@@ -170,10 +176,33 @@ def main(argv: list[str] | None = None) -> int:
             is_demo = True
             raw_text = "东方BEAUTY的“高级感”来自10:1字阶"
 
-    issues = lint_copy(raw_text)
-    fixed = apply_fix(raw_text)
+    try:
+        issues = lint_copy(raw_text)
+        fixed = apply_fix(raw_text)
 
-    if args.check:
+        if args.check:
+            if args.json:
+                result = {
+                    "clean": len(issues) == 0,
+                    "issues": issues,
+                    "original": raw_text,
+                    "fixed": fixed,
+                }
+                if not args.quiet:
+                    print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                if not args.quiet:
+                    if not issues:
+                        print("✓ 文案排版规范检查通过，未发现格式问题。")
+                    else:
+                        print(f"⚠️ 发现 {len(issues)} 项文案排版规范问题:")
+                        for idx, issue in enumerate(issues, 1):
+                            print(f"  [{idx}] {issue}")
+            if args.strict and issues:
+                return 1
+            return 0
+
+        # 默认或 --fix 模式
         if args.json:
             result = {
                 "clean": len(issues) == 0,
@@ -185,46 +214,30 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(result, ensure_ascii=False, indent=2))
         else:
             if not args.quiet:
-                if not issues:
-                    print("✓ 文案排版规范检查通过，未发现格式问题。")
+                if is_demo and not args.out_path and not args.in_place:
+                    print("in ", raw_text)
+                    print("fix", fixed)
+                    print("lint", issues)
                 else:
-                    print(f"⚠️ 发现 {len(issues)} 项文案排版规范问题:")
-                    for idx, issue in enumerate(issues, 1):
-                        print(f"  [{idx}] {issue}")
+                    print(fixed)
+
+        if args.out_path:
+            out_p = Path(args.out_path)
+            out_p.parent.mkdir(parents=True, exist_ok=True)
+            out_p.write_text(fixed, encoding="utf-8")
+
+        if args.in_place and args.file_path:
+            Path(args.file_path).write_text(fixed, encoding="utf-8")
+
         if args.strict and issues:
             return 1
         return 0
-
-    # 默认或 --fix 模式
-    if args.json:
-        result = {
-            "clean": len(issues) == 0,
-            "issues": issues,
-            "original": raw_text,
-            "fixed": fixed,
-        }
-        if not args.quiet:
-            print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        if not args.quiet:
-            if is_demo and not args.out_path and not args.in_place:
-                print("in ", raw_text)
-                print("fix", fixed)
-                print("lint", issues)
-            else:
-                print(fixed)
-
-    if args.out_path:
-        out_p = Path(args.out_path)
-        out_p.parent.mkdir(parents=True, exist_ok=True)
-        out_p.write_text(fixed, encoding="utf-8")
-
-    if args.in_place and args.file_path:
-        Path(args.file_path).write_text(fixed, encoding="utf-8")
-
-    if args.strict and issues:
+    except Exception as e:
+        if args.json:
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+        elif not args.quiet:
+            sys.stderr.write(f"❌ 文案排版处理异常: {e}\n")
         return 1
-    return 0
 
 
 if __name__ == "__main__":

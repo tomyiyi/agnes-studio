@@ -669,6 +669,52 @@ class TestCopywritingRules(unittest.TestCase):
             code = copy_rules_main(["-f", "/tmp/path/to/nonexistent_copywriting_file.txt"])
         self.assertEqual(code, 1)
 
+    def test_cli_main_file_error_quiet_mode(self):
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with redirect_stderr(err_buf), redirect_stdout(out_buf):
+            code = copy_rules_main(["-f", "/tmp/path/to/nonexistent_copywriting_file.txt", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(err_buf.getvalue(), "")
+        self.assertEqual(out_buf.getvalue(), "")
+
+    def test_cli_main_file_error_json_output(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = copy_rules_main(["-f", "/tmp/path/to/nonexistent_copywriting_file.txt", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data["ok"])
+        self.assertIn("error", data)
+
+    def test_cli_main_exception_stderr_output(self):
+        err_buf = io.StringIO()
+        with patch("copywriting_rules.lint_copy", side_effect=RuntimeError("Lint crash")), \
+             redirect_stderr(err_buf):
+            code = copy_rules_main(["Agnes 测试文案"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 文案排版处理异常: Lint crash", err_buf.getvalue())
+
+    def test_cli_main_exception_quiet_mode(self):
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("copywriting_rules.lint_copy", side_effect=RuntimeError("Silent crash")), \
+             redirect_stderr(err_buf), redirect_stdout(out_buf):
+            code = copy_rules_main(["Agnes 测试文案", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(err_buf.getvalue(), "")
+        self.assertEqual(out_buf.getvalue(), "")
+
+    def test_cli_main_exception_json_output(self):
+        buf = io.StringIO()
+        with patch("copywriting_rules.lint_copy", side_effect=RuntimeError("JSON crash")), \
+             redirect_stdout(buf):
+            code = copy_rules_main(["Agnes 测试文案", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["error"], "JSON crash")
+
 
 class TestChineseTypographyRules(unittest.TestCase):
     """测试海报级中文排印与标点挤压规则"""
