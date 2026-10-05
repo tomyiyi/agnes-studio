@@ -299,50 +299,50 @@ def main(argv: list[str] | None = None) -> int:
 
     quiet = args.quiet or args.json
 
-    if args.list_styles:
-        styles = list_font_styles()
-        colors = list_theme_colors()
-        if args.json:
-            print(json.dumps({
-                "font_styles": styles,
-                "theme_colors": colors,
-            }, ensure_ascii=False, indent=2))
-        elif not args.quiet:
-            print("Agnes Studio · 支持字体风格清单:")
-            for s in styles:
-                print(f"  [{s['key']:<8}] {s['name']:<8} ({s['font_file']:<26}) | {s['description']}")
-            print("Agnes Studio · 支持配色主题清单:")
-            for c in colors:
-                print(f"  [{c['key']:<12}] {c['name']:<8} | {c['description']}")
-        return 0
-
-    # 确定输入背景底图
-    target_bg = None
-    if args.bg:
-        p = Path(args.bg).resolve()
-        if p.is_file():
-            target_bg = p
-    else:
-        default_candidate = Path(ASSETS_DIR) / "agnes_1790006749_b2b755da.png"
-        if default_candidate.is_file():
-            target_bg = default_candidate
-        else:
-            candidates = sorted(list(Path(ASSETS_DIR).glob("*.png")))
-            if candidates:
-                target_bg = candidates[0]
-
-    if not target_bg or not target_bg.is_file():
-        err_msg = f"找不到可用背景底图: {args.bg or ASSETS_DIR}"
-        if args.json:
-            print(json.dumps({"ok": False, "error": err_msg}, ensure_ascii=False))
-        elif not args.quiet:
-            print(f"❌ {err_msg}")
-        return 1
-
-    styles_to_render = ["wenkai", "smiley", "songti"] if args.all_styles else [args.font_style]
-    results: list[dict[str, Any]] = []
-
     try:
+        if args.list_styles:
+            styles = list_font_styles()
+            colors = list_theme_colors()
+            if args.json:
+                print(json.dumps({
+                    "font_styles": styles,
+                    "theme_colors": colors,
+                }, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio · 支持字体风格清单:")
+                for s in styles:
+                    print(f"  [{s['key']:<8}] {s['name']:<8} ({s['font_file']:<26}) | {s['description']}")
+                print("Agnes Studio · 支持配色主题清单:")
+                for c in colors:
+                    print(f"  [{c['key']:<12}] {c['name']:<8} | {c['description']}")
+            return 0
+
+        # 确定输入背景底图
+        target_bg = None
+        if args.bg:
+            p = Path(args.bg).resolve()
+            if p.is_file():
+                target_bg = p
+        else:
+            default_candidate = Path(ASSETS_DIR) / "agnes_1790006749_b2b755da.png"
+            if default_candidate.is_file():
+                target_bg = default_candidate
+            else:
+                candidates = sorted(list(Path(ASSETS_DIR).glob("*.png")))
+                if candidates:
+                    target_bg = candidates[0]
+
+        if not target_bg or not target_bg.is_file():
+            err_msg = f"找不到可用背景底图: {args.bg or ASSETS_DIR}"
+            if args.json:
+                print(json.dumps({"ok": False, "error": err_msg}, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print(f"❌ {err_msg}", file=sys.stderr)
+            return 1
+
+        styles_to_render = ["wenkai", "smiley", "songti"] if args.all_styles else [args.font_style]
+        results: list[dict[str, Any]] = []
+
         for style in styles_to_render:
             if args.out:
                 out_path = Path(args.out)
@@ -382,9 +382,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     except Exception as e:
         if args.json:
-            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+            print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False, indent=2))
         elif not args.quiet:
-            print(f"❌ 商业海报渲染失败: {e}")
+            print(f"❌ 商业海报渲染失败: {e}", file=sys.stderr)
         return 1
 
 

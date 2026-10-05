@@ -3073,6 +3073,48 @@ class TestPosterComposer(unittest.TestCase):
         self.assertIn("error", data)
         self.assertIn("simulated render failure", data["error"])
 
+    @patch("poster_composer.compose_commercial_poster", side_effect=RuntimeError("Poster disk render error"))
+    def test_main_cli_exception_stderr_output(self, mock_render):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = poster_composer_main([
+                "--bg", str(self.dummy_bg),
+                "--out", str(self.tmp_path / "out.png"),
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 商业海报渲染失败: Poster disk render error", buf.getvalue())
+
+    @patch("poster_composer.compose_commercial_poster", side_effect=RuntimeError("Poster quiet render error"))
+    def test_main_cli_exception_quiet_mode(self, mock_render):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            code = poster_composer_main([
+                "--bg", str(self.dummy_bg),
+                "--out", str(self.tmp_path / "out.png"),
+                "-q",
+            ])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
+    def test_main_cli_missing_bg_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        missing_bg = self.tmp_path / "non_existent_poster_bg.png"
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            code = poster_composer_main([
+                "--bg", str(missing_bg),
+                "--out", str(self.tmp_path / "out.png"),
+            ])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 找不到可用背景底图", buf.getvalue())
+
 
 class TestExpertPosterDesigner(unittest.TestCase):
     """测试专家级动态海报排版引擎 (Expert Dynamic Poster Designer)"""
