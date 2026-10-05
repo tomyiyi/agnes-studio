@@ -11529,6 +11529,37 @@ class TestBatchLayoutVariants(unittest.TestCase):
             self.assertEqual(err_buf.getvalue(), "")
             self.assertEqual(out_buf.getvalue(), "")
 
+    def test_cli_list_exception_json_output(self):
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("batch_layout_variants.get_layout_variants_catalog", side_effect=RuntimeError("Catalog corrupt")):
+            with redirect_stdout(buf):
+                code = batch_layout_variants.main(["--list", "--json"])
+            self.assertEqual(code, 1)
+            data = json.loads(buf.getvalue())
+            self.assertFalse(data["ok"])
+            self.assertEqual(data["error"], "Catalog corrupt")
+
+    def test_cli_list_exception_stderr_output(self):
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("batch_layout_variants.get_layout_variants_catalog", side_effect=RuntimeError("Catalog corrupt")):
+            with redirect_stderr(buf):
+                code = batch_layout_variants.main(["--list"])
+            self.assertEqual(code, 1)
+            self.assertIn("❌ 12 款经典构图版式批量生成失败: Catalog corrupt", buf.getvalue())
+
+    def test_cli_list_exception_quiet_mode(self):
+        from contextlib import redirect_stderr, redirect_stdout
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("batch_layout_variants.get_layout_variants_catalog", side_effect=RuntimeError("Catalog corrupt")):
+            with redirect_stderr(err_buf), redirect_stdout(out_buf):
+                code = batch_layout_variants.main(["--list", "--quiet"])
+            self.assertEqual(code, 1)
+            self.assertEqual(err_buf.getvalue(), "")
+            self.assertEqual(out_buf.getvalue(), "")
+
 
 class TestBatchTypeBehind(unittest.TestCase):
     """测试「字在人后」(Type Behind Person) 时尚海报批量生成引擎"""

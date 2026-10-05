@@ -538,26 +538,26 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """命令行主执行入口。"""
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
-
-    if args.list:
-        catalog = get_layout_variants_catalog()
-        if args.json:
-            print(json.dumps(catalog, ensure_ascii=False, indent=2))
-        elif not args.quiet:
-            print("Agnes Studio · 12 款经典构图版式清单:")
-            for item in catalog:
-                print(f"  [{item['index']:02d}] {item['stem']:<20} | {item['word']:<8} | {item['name']}")
-        return 0
-
-    stems_list = None
-    if args.stems:
-        stems_list = [x.strip() for x in args.stems.split(",") if x.strip()]
-
-    # 在 --json 模式下自动静默内部打印，避免污染标准输出
-    quiet = args.quiet or args.json
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     try:
+        if args.list:
+            catalog = get_layout_variants_catalog()
+            if args.json:
+                print(json.dumps(catalog, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio · 12 款经典构图版式清单:")
+                for item in catalog:
+                    print(f"  [{item['index']:02d}] {item['stem']:<20} | {item['word']:<8} | {item['name']}")
+            return 0
+
+        stems_list = None
+        if args.stems:
+            stems_list = [x.strip() for x in args.stems.split(",") if x.strip()]
+
+        # 在 --json 模式下自动静默内部打印，避免污染标准输出
+        quiet = args.quiet or args.json
+
         report = run_batch_layout_variants(
             out_dir=args.out,
             stems=stems_list,
@@ -583,10 +583,10 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return 0
     except Exception as e:
-        if not args.quiet and not args.json:
-            print(f"❌ 12 款经典构图版式批量生成失败: {e}", file=sys.stderr)
-        elif args.json:
+        if args.json:
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+        elif not args.quiet:
+            print(f"❌ 12 款经典构图版式批量生成失败: {e}", file=sys.stderr)
         return 1
 
 
