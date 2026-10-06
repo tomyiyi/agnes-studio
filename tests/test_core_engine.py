@@ -9652,6 +9652,40 @@ class TestRenderTitleDesign(unittest.TestCase):
         self.assertIn("error", err)
         self.assertIn("Simulated title design JSON crash", err["error"])
 
+    def test_cli_list_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("render_title_design.list_title_design_styles", side_effect=RuntimeError("Title design styles index corrupted")):
+            with redirect_stdout(buf):
+                code = title_design_main(["--list", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertEqual(data.get("error"), "Title design styles index corrupted")
+
+    def test_cli_list_exception_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("render_title_design.list_title_design_styles", side_effect=RuntimeError("Title design styles index corrupted")):
+            with redirect_stderr(buf):
+                code = title_design_main(["--list"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 标题字设计海报渲染失败: Title design styles index corrupted", buf.getvalue())
+
+    def test_cli_list_exception_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with patch("render_title_design.list_title_design_styles", side_effect=RuntimeError("Title design styles index corrupted")):
+            with redirect_stdout(out_buf), redirect_stderr(err_buf):
+                code = title_design_main(["--list", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
 
 class TestRenderTitleRefined(unittest.TestCase):
     """测试高级中文海报标题字设（Refined Title Typography）渲染器 render_title_refined 及其 5 大设计范式"""
