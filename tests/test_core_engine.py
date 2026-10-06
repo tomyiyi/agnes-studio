@@ -8878,6 +8878,40 @@ class TestRenderLayoutPoster(unittest.TestCase):
         self.assertIn("error", err)
         self.assertIn("Simulated layout JSON crash", err["error"])
 
+    def test_cli_list_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("render_layout_poster.list_layout_poster_styles", side_effect=RuntimeError("Layout styles index corrupted")):
+            with redirect_stdout(buf):
+                code = layout_poster_main(["--list", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertEqual(data.get("error"), "Layout styles index corrupted")
+
+    def test_cli_list_exception_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("render_layout_poster.list_layout_poster_styles", side_effect=RuntimeError("Layout styles index corrupted")):
+            with redirect_stderr(buf):
+                code = layout_poster_main(["--list"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 设计排版海报渲染失败: Layout styles index corrupted", buf.getvalue())
+
+    def test_cli_list_exception_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with patch("render_layout_poster.list_layout_poster_styles", side_effect=RuntimeError("Layout styles index corrupted")):
+            with redirect_stdout(out_buf), redirect_stderr(err_buf):
+                code = layout_poster_main(["--list", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
 
 class TestRenderTitleDesign(unittest.TestCase):
     """测试海报标题字设计（Title Lettering Design）渲染器 render_title_design 及其 6 大设计范式"""

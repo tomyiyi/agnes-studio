@@ -662,11 +662,12 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.list:
+            styles = list_layout_poster_styles()
             if args.json:
-                print(json.dumps(list_layout_poster_styles(), ensure_ascii=False, indent=2))
+                print(json.dumps(styles, ensure_ascii=False, indent=2))
             elif not args.quiet:
                 print("Agnes Studio 可用设计排版风格预设:")
-                for s in list_layout_poster_styles():
+                for s in styles:
                     print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
             return 0
 
