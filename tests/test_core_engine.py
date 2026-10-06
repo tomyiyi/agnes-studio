@@ -6821,7 +6821,6 @@ class TestRenderCinemaPoster(unittest.TestCase):
             code = cinema_poster_main([
                 "--style", "bottom",
                 "--src", str(sample_img),
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertIn("❌ 电影级海报渲染失败: Simulated cinema render crash", buf.getvalue())
@@ -6839,7 +6838,6 @@ class TestRenderCinemaPoster(unittest.TestCase):
                 "--style", "bottom",
                 "--src", str(sample_img),
                 "-q",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         self.assertEqual(out_buf.getvalue(), "")
@@ -6871,7 +6869,6 @@ class TestRenderCinemaPoster(unittest.TestCase):
                 "--style", "bottom",
                 "--src", str(sample_img),
                 "--json",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         err = json.loads(buf.getvalue())
