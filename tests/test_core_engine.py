@@ -39,6 +39,7 @@ from copywriting_rules import (
     normalize_punctuation,
     main as copy_rules_main,
     build_arg_parser as build_copy_rules_parser,
+    list_rules as copy_rules_list_rules,
 )
 from typography_rules import (
     ChineseTypographyRules,
@@ -714,6 +715,67 @@ class TestCopywritingRules(unittest.TestCase):
         data = json.loads(buf.getvalue().strip())
         self.assertFalse(data["ok"])
         self.assertEqual(data["error"], "JSON crash")
+
+    def test_list_rules(self):
+        rules = copy_rules_list_rules()
+        self.assertIsInstance(rules, list)
+        self.assertGreaterEqual(len(rules), 3)
+        for r in rules:
+            self.assertIn("id", r)
+            self.assertIn("name", r)
+            self.assertIn("scope", r)
+            self.assertIn("description", r)
+
+    def test_cli_list_rules_plain(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = copy_rules_main(["--list-rules"])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("Agnes Studio · 中文文案排版规范规则清单:", out)
+        self.assertIn("pangu-spacing", out)
+        self.assertIn("corner-quotes", out)
+        self.assertIn("cjk-punctuation", out)
+
+    def test_cli_list_rules_json(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = copy_rules_main(["--list-rules", "--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue().strip())
+        self.assertIsInstance(data, list)
+        ids = [item["id"] for item in data]
+        self.assertIn("pangu-spacing", ids)
+        self.assertIn("corner-quotes", ids)
+        self.assertIn("cjk-punctuation", ids)
+
+    def test_cli_list_rules_exception_stderr_output(self):
+        err_buf = io.StringIO()
+        with patch("copywriting_rules.list_rules", side_effect=RuntimeError("Rules registry unavailable")), \
+             redirect_stderr(err_buf):
+            code = copy_rules_main(["--list-rules"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 查询文案排版规则清单失败: Rules registry unavailable", err_buf.getvalue())
+
+    def test_cli_list_rules_exception_quiet_mode(self):
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("copywriting_rules.list_rules", side_effect=RuntimeError("Rules registry unavailable")), \
+             redirect_stderr(err_buf), redirect_stdout(out_buf):
+            code = copy_rules_main(["--list-rules", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(err_buf.getvalue(), "")
+        self.assertEqual(out_buf.getvalue(), "")
+
+    def test_cli_list_rules_exception_json_output(self):
+        buf = io.StringIO()
+        with patch("copywriting_rules.list_rules", side_effect=RuntimeError("Rules registry unavailable")), \
+             redirect_stdout(buf):
+            code = copy_rules_main(["--list-rules", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["error"], "Rules registry unavailable")
 
 
 class TestChineseTypographyRules(unittest.TestCase):

@@ -79,6 +79,30 @@ def lint_copy(text: str) -> list[str]:
     return issues
 
 
+def list_rules() -> list[dict[str, str]]:
+    """返回中文文案排版规范规则清单。"""
+    return [
+        {
+            "id": "pangu-spacing",
+            "name": "盘古之白",
+            "scope": "中西文混排",
+            "description": "汉字与英文、数字及常用半角符号之间自动补空 (0.25em)",
+        },
+        {
+            "id": "corner-quotes",
+            "name": "直角引号",
+            "scope": "引号规范",
+            "description": "统一使用直角引号「」与『』，杜绝弯引号“ ”‘ ’",
+        },
+        {
+            "id": "cjk-punctuation",
+            "name": "全角标点",
+            "scope": "标点规范",
+            "description": "汉语句内半角标点 (!?,;:()) 自动规范化为全角标点",
+        },
+    ]
+
+
 def build_arg_parser():
     import argparse
     parser = argparse.ArgumentParser(
@@ -101,6 +125,11 @@ def build_arg_parser():
         dest="file_path",
         default=None,
         help="文案文本文件路径",
+    )
+    parser.add_argument(
+        "--list-rules",
+        action="store_true",
+        help="列出中文文案排版规范规则清单并退出",
     )
     parser.add_argument(
         "-c", "--check",
@@ -148,6 +177,24 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = build_arg_parser()
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
+
+    if args.list_rules:
+        try:
+            rules = list_rules()
+            if args.json:
+                print(json.dumps(rules, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio · 中文文案排版规范规则清单:")
+                for r in rules:
+                    print(f"  [{r['id']:<16}] {r['name']:<8} | 范畴: {r['scope']:<8} | 说明: {r['description']}")
+                print(f"总计: {len(rules)} 项规范")
+            return 0
+        except Exception as e:
+            if args.json:
+                print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+            elif not args.quiet:
+                sys.stderr.write(f"❌ 查询文案排版规则清单失败: {e}\n")
+            return 1
 
     is_demo = False
     raw_text: str = ""
@@ -236,7 +283,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.json:
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
         elif not args.quiet:
-            sys.stderr.write(f"❌ 文案排版处理异常: {e}\n")
+            if getattr(args, "list_rules", False):
+                sys.stderr.write(f"❌ 查询文案排版规则清单失败: {e}\n")
+            else:
+                sys.stderr.write(f"❌ 文案排版处理异常: {e}\n")
         return 1
 
 
