@@ -7199,7 +7199,7 @@ class TestRenderCinemaPoster(unittest.TestCase):
             with redirect_stderr(buf):
                 code = cinema_poster_main(["--list"])
         self.assertEqual(code, 1)
-        self.assertIn("❌ 电影级海报渲染失败: Cinema styles index corrupted", buf.getvalue())
+        self.assertIn("❌ 查询电影级海报风格预设失败: Cinema styles index corrupted", buf.getvalue())
 
     def test_cli_list_exception_quiet_mode(self):
         import io
