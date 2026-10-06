@@ -603,7 +603,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.json:
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
         elif not args.quiet:
-            print(f"❌ 批量字在人后 v154-v159 渲染失败: {e}", file=sys.stderr)
+            if getattr(args, "list_experiments", False):
+                print(f"❌ 查询字在人后实验矩阵清单失败: {e}", file=sys.stderr)
+            else:
+                print(f"❌ 批量字在人后 v154-v159 渲染失败: {e}", file=sys.stderr)
         return 1
 
 

@@ -13146,7 +13146,7 @@ class TestBatchTypeBehindV154(unittest.TestCase):
             with redirect_stderr(buf):
                 code = batch_type_behind_v154.main(["--list-experiments"])
             self.assertEqual(code, 1)
-            self.assertIn("❌ 批量字在人后 v154-v159 渲染失败: Experiments corrupted", buf.getvalue())
+            self.assertIn("❌ 查询字在人后实验矩阵清单失败: Experiments corrupted", buf.getvalue())
 
     def test_cli_list_experiments_exception_quiet_mode(self):
         from contextlib import redirect_stderr, redirect_stdout
