@@ -11074,6 +11074,40 @@ class TestRenderVariantsVerify(unittest.TestCase):
         self.assertIn("error", err)
         self.assertIn("Simulated variant JSON crash", err["error"])
 
+    def test_cli_list_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("render_variants_verify.list_variants", side_effect=RuntimeError("Variants index corrupted")):
+            with redirect_stdout(buf):
+                code = verify_variants_main(["--list", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertEqual(data.get("error"), "Variants index corrupted")
+
+    def test_cli_list_exception_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("render_variants_verify.list_variants", side_effect=RuntimeError("Variants index corrupted")):
+            with redirect_stderr(buf):
+                code = verify_variants_main(["--list"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 版式变体海报渲染失败: Variants index corrupted", buf.getvalue())
+
+    def test_cli_list_exception_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with patch("render_variants_verify.list_variants", side_effect=RuntimeError("Variants index corrupted")):
+            with redirect_stdout(out_buf), redirect_stderr(err_buf):
+                code = verify_variants_main(["--list", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
 
 class TestBatchLayoutCn789(unittest.TestCase):
     """测试 7/8/9 版式精修与中文排版渲染器 batch_layout_cn_789"""

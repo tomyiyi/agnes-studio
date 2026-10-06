@@ -685,11 +685,12 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.list:
+            variants = list_variants()
             if args.json:
-                print(json.dumps(list_variants(), ensure_ascii=False, indent=2))
+                print(json.dumps(variants, ensure_ascii=False, indent=2))
             elif not args.quiet:
                 print("Agnes Studio 可用版式变体预设清单:")
-                for s in list_variants():
+                for s in variants:
                     print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
             return 0
 
