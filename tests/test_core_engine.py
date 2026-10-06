@@ -9952,7 +9952,6 @@ class TestRenderTitleRefined(unittest.TestCase):
                 "--style", "r1_oriental_center",
                 "--src", str(sample_img),
                 "--json",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         err = json.loads(buf.getvalue())
