@@ -10727,7 +10727,6 @@ class TestRenderVariantsVerify(unittest.TestCase):
                 "--variant", "v1",
                 "--src", str(sample_img),
                 "--json",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         err = json.loads(buf.getvalue())
