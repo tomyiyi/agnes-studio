@@ -9,6 +9,7 @@ import os
 import sys
 import shutil
 from pathlib import Path
+from typing import Optional
 
 # 项目根目录自动定位 (基于当前文件上一层级)
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -23,8 +24,12 @@ ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 FONTS_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-def resolve_chrome_path() -> str:
-    """自动探测不同操作系统下的真实 Chrome / Chromium 执行路径"""
+def resolve_chrome_path() -> Optional[str]:
+    """自动探测不同操作系统下的真实 Chrome / Chromium 执行路径。
+
+    找不到任何系统 Chrome/Chromium 时返回 None；调用方此时不要再传
+    executable_path，让 playwright 回退使用自带 Chromium。
+    """
     # 优先使用环境变量指定
     custom_path = os.environ.get("CHROME_PATH") or os.environ.get("PUPPETEER_EXECUTABLE_PATH")
     if custom_path and os.path.exists(custom_path):
@@ -68,10 +73,12 @@ def resolve_chrome_path() -> str:
             if os.path.exists(c):
                 return c
                 
-    return "chromium"
+    # 无系统 Chrome/Chromium：返回 None，调用方改用 playwright 自带 Chromium
+    return None
 
 if __name__ == "__main__":
     print(f"Project Root: {PROJECT_ROOT}")
     print(f"Assets Dir:   {ASSETS_DIR}")
     print(f"Fonts Dir:    {FONTS_DIR}")
-    print(f"Detected Chrome: {resolve_chrome_path()}")
+    _chrome = resolve_chrome_path()
+    print("Detected Chrome: " + (_chrome if _chrome else "(未找到系统 Chrome，将使用 playwright 自带 Chromium)"))

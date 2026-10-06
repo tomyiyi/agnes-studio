@@ -44,7 +44,7 @@ def run_tests():
     print("\n[Test 1/7] 探测跨平台 Chromium 执行路径...")
     chrome_path = resolve_chrome_path()
     print(f"  ✓ 探测到 Chrome 执行文件: {chrome_path}")
-    assert os.path.exists(chrome_path), f"Chrome 路径不存在: {chrome_path}"
+    assert chrome_path and os.path.exists(chrome_path), f"Chrome 路径不存在: {chrome_path}"
 
     # 2. 网关配置与连通性
     print("\n[Test 2/7] 校验 New API 凭证与网关探活...")
