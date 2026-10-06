@@ -3042,7 +3042,7 @@ class TestFilmCoverEngine(unittest.TestCase):
             with redirect_stderr(buf):
                 code = film_cover_main(["--list"])
         self.assertEqual(code, 1)
-        self.assertIn("❌ 电影感封面排版失败: Film styles index corrupted", buf.getvalue())
+        self.assertIn("❌ 查询电影感封面版式预设失败: Film styles index corrupted", buf.getvalue())
 
     def test_cli_list_exception_quiet_mode(self):
         import io

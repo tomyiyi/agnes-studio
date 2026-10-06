@@ -654,7 +654,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.json:
             print(json.dumps({"ok": False, "error": str(e)}, indent=2, ensure_ascii=False))
         elif not args.quiet:
-            print(f"❌ 电影感封面排版失败: {e}", file=sys.stderr)
+            if getattr(args, "list", False):
+                print(f"❌ 查询电影感封面版式预设失败: {e}", file=sys.stderr)
+            else:
+                print(f"❌ 电影感封面排版失败: {e}", file=sys.stderr)
         return 1
 
 
