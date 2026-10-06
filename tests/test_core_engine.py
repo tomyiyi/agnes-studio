@@ -3767,7 +3767,7 @@ class TestExpertPosterDesigner(unittest.TestCase):
             with redirect_stderr(buf):
                 code = expert_designer_main(["--list-modes"])
         self.assertEqual(code, 1)
-        self.assertIn("❌ 专家级排版异常: Modes index corrupted", buf.getvalue())
+        self.assertIn("❌ 查询专家级排版模式清单失败: Modes index corrupted", buf.getvalue())
 
     def test_cli_list_modes_exception_quiet_mode(self):
         import io

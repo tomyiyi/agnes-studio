@@ -477,7 +477,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.json:
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False, indent=2))
         elif not args.quiet:
-            print(f"❌ 专家级排版异常: {e}", file=sys.stderr)
+            if getattr(args, "list_modes", False):
+                print(f"❌ 查询专家级排版模式清单失败: {e}", file=sys.stderr)
+            else:
+                print(f"❌ 专家级排版异常: {e}", file=sys.stderr)
         return 1
 
 
