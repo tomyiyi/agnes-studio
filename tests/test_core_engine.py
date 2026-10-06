@@ -10265,6 +10265,40 @@ class TestRenderTitleRefined(unittest.TestCase):
         self.assertIn("error", err)
         self.assertIn("Simulated refined title JSON crash", err["error"])
 
+    def test_cli_list_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("render_title_refined.list_refined_title_styles", side_effect=RuntimeError("Refined title styles index corrupted")):
+            with redirect_stdout(buf):
+                code = refined_title_main(["--list", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertEqual(data.get("error"), "Refined title styles index corrupted")
+
+    def test_cli_list_exception_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("render_title_refined.list_refined_title_styles", side_effect=RuntimeError("Refined title styles index corrupted")):
+            with redirect_stderr(buf):
+                code = refined_title_main(["--list"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 高级字设海报渲染失败: Refined title styles index corrupted", buf.getvalue())
+
+    def test_cli_list_exception_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with patch("render_title_refined.list_refined_title_styles", side_effect=RuntimeError("Refined title styles index corrupted")):
+            with redirect_stdout(out_buf), redirect_stderr(err_buf):
+                code = refined_title_main(["--list", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
 
 class TestRenderVariantsVerify(unittest.TestCase):
     """测试全量版式变体渲染器 render_variants_verify 及其 8 大版式构图与安全防御"""
