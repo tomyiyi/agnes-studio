@@ -3308,6 +3308,40 @@ class TestPosterComposer(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("❌ 找不到可用背景底图", buf.getvalue())
 
+    def test_cli_list_styles_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("poster_composer.list_font_styles", side_effect=RuntimeError("Font styles index corrupted")):
+            with redirect_stdout(buf):
+                code = poster_composer_main(["--list-styles", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertEqual(data.get("error"), "Font styles index corrupted")
+
+    def test_cli_list_styles_exception_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("poster_composer.list_font_styles", side_effect=RuntimeError("Font styles index corrupted")):
+            with redirect_stderr(buf):
+                code = poster_composer_main(["--list-styles"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 商业海报渲染失败: Font styles index corrupted", buf.getvalue())
+
+    def test_cli_list_styles_exception_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with patch("poster_composer.list_font_styles", side_effect=RuntimeError("Font styles index corrupted")):
+            with redirect_stdout(out_buf), redirect_stderr(err_buf):
+                code = poster_composer_main(["--list-styles", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
 
 class TestExpertPosterDesigner(unittest.TestCase):
     """测试专家级动态海报排版引擎 (Expert Dynamic Poster Designer)"""
