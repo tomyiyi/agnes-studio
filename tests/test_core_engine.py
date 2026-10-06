@@ -1416,6 +1416,42 @@ class TestCoverStyleResolver(unittest.TestCase):
         self.assertEqual(err_buf.getvalue(), "")
         self.assertEqual(out_buf.getvalue(), "")
 
+    def test_cover_style_cli_list_exception_stderr_output(self):
+        err_buf = io.StringIO()
+        with patch("cover_style.list_catalog_options", side_effect=RuntimeError("Catalog options corrupted")), \
+             redirect_stderr(err_buf):
+            code = cover_style_main(["--list"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 查询封面样式目录预设选项失败: Catalog options corrupted", err_buf.getvalue())
+
+    def test_cover_style_cli_list_exception_quiet_mode(self):
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("cover_style.list_catalog_options", side_effect=RuntimeError("Catalog options corrupted")), \
+             redirect_stderr(err_buf), redirect_stdout(out_buf):
+            code = cover_style_main(["--list", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(err_buf.getvalue(), "")
+        self.assertEqual(out_buf.getvalue(), "")
+
+    def test_cover_style_cli_list_skills_exception_stderr_output(self):
+        err_buf = io.StringIO()
+        with patch("cover_style.list_skill_styles", side_effect=RuntimeError("Skill styles corrupted")), \
+             redirect_stderr(err_buf):
+            code = cover_style_main(["--list-skills"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 查询封面 Skill 样式映射失败: Skill styles corrupted", err_buf.getvalue())
+
+    def test_cover_style_cli_list_skills_exception_quiet_mode(self):
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("cover_style.list_skill_styles", side_effect=RuntimeError("Skill styles corrupted")), \
+             redirect_stderr(err_buf), redirect_stdout(out_buf):
+            code = cover_style_main(["--list-skills", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(err_buf.getvalue(), "")
+        self.assertEqual(out_buf.getvalue(), "")
+
 
 class TestSafeZoneAnalyzer(unittest.TestCase):
     """测试多模态空间方差与负空间避障探测器"""

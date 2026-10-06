@@ -338,7 +338,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     except Exception as e:
         if not args.quiet:
-            sys.stderr.write(f"❌ 封面样式推导异常: {e}\n")
+            if getattr(args, "list", False):
+                sys.stderr.write(f"❌ 查询封面样式目录预设选项失败: {e}\n")
+            elif getattr(args, "list_skills", False):
+                sys.stderr.write(f"❌ 查询封面 Skill 样式映射失败: {e}\n")
+            else:
+                sys.stderr.write(f"❌ 封面样式推导异常: {e}\n")
         return 1
 
 
