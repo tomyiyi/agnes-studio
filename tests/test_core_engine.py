@@ -8371,7 +8371,7 @@ class TestRenderCnTypePoster(unittest.TestCase):
             with redirect_stderr(buf):
                 code = cn_type_poster_main(["--list"])
         self.assertEqual(code, 1)
-        self.assertIn("❌ 纪念碑式海报渲染失败: CN type styles index corrupted", buf.getvalue())
+        self.assertIn("❌ 查询纪念碑字排风格预设失败: CN type styles index corrupted", buf.getvalue())
 
     def test_cli_list_exception_quiet_mode(self):
         import io
