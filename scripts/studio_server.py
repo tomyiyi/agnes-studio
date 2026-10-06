@@ -251,7 +251,7 @@ class StudioHTTPRequestHandler(SimpleHTTPRequestHandler):
         # 2. 调用 Agnes 生成留白底图
         if self.path == "/api/generate-image":
             local_cfg = get_local_newapi_config()
-            default_base = local_cfg.get("base_url", "http://192.168.1.164:3000/v1") if local_cfg.get("detected") else "http://192.168.1.164:3000/v1"
+            default_base = local_cfg.get("base_url", "http://127.0.0.1:3000/v1") if local_cfg.get("detected") else "http://127.0.0.1:3000/v1"
             base_url = (req_body.get("base_url") or default_base).strip().rstrip("/")
             api_key = req_body.get("api_key", "").strip() or local_cfg.get("api_key", "")
             model = req_body.get("model", "agnes-image-2.5-flash").strip()
