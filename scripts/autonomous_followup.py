@@ -5,7 +5,7 @@ Agnes Studio - 24/7 自主跟进守护与晨报生成器 (Autonomous Follow-up &
 ==================================================================================
 持续跟进至早上 8:00：
 1. 循环探测 GitHub 远程 MacBook Pro M5 最新提交并安全同步；
-2. 守护端口 8088 (studio_server.py) 与宿主机 New API (192.168.1.164:3000) 状态，异常自动拉起自愈；
+2. 守护端口 8088 (studio_server.py) 与本地 New API 网关 (默认 127.0.0.1:3000，可经 AGNES_GATEWAY_HOST/AGNES_GATEWAY_PORT 覆盖) 状态，异常自动拉起自愈；
 3. 周期性驱动批量商业海报生成、Playwright 光栅化与 Gemini 2.5 视觉质检；
 4. 准点于早上 8:00 汇总全夜巡检与演进成果，自动撰写并交付《晨报》。
 """
@@ -25,6 +25,15 @@ LOG_FILE = DIR / "logs" / "followup.log"
 INBOX_FILE = Path.home() / ".omarchy-evolution" / "inbox" / "events.ndjson"
 REPORTS_DIR = DIR / "docs" / "reports"
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+# 网络端点配置（P1-4 风格）：默认本机 127.0.0.1，环境变量可覆盖
+#   AGNES_GATEWAY_HOST / AGNES_GATEWAY_PORT  本地 New API 网关
+#   HTTP_PROXY / HTTPS_PROXY                  git 同步使用的代理
+GATEWAY_HOST = os.environ.get("AGNES_GATEWAY_HOST", "127.0.0.1")
+GATEWAY_PORT = os.environ.get("AGNES_GATEWAY_PORT", "3000")
+GATEWAY_URL = f"http://{GATEWAY_HOST}:{GATEWAY_PORT}"
+GIT_PROXY = os.environ.get("HTTP_PROXY", "http://127.0.0.1:7897")
+GIT_PROXY_HTTPS = os.environ.get("HTTPS_PROXY", GIT_PROXY)
 
 def log(msg, kind="INFO"):
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -57,8 +66,8 @@ def check_and_sync_git():
         # 使用物理机 Clash Verge 代理加速访问 GitHub
         cmd_fetch = [
             "git",
-            "-c", "http.proxy=http://192.168.1.164:7897",
-            "-c", "https.proxy=http://192.168.1.164:7897",
+            "-c", f"http.proxy={GIT_PROXY}",
+            "-c", f"https.proxy={GIT_PROXY_HTTPS}",
             "fetch", "origin", "main"
         ]
         res = subprocess.run(cmd_fetch, cwd=str(DIR), capture_output=True, text=True, timeout=30)
@@ -76,8 +85,8 @@ def check_and_sync_git():
                 log(f"检测到 MacBook Pro M5 新推送了 {behind_cnt} 个提交！准备安全 rebase 同步...", "SYNC")
                 cmd_pull = [
                     "git",
-                    "-c", "http.proxy=http://192.168.1.164:7897",
-                    "-c", "https.proxy=http://192.168.1.164:7897",
+                    "-c", f"http.proxy={GIT_PROXY}",
+                    "-c", f"https.proxy={GIT_PROXY_HTTPS}",
                     "pull", "--rebase", "--autostash", "origin", "main"
                 ]
                 pull_res = subprocess.run(cmd_pull, cwd=str(DIR), capture_output=True, text=True, timeout=40)
@@ -128,7 +137,7 @@ def check_and_heal_server():
     # 检测黑苹果物理机 New API 网关
     new_api_alive = False
     try:
-        req = urllib.request.Request("http://192.168.1.164:3000/v1/models")
+        req = urllib.request.Request(f"{GATEWAY_URL}/v1/models")
         req.add_header("Authorization", "Bearer ***REMOVED***")
         with urllib.request.urlopen(req, timeout=4) as resp:
             if resp.status == 200:
@@ -245,7 +254,7 @@ def generate_morning_report(history):
 
 **生成时间**: {datetime.datetime.now().strftime('%Y-%m-%d 08:00:00')}  
 **守护范围**: 跨机协作代码同步、本地 Studio Server 守护、自主海报生成流水线演进  
-**宿主机网关**: New API Hub (`192.168.1.164:3000`) & Clash Verge (`192.168.1.164:7897`)  
+**本地网关**: New API Hub (`{GATEWAY_HOST}:{GATEWAY_PORT}`) & 代理 (`{GIT_PROXY}`)  
 
 ---
 
