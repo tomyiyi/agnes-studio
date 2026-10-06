@@ -14032,7 +14032,7 @@ class TestBatchSkill71Samples(unittest.TestCase):
             with redirect_stderr(buf):
                 code = batch_skill71_samples.main(["--list-skills"])
             self.assertEqual(code, 1)
-            self.assertIn("❌ 71 项生图 Skill 批量样张生成失败: Skills index corrupted", buf.getvalue())
+            self.assertIn("❌ 查询 71 项 Skill 清单失败: Skills index corrupted", buf.getvalue())
 
     def test_cli_list_skills_exception_quiet_mode(self):
         from contextlib import redirect_stderr, redirect_stdout

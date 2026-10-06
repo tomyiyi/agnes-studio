@@ -388,7 +388,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.json:
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
         elif not args.quiet:
-            print(f"❌ 71 项生图 Skill 批量样张生成失败: {e}", file=sys.stderr)
+            if getattr(args, "list_skills", False):
+                print(f"❌ 查询 71 项 Skill 清单失败: {e}", file=sys.stderr)
+            else:
+                print(f"❌ 71 项生图 Skill 批量样张生成失败: {e}", file=sys.stderr)
         return 1
 
 
