@@ -4319,7 +4319,7 @@ class TestWechatCoverAB(unittest.TestCase):
             with redirect_stderr(buf):
                 code = wechat_cover_ab.main(["--list"])
         self.assertEqual(code, 1)
-        self.assertIn("❌ 运行失败: Matrix index corrupted", buf.getvalue())
+        self.assertIn("❌ 查询微信头图对照实验清单失败: Matrix index corrupted", buf.getvalue())
 
     def test_cli_list_exception_quiet_mode(self):
         import io

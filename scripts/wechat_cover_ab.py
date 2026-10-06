@@ -503,7 +503,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     except Exception as e:
         if not args.quiet and not args.json:
-            print(f"❌ 运行失败: {e}", file=sys.stderr)
+            if getattr(args, "list", False):
+                print(f"❌ 查询微信头图对照实验清单失败: {e}", file=sys.stderr)
+            else:
+                print(f"❌ 运行失败: {e}", file=sys.stderr)
         elif args.json:
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False, indent=2))
         return 1
