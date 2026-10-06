@@ -384,7 +384,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.json:
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False, indent=2))
         elif not args.quiet:
-            print(f"❌ 商业海报渲染失败: {e}", file=sys.stderr)
+            if getattr(args, "list_styles", False):
+                print(f"❌ 查询字体风格清单失败: {e}", file=sys.stderr)
+            else:
+                print(f"❌ 商业海报渲染失败: {e}", file=sys.stderr)
         return 1
 
 

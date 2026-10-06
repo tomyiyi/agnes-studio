@@ -3428,7 +3428,7 @@ class TestPosterComposer(unittest.TestCase):
             with redirect_stderr(buf):
                 code = poster_composer_main(["--list-styles"])
         self.assertEqual(code, 1)
-        self.assertIn("❌ 商业海报渲染失败: Font styles index corrupted", buf.getvalue())
+        self.assertIn("❌ 查询字体风格清单失败: Font styles index corrupted", buf.getvalue())
 
     def test_cli_list_styles_exception_quiet_mode(self):
         import io
