@@ -1,0 +1,65 @@
+name: CI
+
+# 轻量冒烟测试：push / PR 时验证依赖安装、字节编译与无需 API Key 的渲染管线。
+# 不碰部署流程（见 .github/workflows/deploy.yml）。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke:
+    name: smoke (python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Byte-compile all scripts
+        run: python3 -m compileall scripts
+
+      - name: Install Playwright Chromium
+        # runner 上无系统 Chrome；配合 env_config.resolve_chrome_path() 的
+        # None-fallback，渲染器会自动使用 Playwright 自带 Chromium
+        run: python3 -m playwright install --with-deps chromium
+
+      - name: Smoke test (no API key required)
+        timeout-minutes: 10
+        run: |
+          if python3 scripts/pro_poster_renderer.py --key swiss_01; then
+            echo "render smoke passed"
+            python3 - <<'EOF'
+            from PIL import Image
+            im = Image.open("public/assets/poster_pro_swiss_01.png")
+            assert im.size == (1200, 1200), im.size
+            print("output size OK:", im.size)
+            EOF
+          else
+            echo "render smoke failed; falling back to import smoke"
+            python3 - <<'EOF'
+            import sys
+            sys.path.insert(0, "scripts")
+            import env_config
+            import pro_poster_renderer as r
+            assert len(r.POSTER_REGISTRY) == 10, len(r.POSTER_REGISTRY)
+            print("imports OK; registry keys:", len(r.POSTER_REGISTRY))
+            print("chrome path:", env_config.resolve_chrome_path())
+            EOF
+          fi
