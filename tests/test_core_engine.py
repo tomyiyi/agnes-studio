@@ -11786,7 +11786,7 @@ class TestBatchLayoutCn789(unittest.TestCase):
             with redirect_stderr(err_buf):
                 code = batch_layout_cn_789.main(["--list"])
             self.assertEqual(code, 1)
-            self.assertIn("❌ 执行失败: Simulated list layout error", err_buf.getvalue())
+            self.assertIn("❌ 查询 7/8/9 经典中文版式清单失败: Simulated list layout error", err_buf.getvalue())
 
     def test_cli_list_exception_quiet_mode(self):
         from contextlib import redirect_stdout, redirect_stderr

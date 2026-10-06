@@ -851,7 +851,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.json:
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
         elif not args.quiet:
-            print(f"❌ 执行失败: {e}", file=sys.stderr)
+            if getattr(args, "list", False):
+                print(f"❌ 查询 7/8/9 经典中文版式清单失败: {e}", file=sys.stderr)
+            else:
+                print(f"❌ 执行失败: {e}", file=sys.stderr)
         return 1
 
 
