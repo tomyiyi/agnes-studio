@@ -8217,6 +8217,40 @@ class TestRenderCnTypePoster(unittest.TestCase):
         self.assertIn("error", err)
         self.assertIn("Simulated JSON crash", err["error"])
 
+    def test_cli_list_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("render_cn_type_poster.list_cn_type_poster_styles", side_effect=RuntimeError("CN type styles index corrupted")):
+            with redirect_stdout(buf):
+                code = cn_type_poster_main(["--list", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertEqual(data.get("error"), "CN type styles index corrupted")
+
+    def test_cli_list_exception_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("render_cn_type_poster.list_cn_type_poster_styles", side_effect=RuntimeError("CN type styles index corrupted")):
+            with redirect_stderr(buf):
+                code = cn_type_poster_main(["--list"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 纪念碑式海报渲染失败: CN type styles index corrupted", buf.getvalue())
+
+    def test_cli_list_exception_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with patch("render_cn_type_poster.list_cn_type_poster_styles", side_effect=RuntimeError("CN type styles index corrupted")):
+            with redirect_stdout(out_buf), redirect_stderr(err_buf):
+                code = cn_type_poster_main(["--list", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
 
 
 class TestRenderLayoutPoster(unittest.TestCase):
