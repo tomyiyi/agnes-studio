@@ -10419,7 +10419,7 @@ class TestRenderTitleRefined(unittest.TestCase):
             with redirect_stderr(buf):
                 code = refined_title_main(["--list"])
         self.assertEqual(code, 1)
-        self.assertIn("❌ 高级字设海报渲染失败: Refined title styles index corrupted", buf.getvalue())
+        self.assertIn("❌ 查询高级字设范式预设失败: Refined title styles index corrupted", buf.getvalue())
 
     def test_cli_list_exception_quiet_mode(self):
         import io
