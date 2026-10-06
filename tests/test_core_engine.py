@@ -3613,6 +3613,40 @@ class TestExpertPosterDesigner(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("❌ 找不到可用背景底图", buf.getvalue())
 
+    def test_cli_list_modes_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("expert_poster_designer.list_expert_modes", side_effect=RuntimeError("Modes index corrupted")):
+            with redirect_stdout(buf):
+                code = expert_designer_main(["--list-modes", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertEqual(data.get("error"), "Modes index corrupted")
+
+    def test_cli_list_modes_exception_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("expert_poster_designer.list_expert_modes", side_effect=RuntimeError("Modes index corrupted")):
+            with redirect_stderr(buf):
+                code = expert_designer_main(["--list-modes"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 专家级排版异常: Modes index corrupted", buf.getvalue())
+
+    def test_cli_list_modes_exception_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with patch("expert_poster_designer.list_expert_modes", side_effect=RuntimeError("Modes index corrupted")):
+            with redirect_stdout(out_buf), redirect_stderr(err_buf):
+                code = expert_designer_main(["--list-modes", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
 
 class TestPosterVisualLearner(unittest.TestCase):
     """测试海报多模态视觉解构与设计自学习引擎 (Poster Visual Learner Engine)"""
