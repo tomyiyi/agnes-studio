@@ -12670,7 +12670,7 @@ class TestBatchTypeBehind(unittest.TestCase):
             with redirect_stderr(buf):
                 code = batch_type_behind.main(["--list-presets"])
             self.assertEqual(code, 1)
-            self.assertIn("❌ 批量字在人后渲染失败: Presets corrupted", buf.getvalue())
+            self.assertIn("❌ 查询字在人后预设词库失败: Presets corrupted", buf.getvalue())
 
     def test_cli_list_presets_exception_quiet_mode(self):
         from contextlib import redirect_stderr, redirect_stdout

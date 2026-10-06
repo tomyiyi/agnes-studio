@@ -457,7 +457,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.json:
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
         elif not args.quiet:
-            print(f"❌ 批量字在人后渲染失败: {e}", file=sys.stderr)
+            if getattr(args, "list_presets", False):
+                print(f"❌ 查询字在人后预设词库失败: {e}", file=sys.stderr)
+            else:
+                print(f"❌ 批量字在人后渲染失败: {e}", file=sys.stderr)
         return 1
 
 
