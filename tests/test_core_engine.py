@@ -12242,7 +12242,7 @@ class TestBatchLayoutVariants(unittest.TestCase):
             with redirect_stderr(buf):
                 code = batch_layout_variants.main(["--list"])
             self.assertEqual(code, 1)
-            self.assertIn("❌ 12 款经典构图版式批量生成失败: Catalog corrupt", buf.getvalue())
+            self.assertIn("❌ 查询12款经典构图版式清单失败: Catalog corrupt", buf.getvalue())
 
     def test_cli_list_exception_quiet_mode(self):
         from contextlib import redirect_stderr, redirect_stdout
