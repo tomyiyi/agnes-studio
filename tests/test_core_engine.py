@@ -13537,7 +13537,7 @@ class TestBatchSkill71HifiP0(unittest.TestCase):
             with redirect_stderr(buf):
                 code = batch_skill71_hifi_p0.main(["--list-presets"])
             self.assertEqual(code, 1)
-            self.assertIn("❌ P0 高保真样张批量生成失败: HiFi presets corrupted", buf.getvalue())
+            self.assertIn("❌ 查询 P0 高保真预设清单失败: HiFi presets corrupted", buf.getvalue())
 
     def test_cli_list_presets_exception_quiet_mode(self):
         from contextlib import redirect_stderr, redirect_stdout

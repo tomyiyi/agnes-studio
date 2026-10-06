@@ -473,7 +473,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.json:
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
         elif not args.quiet:
-            print(f"❌ P0 高保真样张批量生成失败: {e}", file=sys.stderr)
+            if getattr(args, "list_presets", False):
+                print(f"❌ 查询 P0 高保真预设清单失败: {e}", file=sys.stderr)
+            else:
+                print(f"❌ P0 高保真样张批量生成失败: {e}", file=sys.stderr)
         return 1
 
 
