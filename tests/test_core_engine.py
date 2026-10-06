@@ -2956,6 +2956,40 @@ class TestFilmCoverEngine(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("❌ 找不到输入底图", buf.getvalue())
 
+    def test_cli_list_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("film_cover_engine.list_film_cover_styles", side_effect=RuntimeError("Film styles index corrupted")):
+            with redirect_stdout(buf):
+                code = film_cover_main(["--list", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertEqual(data.get("error"), "Film styles index corrupted")
+
+    def test_cli_list_exception_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("film_cover_engine.list_film_cover_styles", side_effect=RuntimeError("Film styles index corrupted")):
+            with redirect_stderr(buf):
+                code = film_cover_main(["--list"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 电影感封面排版失败: Film styles index corrupted", buf.getvalue())
+
+    def test_cli_list_exception_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with patch("film_cover_engine.list_film_cover_styles", side_effect=RuntimeError("Film styles index corrupted")):
+            with redirect_stdout(out_buf), redirect_stderr(err_buf):
+                code = film_cover_main(["--list", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
 
 class TestPosterComposer(unittest.TestCase):
     """测试商业海报合成引擎 (Poster Composer)"""
