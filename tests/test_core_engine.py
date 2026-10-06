@@ -5878,6 +5878,74 @@ class TestProPosterRenderer(unittest.TestCase):
         self.assertIn("Simulated pro JSON crash", err["error"])
         self.assertEqual(err.get("key"), "swiss_01")
 
+    def test_cli_list_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("pro_poster_renderer.list_poster_presets", side_effect=RuntimeError("Presets index corrupted")):
+            with redirect_stdout(buf):
+                code = pro_poster_main(["--list", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertEqual(data.get("error"), "Presets index corrupted")
+
+    def test_cli_list_exception_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("pro_poster_renderer.list_poster_presets", side_effect=RuntimeError("Presets index corrupted")):
+            with redirect_stderr(buf):
+                code = pro_poster_main(["--list"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 查询海报预设失败: Presets index corrupted", buf.getvalue())
+
+    def test_cli_list_exception_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with patch("pro_poster_renderer.list_poster_presets", side_effect=RuntimeError("Presets index corrupted")):
+            with redirect_stdout(out_buf), redirect_stderr(err_buf):
+                code = pro_poster_main(["--list", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
+    def test_cli_list_categories_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("pro_poster_renderer.list_poster_categories", side_effect=RuntimeError("Categories index corrupted")):
+            with redirect_stdout(buf):
+                code = pro_poster_main(["--list-categories", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertEqual(data.get("error"), "Categories index corrupted")
+
+    def test_cli_list_categories_exception_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("pro_poster_renderer.list_poster_categories", side_effect=RuntimeError("Categories index corrupted")):
+            with redirect_stderr(buf):
+                code = pro_poster_main(["--list-categories"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 查询海报流派失败: Categories index corrupted", buf.getvalue())
+
+    def test_cli_list_categories_exception_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with patch("pro_poster_renderer.list_poster_categories", side_effect=RuntimeError("Categories index corrupted")):
+            with redirect_stdout(out_buf), redirect_stderr(err_buf):
+                code = pro_poster_main(["--list-categories", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
 
 class TestGeminiEngine(unittest.TestCase):
     """Gemini 智能多模态与排版引擎单元测试"""

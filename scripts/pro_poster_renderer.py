@@ -1432,6 +1432,10 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"❌ 渲染海报失败 [{args.key}]: {e}", file=sys.stderr)
             elif getattr(args, "category", None):
                 print(f"❌ 批量渲染流派海报失败 [{args.category}]: {e}", file=sys.stderr)
+            elif getattr(args, "list_categories", False):
+                print(f"❌ 查询海报流派失败: {e}", file=sys.stderr)
+            elif getattr(args, "list", False):
+                print(f"❌ 查询海报预设失败: {e}", file=sys.stderr)
             else:
                 print(f"❌ 全量渲染海报失败: {e}", file=sys.stderr)
         return 1
