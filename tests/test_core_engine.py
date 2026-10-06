@@ -7628,6 +7628,40 @@ class TestRenderDramaPoster(unittest.TestCase):
         self.assertIn("error", err)
         self.assertIn("Simulated JSON crash", err["error"])
 
+    def test_cli_list_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("render_drama_poster.list_drama_poster_styles", side_effect=RuntimeError("Drama styles index corrupted")):
+            with redirect_stdout(buf):
+                code = drama_poster_main(["--list", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertEqual(data.get("error"), "Drama styles index corrupted")
+
+    def test_cli_list_exception_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("render_drama_poster.list_drama_poster_styles", side_effect=RuntimeError("Drama styles index corrupted")):
+            with redirect_stderr(buf):
+                code = drama_poster_main(["--list"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 戏剧性海报渲染失败: Drama styles index corrupted", buf.getvalue())
+
+    def test_cli_list_exception_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with patch("render_drama_poster.list_drama_poster_styles", side_effect=RuntimeError("Drama styles index corrupted")):
+            with redirect_stdout(out_buf), redirect_stderr(err_buf):
+                code = drama_poster_main(["--list", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
 
 
 class TestRenderCnTypePoster(unittest.TestCase):

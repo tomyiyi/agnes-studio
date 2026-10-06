@@ -465,11 +465,12 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.list:
+            styles = list_drama_poster_styles()
             if args.json:
-                print(json.dumps(list_drama_poster_styles(), ensure_ascii=False, indent=2))
+                print(json.dumps(styles, ensure_ascii=False, indent=2))
             elif not args.quiet:
                 print("Agnes Studio 可用戏剧性海报风格预设:")
-                for s in list_drama_poster_styles():
+                for s in styles:
                     print(f"  - [{s['key']}] {s['name']} -> {s['default_file']}")
             return 0
 
