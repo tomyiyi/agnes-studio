@@ -7782,7 +7782,7 @@ class TestRenderDramaPoster(unittest.TestCase):
             with redirect_stderr(buf):
                 code = drama_poster_main(["--list"])
         self.assertEqual(code, 1)
-        self.assertIn("❌ 戏剧性海报渲染失败: Drama styles index corrupted", buf.getvalue())
+        self.assertIn("❌ 查询戏剧性海报风格预设失败: Drama styles index corrupted", buf.getvalue())
 
     def test_cli_list_exception_quiet_mode(self):
         import io
