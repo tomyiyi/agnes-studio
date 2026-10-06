@@ -15998,6 +15998,28 @@ class TestComposeBeautyCovers(unittest.TestCase):
         ])
         self.assertEqual(fail_code, 1)
 
+    def test_main_cli_exception_stderr_output(self):
+        from contextlib import redirect_stderr
+        err_buf = io.StringIO()
+        with patch("compose_beauty_covers.run_beauty_experiment", side_effect=RuntimeError("Simulated beauty crash")):
+            with redirect_stderr(err_buf):
+                exit_code = beauty_main([
+                    "--src", str(self.dummy_src),
+                ])
+        self.assertEqual(exit_code, 1)
+        self.assertIn("❌ 运行失败: Simulated beauty crash", err_buf.getvalue())
+
+    def test_main_cli_missing_source_stderr_output(self):
+        from contextlib import redirect_stderr
+        err_buf = io.StringIO()
+        missing_src = self.tmp_path / "non_existent_beauty_source.png"
+        with redirect_stderr(err_buf):
+            exit_code = beauty_main([
+                "--src", str(missing_src),
+            ])
+        self.assertEqual(exit_code, 1)
+        self.assertIn("❌ 运行失败: Source image not found", err_buf.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
