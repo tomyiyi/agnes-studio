@@ -9032,7 +9032,7 @@ class TestRenderLayoutPoster(unittest.TestCase):
             with redirect_stderr(buf):
                 code = layout_poster_main(["--list"])
         self.assertEqual(code, 1)
-        self.assertIn("❌ 设计排版海报渲染失败: Layout styles index corrupted", buf.getvalue())
+        self.assertIn("❌ 查询设计排版风格预设失败: Layout styles index corrupted", buf.getvalue())
 
     def test_cli_list_exception_quiet_mode(self):
         import io
