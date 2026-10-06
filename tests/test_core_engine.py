@@ -7045,6 +7045,40 @@ class TestRenderCinemaPoster(unittest.TestCase):
         self.assertEqual(out_buf.getvalue(), "")
         self.assertEqual(err_buf.getvalue(), "")
 
+    def test_cli_list_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("render_cinema_poster.list_cinema_poster_styles", side_effect=RuntimeError("Cinema styles index corrupted")):
+            with redirect_stdout(buf):
+                code = cinema_poster_main(["--list", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertEqual(data.get("error"), "Cinema styles index corrupted")
+
+    def test_cli_list_exception_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("render_cinema_poster.list_cinema_poster_styles", side_effect=RuntimeError("Cinema styles index corrupted")):
+            with redirect_stderr(buf):
+                code = cinema_poster_main(["--list"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 电影级海报渲染失败: Cinema styles index corrupted", buf.getvalue())
+
+    def test_cli_list_exception_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with patch("render_cinema_poster.list_cinema_poster_styles", side_effect=RuntimeError("Cinema styles index corrupted")):
+            with redirect_stdout(out_buf), redirect_stderr(err_buf):
+                code = cinema_poster_main(["--list", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
 
 
 class TestRenderDramaPoster(unittest.TestCase):
