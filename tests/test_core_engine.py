@@ -8006,7 +8006,6 @@ class TestRenderCnTypePoster(unittest.TestCase):
                 "--style", "monument",
                 "--src", str(sample_img),
                 "--json",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         err = json.loads(buf.getvalue())
