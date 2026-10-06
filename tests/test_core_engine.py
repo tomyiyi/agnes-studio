@@ -7451,7 +7451,6 @@ class TestRenderDramaPoster(unittest.TestCase):
                 "--style", "mega_bleed",
                 "--src", str(sample_img),
                 "--json",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         err = json.loads(buf.getvalue())
