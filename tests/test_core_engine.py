@@ -90,6 +90,8 @@ from cover_pipeline import (
     resolve_required_source_assets,
     run_brief_batch,
     run_platform,
+    list_platforms as cover_pipeline_list_platforms,
+    build_arg_parser as build_cover_pipeline_parser,
 )
 import check_upstream_updates
 from check_upstream_updates import (
@@ -2357,6 +2359,83 @@ class TestCoverPipeline(unittest.TestCase):
                 self.assertEqual(len(reports_ok), 1)
                 self.assertTrue(reports_ok[0]["ok"])
                 self.assertEqual(reports_ok[0]["platform"], "xhs")
+
+    def test_list_platforms_function(self):
+        platforms = cover_pipeline_list_platforms()
+        self.assertIsInstance(platforms, list)
+        self.assertEqual(len(platforms), 4)
+        ids = [p["id"] for p in platforms]
+        self.assertIn("wechat", ids)
+        self.assertIn("wechat-sq", ids)
+        self.assertIn("xhs", ids)
+        self.assertIn("xhs-sq", ids)
+        for p in platforms:
+            self.assertIn("id", p)
+            self.assertIn("label", p)
+            self.assertIn("width", p)
+            self.assertIn("height", p)
+            self.assertIn("ratio", p)
+            self.assertIn("safe_zone", p)
+            self.assertIn("danger_band", p)
+            self.assertIn("source_type", p)
+
+    def test_cli_list_platforms_plain(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = cover_pipeline.main(["--list-platforms"])
+        self.assertEqual(code, 0)
+        out = buf.getvalue()
+        self.assertIn("Agnes Studio · 封面生产流水线支持平台规格清单:", out)
+        self.assertIn("wechat", out)
+        self.assertIn("xhs", out)
+        self.assertIn("总计: 4 个平台规格", out)
+
+        # 验证 -l 别名
+        buf_short = io.StringIO()
+        with redirect_stdout(buf_short):
+            code_short = cover_pipeline.main(["-l"])
+        self.assertEqual(code_short, 0)
+        self.assertIn("wechat", buf_short.getvalue())
+
+    def test_cli_list_platforms_json(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = cover_pipeline.main(["--list-platforms", "--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(buf.getvalue().strip())
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 4)
+        ids = [item["id"] for item in data]
+        self.assertIn("wechat", ids)
+        self.assertIn("xhs", ids)
+
+    def test_cli_list_platforms_exception_stderr_output(self):
+        err_buf = io.StringIO()
+        with patch("cover_pipeline.list_platforms", side_effect=RuntimeError("Platforms registry corrupted")), \
+             redirect_stderr(err_buf):
+            code = cover_pipeline.main(["--list-platforms"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 查询平台规格清单失败: Platforms registry corrupted", err_buf.getvalue())
+
+    def test_cli_list_platforms_exception_quiet_mode(self):
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("cover_pipeline.list_platforms", side_effect=RuntimeError("Platforms registry corrupted")), \
+             redirect_stderr(err_buf), redirect_stdout(out_buf):
+            code = cover_pipeline.main(["--list-platforms", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(err_buf.getvalue(), "")
+        self.assertEqual(out_buf.getvalue(), "")
+
+    def test_cli_list_platforms_exception_json_output(self):
+        buf = io.StringIO()
+        with patch("cover_pipeline.list_platforms", side_effect=RuntimeError("Platforms registry corrupted")), \
+             redirect_stdout(buf):
+            code = cover_pipeline.main(["--list-platforms", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["error"], "Platforms registry corrupted")
 
 
 class TestVisionSubjectDetector(unittest.TestCase):

@@ -1282,7 +1282,24 @@ def run_brief_batch(brief_path: Path | str, platforms: list[str] | None = None) 
             })
     return reports
 
-def main(argv: list[str] | None = None) -> None:
+def list_platforms() -> list[dict[str, Any]]:
+    """返回支持的平台画幅与排版规格清单。"""
+    res = []
+    for key, spec in PLATFORMS.items():
+        res.append({
+            "id": key,
+            "label": spec["label"],
+            "width": spec["w"],
+            "height": spec["h"],
+            "ratio": spec["ratio"],
+            "safe_zone": spec["safe"],
+            "danger_band": spec["danger_band"],
+            "source_type": spec["src"],
+        })
+    return res
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="微信 / 小红书 封面流水线")
     ap.add_argument("--platform", choices=list(PLATFORMS) + ["all"], default="all")
     ap.add_argument("--mode", choices=["diag", "bignews", "stack", "vertical"], default="diag")
@@ -1294,13 +1311,42 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--brief", help="需求简报 JSON（goal/subject/tone/mode/copy），驱动变量样式")
     ap.add_argument("--briefs-dir", help="批量：目录下所有 *.json 简报，各自出四规格")
     ap.add_argument("--platforms", help="批量时平台列表，逗号分隔，默认全部")
+    ap.add_argument("-l", "--list", "--list-platforms", action="store_true", dest="list_platforms",
+                    help="列出所有支持的平台画幅与排版规格清单")
+    ap.add_argument("--json", action="store_true",
+                    help="以 JSON 格式输出结果（如平台规格清单）")
+    ap.add_argument("-q", "--quiet", action="store_true",
+                    help="静默模式，抑制标准输出")
     ap.add_argument("--generate", action="store_true",
                     help="经 New API 轮换池生成底图（scripts/agnes_gateway.py）")
     ap.add_argument("--dry-run", action="store_true",
                     help="仅演练生图流程，不发起实际网络请求")
     ap.add_argument("--force", action="store_true",
                     help="强制重新生成底图，即使已存在")
+    return ap
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = build_arg_parser()
     args = ap.parse_args(argv)
+
+    if args.list_platforms:
+        try:
+            platforms = list_platforms()
+            if args.json:
+                print(json.dumps(platforms, ensure_ascii=False, indent=2))
+            elif not args.quiet:
+                print("Agnes Studio · 封面生产流水线支持平台规格清单:")
+                for p in platforms:
+                    print(f"  [{p['id']:<10}] {p['label']:<16} | {p['width']}x{p['height']} ({p['ratio']}) | 安全区: {p['safe_zone']}")
+                print(f"总计: {len(platforms)} 个平台规格")
+            return 0
+        except Exception as e:
+            if args.json:
+                print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
+            elif not args.quiet:
+                sys.stderr.write(f"❌ 查询平台规格清单失败: {e}\n")
+            return 1
 
     brief = {}
     style = None
@@ -1404,6 +1450,7 @@ def main(argv: list[str] | None = None) -> None:
         sheet = build_contact_sheet(named, OUT / f"_contact_{args.mode}_{args.title_zone}.jpg")
         print(f"✓ contact sheet → {sheet}")
         print("⚠️  [QA] 必须人工目检对照板与终稿后再交付（头肩/排版/水印/缩略）。")
+    return 0
 
 
 if __name__ == "__main__":
