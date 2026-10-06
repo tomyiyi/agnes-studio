@@ -9806,7 +9806,7 @@ class TestRenderTitleDesign(unittest.TestCase):
             with redirect_stderr(buf):
                 code = title_design_main(["--list"])
         self.assertEqual(code, 1)
-        self.assertIn("❌ 标题字设计海报渲染失败: Title design styles index corrupted", buf.getvalue())
+        self.assertIn("❌ 查询标题字设范式预设失败: Title design styles index corrupted", buf.getvalue())
 
     def test_cli_list_exception_quiet_mode(self):
         import io
