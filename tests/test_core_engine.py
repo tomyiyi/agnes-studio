@@ -4233,6 +4233,40 @@ class TestWechatCoverAB(unittest.TestCase):
         self.assertEqual(out_buf.getvalue(), "")
         self.assertEqual(err_buf.getvalue(), "")
 
+    def test_cli_list_exception_json_output(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with patch("wechat_cover_ab.get_experiment_matrix", side_effect=RuntimeError("Matrix index corrupted")):
+            with redirect_stdout(buf):
+                code = wechat_cover_ab.main(["--list", "--json"])
+        self.assertEqual(code, 1)
+        data = json.loads(buf.getvalue().strip())
+        self.assertFalse(data.get("ok"))
+        self.assertEqual(data.get("error"), "Matrix index corrupted")
+
+    def test_cli_list_exception_stderr_output(self):
+        import io
+        from contextlib import redirect_stderr
+        buf = io.StringIO()
+        with patch("wechat_cover_ab.get_experiment_matrix", side_effect=RuntimeError("Matrix index corrupted")):
+            with redirect_stderr(buf):
+                code = wechat_cover_ab.main(["--list"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 运行失败: Matrix index corrupted", buf.getvalue())
+
+    def test_cli_list_exception_quiet_mode(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with patch("wechat_cover_ab.get_experiment_matrix", side_effect=RuntimeError("Matrix index corrupted")):
+            with redirect_stdout(out_buf), redirect_stderr(err_buf):
+                code = wechat_cover_ab.main(["--list", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out_buf.getvalue(), "")
+        self.assertEqual(err_buf.getvalue(), "")
+
 
 class TestAgnesGateway(unittest.TestCase):
     """测试 Agnes 生图网关与本地轮换机制 (Agnes Gateway Suite)"""
