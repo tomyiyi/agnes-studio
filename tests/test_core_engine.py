@@ -9373,7 +9373,6 @@ class TestRenderTitleDesign(unittest.TestCase):
                 "--style", "t1_cut_slash",
                 "--src", str(sample_img),
                 "--json",
-                "--strict",
             ])
         self.assertEqual(code, 1)
         err = json.loads(buf.getvalue())
