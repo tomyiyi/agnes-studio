@@ -593,13 +593,14 @@ def _run(args) -> int:
 
     # 1. 查询比率清单
     if args.list_ratios:
+        ratios = dict(ModularScale.RATIOS)
         if args.json:
             if not args.quiet:
-                print(json.dumps(ModularScale.RATIOS, ensure_ascii=False, indent=2))
+                print(json.dumps(ratios, ensure_ascii=False, indent=2))
         else:
             if not args.quiet:
                 print("Agnes Studio · 模块化字阶比率清单:")
-                for name, ratio in ModularScale.RATIOS.items():
+                for name, ratio in ratios.items():
                     print(f"  - {name:18s}: {ratio:.3f}")
         return 0
 
@@ -793,7 +794,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         if getattr(args, "json", False):
             print(json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False))
         elif not getattr(args, "quiet", False):
-            sys.stderr.write(f"❌ 字体排印处理异常: {e}\n")
+            if getattr(args, "list_ratios", False):
+                sys.stderr.write(f"❌ 查询模块化字阶比率清单失败: {e}\n")
+            else:
+                sys.stderr.write(f"❌ 字体排印处理异常: {e}\n")
         return 1
 
 

@@ -1209,6 +1209,36 @@ class TestTypographyRulesCLI(unittest.TestCase):
         self.assertFalse(data["ok"])
         self.assertEqual(data["error"], "JSON crash")
 
+    def test_typography_cli_list_ratios_exception_json_output(self):
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("typography_rules._run", side_effect=RuntimeError("Ratio table corrupted")), \
+             redirect_stderr(err_buf), redirect_stdout(out_buf):
+            code = typography_main(["--list-ratios", "--json"])
+        self.assertEqual(code, 1)
+        self.assertEqual(err_buf.getvalue(), "")
+        data = json.loads(out_buf.getvalue())
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["error"], "Ratio table corrupted")
+
+    def test_typography_cli_list_ratios_exception_stderr_output(self):
+        err_buf = io.StringIO()
+        with patch("typography_rules._run", side_effect=RuntimeError("Ratio table corrupted")), \
+             redirect_stderr(err_buf):
+            code = typography_main(["--list-ratios"])
+        self.assertEqual(code, 1)
+        self.assertIn("❌ 查询模块化字阶比率清单失败: Ratio table corrupted", err_buf.getvalue())
+
+    def test_typography_cli_list_ratios_exception_quiet_mode(self):
+        err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        with patch("typography_rules._run", side_effect=RuntimeError("Ratio table corrupted")), \
+             redirect_stderr(err_buf), redirect_stdout(out_buf):
+            code = typography_main(["--list-ratios", "-q"])
+        self.assertEqual(code, 1)
+        self.assertEqual(err_buf.getvalue(), "")
+        self.assertEqual(out_buf.getvalue(), "")
+
 
 
 class TestCoverStyleResolver(unittest.TestCase):
