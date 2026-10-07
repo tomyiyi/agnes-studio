@@ -45,21 +45,21 @@ jobs:
         run: |
           if python3 scripts/pro_poster_renderer.py --key swiss_01; then
             echo "render smoke passed"
-            python3 - <<'EOF'
-            from PIL import Image
-            im = Image.open("public/assets/poster_pro_swiss_01.png")
-            assert im.size == (1200, 1200), im.size
-            print("output size OK:", im.size)
-            EOF
+          python3 - <<'EOF'
+          from PIL import Image
+          im = Image.open("public/assets/poster_pro_swiss_01.png")
+          assert im.size == (1200, 1200), im.size
+          print("output size OK:", im.size)
+          EOF
           else
             echo "render smoke failed; falling back to import smoke"
-            python3 - <<'EOF'
-            import sys
-            sys.path.insert(0, "scripts")
-            import env_config
-            import pro_poster_renderer as r
-            assert len(r.POSTER_REGISTRY) == 10, len(r.POSTER_REGISTRY)
-            print("imports OK; registry keys:", len(r.POSTER_REGISTRY))
-            print("chrome path:", env_config.resolve_chrome_path())
-            EOF
+          python3 - <<'EOF'
+          import sys
+          sys.path.insert(0, "scripts")
+          import env_config
+          import pro_poster_renderer as r
+          assert len(r.POSTER_REGISTRY) == 10, len(r.POSTER_REGISTRY)
+          print("imports OK; registry keys:", len(r.POSTER_REGISTRY))
+          print("chrome path:", env_config.resolve_chrome_path())
+          EOF
           fi
