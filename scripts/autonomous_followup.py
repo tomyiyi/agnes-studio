@@ -35,6 +35,18 @@ GATEWAY_URL = f"http://{GATEWAY_HOST}:{GATEWAY_PORT}"
 GIT_PROXY = os.environ.get("HTTP_PROXY", "http://127.0.0.1:7897")
 GIT_PROXY_HTTPS = os.environ.get("HTTPS_PROXY", GIT_PROXY)
 
+
+def resolve_new_api_key():
+    """New API 网关密钥：本地文件 ~/.new-api/local_key.json 优先，其次 NEW_API_KEY 环境变量。"""
+    local_key_path = os.path.expanduser("~/.new-api/local_key.json")
+    if os.path.exists(local_key_path):
+        try:
+            with open(local_key_path, "r", encoding="utf-8") as f:
+                return json.load(f).get("api_key", "")
+        except Exception:
+            pass
+    return os.environ.get("NEW_API_KEY", "")
+
 def log(msg, kind="INFO"):
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{now_str}] [{kind}] {msg}"
@@ -138,7 +150,9 @@ def check_and_heal_server():
     new_api_alive = False
     try:
         req = urllib.request.Request(f"{GATEWAY_URL}/v1/models")
-        req.add_header("Authorization", "Bearer ***REMOVED***")
+        _api_key = resolve_new_api_key()
+        if _api_key:
+            req.add_header("Authorization", f"Bearer {_api_key}")
         with urllib.request.urlopen(req, timeout=4) as resp:
             if resp.status == 200:
                 new_api_alive = True
