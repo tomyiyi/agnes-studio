@@ -621,12 +621,12 @@ def generate_custom_poster_html(style, title, subtitle, body, author, bg_uri):
   .main-hero-title span {{ color: #e11d48; }}
   .cn-display-title {{ font-size: 40px; font-weight: 800; letter-spacing: 10px; margin-top: 18px; color: #111827; }}
   .manifesto-block {{
-    position: absolute; bottom: 120px; left: 50px; width: 440px; z-index: 5;
+    position: absolute; bottom: 140px; left: 50px; width: 440px; z-index: 5;
     background: rgba(244, 244, 240, 0.96); padding: 24px; border-left: 4px solid #111827;
   }}
   .manifesto-text {{ font-size: 14px; line-height: 1.6; color: #374151; }}
   .badge-red {{ display: inline-block; background: #e11d48; color: #ffffff; font-size: 11px; font-weight: 700; padding: 4px 10px; margin-bottom: 12px; letter-spacing: 1px; }}
-  .footer-specs {{ position: absolute; bottom: 50px; left: 50px; width: 440px; font-size: 11px; font-family: monospace; color: #6b7280; letter-spacing: 1px; }}
+  .footer-specs {{ position: absolute; bottom: 75px; left: 50px; width: 500px; font-size: 11px; font-family: monospace; color: #6b7280; letter-spacing: 1px; }}
 </style></head><body>
   <div class="artwork-cutout"></div>
   <div class="header-tag">KUNSTGEWERBEMUSEUM ZÜRICH // {author}</div>

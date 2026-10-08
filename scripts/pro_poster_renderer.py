@@ -122,7 +122,7 @@ def render_swiss_01():
     font-size: 42px; font-weight: 800; letter-spacing: 12px; margin-top: 18px; color: #111827;
   }}
   .manifesto-block {{
-    position: absolute; bottom: 120px; left: 50px; width: 440px; z-index: 5;
+    position: absolute; bottom: 140px; left: 50px; width: 440px; z-index: 5;
     background: rgba(244, 244, 240, 0.95); padding: 24px; border-left: 4px solid #111827;
   }}
   .manifesto-text {{
@@ -133,7 +133,7 @@ def render_swiss_01():
     font-size: 11px; font-weight: 700; padding: 4px 10px; margin-bottom: 12px; letter-spacing: 1px;
   }}
   .footer-specs {{
-    position: absolute; bottom: 50px; left: 50px; width: 440px;
+    position: absolute; bottom: 75px; left: 50px; width: 500px;
     font-size: 10px; font-family: monospace; color: #6b7280; letter-spacing: 1px;
   }}
 </style>
